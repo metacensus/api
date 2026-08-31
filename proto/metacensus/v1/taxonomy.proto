@@ -1,0 +1,54 @@
+// Domains and categories: the two flat vocabularies a topic is filed under.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "metacensus/v1/common.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Domain is a field of study. `types/Domain.ts` declares `{id, name}`; demo's
+// table also carries `createdAt`, `updatedAt` and a `deleted` flag, none of
+// which any handler projects away — `POST /domain` returns whole rows.
+//
+// The contract declares only what the client uses. `deleted` in particular is a
+// soft-delete marker that demo never filters on, so `POST /domain` currently
+// returns deleted domains; that is a demo bug, not a shape the contract should
+// ratify.
+message Domain {
+  string id = 1;
+  string name = 2;
+}
+
+// Category is a topic tag. Same story as `Domain`.
+message Category {
+  string id = 1;
+  string name = 2;
+}
+
+// DomainListRequest is the body of `POST /domain`.
+//
+// SOURCE CONFLICT: this is a read served over POST with an ignored body. demo
+// registers it as `.post("/domain", ...)` and the SPA calls it with method
+// `"POST"` and no body at all. `GET` is the correct method; the contract keeps
+// the empty request message so the endpoint has a named shape, and flags the
+// method as a thing to fix on adoption. The same applies to `POST /category`
+// and `POST /protocol-element`.
+message DomainListRequest {}
+
+// DomainList is the response to `POST /domain`.
+//
+// SOURCE CONFLICT: demo returns a bare JSON array.
+message DomainList {
+  repeated Domain items = 1;
+  ListMetadata metadata = 2;
+}
+
+// CategoryListRequest is the body of `POST /category`. See `DomainListRequest`.
+message CategoryListRequest {}
+
+// CategoryList is the response to `POST /category`.
+message CategoryList {
+  repeated Category items = 1;
+  ListMetadata metadata = 2;
+}

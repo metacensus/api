@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "2",
+      "name": "Oncology"
+    }
+  ],
+  "metadata": {
+    "page": 1,
+    "limit": 30
+  }
+}

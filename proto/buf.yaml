@@ -1,0 +1,43 @@
+version: v2
+
+modules:
+  - path: .
+
+# No `deps:`. The contract resolves nothing from the Buf Schema Registry, so
+# `buf generate` needs no network and no `buf.lock`. The only imports are
+# well-known types, which ship inside buf itself.
+
+lint:
+  use:
+    - STANDARD
+
+  except:
+    # The two rules the PascalCase enum convention is incompatible with.
+    #
+    # Enum values cross the wire as their own names — protojson serialises an
+    # enum as its value name — so the value names are the JSON vocabulary and
+    # have to read like it: `PendingReview`, `Statement`, `For`. STANDARD wants
+    # `PAPER_STATUS_PENDING_REVIEW`, which would put SCREAMING_SNAKE_CASE in
+    # every payload.
+    - ENUM_VALUE_UPPER_SNAKE_CASE
+    # ENUM_VALUE_PREFIX exists to keep C++-scoped value names from colliding.
+    # The contract solves the same problem structurally instead: every enum is
+    # nested inside the message that owns it, so `Paper.Status.Rejected` and a
+    # future `Topic.Status.Rejected` are already in different scopes. Where two
+    # enums would share one parent — `Prop.Type` and the prop conclusion — the
+    # second gets its own wrapper message rather than a prefix.
+    - ENUM_VALUE_PREFIX
+
+  # Configured rather than excepted. ENUM_ZERO_VALUE_SUFFIX defaults to
+  # `_UNSPECIFIED`, which assumes the SCREAMING_SNAKE convention this contract
+  # does not use; pointing it at `Unspecified` keeps the rule enforcing the
+  # thing it is for.
+  enum_zero_value_suffix: Unspecified
+
+  # PACKAGE_DIRECTORY_MATCH stays on: `metacensus.v1` lives in `metacensus/v1/`.
+  # It is the rule that keeps `paths=source_relative` output predictable and it
+  # is cheap to honour.
+
+breaking:
+  use:
+    - FILE

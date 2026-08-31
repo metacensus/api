@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "31",
+      "name": "studyDesign",
+      "type": "radio",
+      "label": "Study design",
+      "placeholder": "",
+      "required": true,
+      "conditionallyShown": false,
+      "options": [
+        {
+          "name": "Randomised controlled trial",
+          "value": "rct"
+        },
+        {
+          "name": "Cohort",
+          "value": "cohort"
+        }
+      ],
+      "sortOrder": 1
+    }
+  ],
+  "metadata": {
+    "page": 1,
+    "limit": 30
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "title": "Custom Protocol",
+  "topicId": "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
+  "sections": [
+    {
+      "id": "9",
+      "title": "Study characteristics",
+      "sortOrder": 0,
+      "protocolElements": [
+        {
+          "id": "31",
+          "name": "studyDesign",
+          "type": "radio",
+          "label": "Study design",
+          "placeholder": "",
+          "required": true,
+          "conditionallyShown": false,
+          "options": [
+            {
+              "name": "Randomised controlled trial",
+              "value": "rct"
+            },
+            {
+              "name": "Cohort",
+              "value": "cohort"
+            }
+          ],
+          "sortOrder": 1
+        }
+      ]
+    }
+  ]
+}

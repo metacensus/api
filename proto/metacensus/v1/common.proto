@@ -1,0 +1,120 @@
+// The MetaCensus API contract: shared reference and metadata types.
+//
+// Protobuf is the type system here, not the transport. Every endpoint under
+// `/metacensus/api/v1` speaks JSON produced by `protojson` — never protobuf
+// binary — so the payloads stay curl-able. That has three consequences visible
+// throughout these files:
+//
+//   * Field names are `snake_case` in proto and `lowerCamelCase` on the wire,
+//     which is what the SPA already sends and receives. No `json_name`
+//     overrides anywhere.
+//   * Enums serialise as their value name, so the value names are PascalCase
+//     (`PendingReview`, not `PENDING_REVIEW`) and the zero value is always
+//     `Unspecified`.
+//   * `google.protobuf.Timestamp` serialises as RFC 3339, which is what both
+//     backends already emit for `createdAt` / `created` / `lastCast`.
+//
+// There are no `service` definitions. Without transport annotations a service
+// block would describe nothing real, so each request/response message names its
+// HTTP method and path in a leading comment instead. That is the routing table.
+//
+// EXCLUDED FROM THE CONTRACT, recorded here because they are otherwise
+// invisible. Each is also noted at the file that would have held it:
+//
+//   * `POST /metacensus/api/v1/fabric/execute/{channel}/{chaincode}/{contract}/{tx}`
+//     and `GET /metacensus/api/v1/fabric/metadata/{channel}/{chaincode}`
+//     (infra). Raw Hyperledger Fabric passthrough: `execute` returns whatever
+//     bytes the chaincode produced as `json.RawMessage`, and `metadata` returns
+//     the Fabric contract API's own metadata document. Neither has a MetaCensus
+//     shape, both are gated behind `ENABLE_FABRIC_DEBUG_ENDPOINTS` and are
+//     documented as local-debugging-only, and infra's own comment says they
+//     "should never be exposed on a public internet-facing API". A debug hatch
+//     is not part of a client contract.
+//   * `POST /lit-search` (demo). See lit_search.proto.
+//   * The `multipart/form-data` branch of `POST /paper/create` (demo). See
+//     paper.proto.
+//   * The `key` field of the sign-up body (the SPA's ECDSA public key as a
+//     JWK). See `SignUpRequest` in user.proto.
+//   * `/metacensus/api/v1/auth` and `/metacensus/api/v1/org` — infra declares
+//     path constants for both (`routeAuth`, carrying a `// TODO, do we need
+//     this?`, and `routeOrg` / `routeOrgId`) and mounts neither. `Org` exists
+//     as a chaincode type and contract with working Create and Get
+//     transactions, so organisations are a real domain concept with no HTTP
+//     surface at all. Left out because there is no endpoint to describe, not
+//     because the concept is unwanted.
+//
+// Out of scope by instruction rather than by judgement: the public backend in
+// `server/`, served at `/metacensus/public/*`. Different prefix, different
+// service, separate contract if it needs one.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// ListMetadata is the `metadata` half of every list response.
+//
+// Every list endpoint returns `{items, metadata}` — never a bare array — so a
+// list response has somewhere to grow without becoming a breaking change.
+//
+// SOURCE CONFLICT: `page` and `limit` are demo's pagination, but demo takes
+// them three different ways (query string on `GET /topic` and `GET /user`, a
+// JSON body field on `POST /paper`, `POST /extraction-review`,
+// `POST /protocol-template`) and never echoes them back. infra paginates
+// nothing at all — every one of its `GetAll` handlers carries a
+// `// TODO Paginate this`. So this message describes the pagination the
+// contract requires, not pagination either backend performs today.
+message ListMetadata {
+  // 1-based page index. Defaults to 1 in demo.
+  int32 page = 1;
+
+  // Page size. demo clamps to 1..100 with a default of 50 on `GET /topic` and
+  // `GET /user`, and defaults to 10 on the POST-bodied list endpoints.
+  int32 limit = 2;
+
+  // Total number of items across all pages.
+  //
+  // A wrapper, not a bare `int32`, because "the backend did not compute a
+  // total" and "the total is zero" are different answers and no backend
+  // computes one today. Absent means unknown. Wrapper types are the only way
+  // to express absence for a scalar under the emit rules this contract picked
+  // (see contract/README.md).
+  google.protobuf.Int32Value total = 3;
+}
+
+// Reference is a `{id, name}` pointer to another resource, used where a
+// response embeds just enough of a related row to render a label.
+//
+// demo's ORM emits these from its `columns: { name: true, id: true }`
+// projections (see demo's `src/lib/topicQuery.ts`), and `types/Topic.ts`
+// declares the same shape.
+message Reference {
+  string id = 1;
+  string name = 2;
+}
+
+// Error is the failure body. Both backends emit `{"error": "..."}`:
+// demo from every handler's catch block, infra from `writeError`.
+//
+// SOURCE CONFLICT: the SPA reads `responseJson.error || responseJson.message`
+// (`src/hooks/useFetchData.ts`), so it is prepared for a `message` field that
+// no backend has ever emitted. The contract declares only `error`; the client's
+// fallback is dead code.
+//
+// SOURCE CONFLICT: infra's `writeError` sets HTTP 500 for *every* failure,
+// including bad input and missing records. demo returns 400/401/404/409/500 as
+// appropriate. infra is wrong here; the status codes are demo's.
+message Error {
+  string error = 1;
+}
+
+// HealthcheckResponse is the body of `GET /healthcheck`.
+//
+// infra serves this both at the root (`/healthcheck`) and under the v1 prefix
+// (`/metacensus/api/v1/healthcheck`) and returns `{"status": "healthy"}`. demo
+// has no healthcheck at all. Only the v1-prefixed route is in scope here.
+message HealthcheckResponse {
+  string status = 1;
+}

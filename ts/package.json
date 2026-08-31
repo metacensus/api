@@ -1,0 +1,20 @@
+{
+  "name": "@metacensus/contract-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript interfaces generated from the MetaCensus API contract (/metacensus/api/v1). Types only — no runtime.",
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "check": "tsc --noEmit && node scripts/check-no-runtime.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "ts-proto": "2.7.7",
+    "typescript": "5.5.4"
+  }
+}

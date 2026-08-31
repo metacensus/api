@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "91",
+      "propId": "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
+      "userId": "user:0192a642-817d-7a3e-a282-d7a282ebd483",
+      "position": "Against",
+      "explanation": "The cited cohort excludes DPYD*2A heterozygotes.",
+      "citations": [
+        {
+          "start": 12,
+          "end": 48
+        }
+      ],
+      "lastCast": "2024-11-10T07:22:31Z"
+    }
+  ],
+  "metadata": {
+    "page": 1,
+    "limit": 30
+  }
+}

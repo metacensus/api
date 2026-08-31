@@ -1,0 +1,35 @@
+{
+  "id": "4",
+  "title": "DPYD extraction protocol",
+  "protocolSections": [
+    {
+      "id": "9",
+      "title": "Study characteristics",
+      "sortOrder": 0,
+      "protocolElements": [
+        {
+          "id": "31",
+          "name": "studyDesign",
+          "type": "radio",
+          "label": "Study design",
+          "placeholder": "",
+          "required": true,
+          "conditionallyShown": false,
+          "options": [
+            {
+              "name": "Randomised controlled trial",
+              "value": "rct"
+            },
+            {
+              "name": "Cohort",
+              "value": "cohort"
+            }
+          ],
+          "sortOrder": 1
+        }
+      ]
+    }
+  ],
+  "createdAt": "2024-10-20T08:00:00Z",
+  "updatedAt": "2024-11-01T16:30:00Z"
+}

@@ -1,0 +1,40 @@
+{
+  "id": "17",
+  "title": "DPYD genotype-guided dose individualisation of fluoropyrimidine therapy",
+  "authors": [
+    "Linda M. Henricks",
+    "Carin A. T. C. Lunenburg"
+  ],
+  "abstract": "BACKGROUND: Fluoropyrimidines are widely used...",
+  "status": "PendingReview",
+  "topicId": "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
+  "domain": "Oncology",
+  "doi": "10.1016/S1470-2045(18)30686-7",
+  "pmid": "30348537",
+  "createdAt": "2024-10-22T12:00:00Z",
+  "updatedAt": "2024-10-22T12:00:00Z",
+  "url": "https://s3.example.org/papers/17/henricks-2018.pdf?X-Amz-Expires=900",
+  "s3Key": "papers/17/henricks-2018.pdf",
+  "fullTextUrl": "https://pubmed.ncbi.nlm.nih.gov/30348537/",
+  "description": "Prospective multicentre safety analysis.",
+  "paperContributors": [
+    {
+      "contributor": {
+        "id": "user:0192a642-817d-7a3e-a282-d7a282ebd483",
+        "name": "Ada Okonkwo",
+        "role": "Contributor"
+      }
+    }
+  ],
+  "paperApprovalsRejections": [
+    {
+      "approval": true,
+      "createdAt": "2024-11-02T09:14:00Z",
+      "user": {
+        "id": "user:0192a642-817d-7a3e-a282-d7a282ebd483",
+        "name": "Ada Okonkwo",
+        "role": "Contributor"
+      }
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+// Data extraction: one reviewer's pass over one paper against one protocol.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// DataExtractionReview is one reviewer's complete pass over a paper.
+//
+// It is the container: a review groups the individual `DataExtraction` values,
+// one per protocol element. A topic requires `Topic.minimum_extraction_reviews`
+// of these per paper before the paper counts as extracted, which is what the
+// topic dashboard's "n / m" counter renders.
+//
+// demo only. infra routes `/topic/{topicId}/paper/{paperId}/protocol` for the
+// same concept and leaves it `handleUnimplemented` (HTTP 501).
+message DataExtractionReview {
+  string id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  string topic_id = 4;
+
+  // SOURCE CONFLICT: demo's table has a `user_id` column but its create handler
+  // never sets it, so every review is anonymous. Since the whole point of
+  // requiring several reviews is that they come from different people, this is
+  // a functional gap, not a cosmetic one — nothing today stops one user
+  // satisfying the minimum alone.
+  string user_id = 5;
+
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// DataExtraction is one answered protocol element within a review.
+message DataExtraction {
+  string id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  string protocol_element_id = 4;
+
+  // SOURCE CONFLICT: demo's table has this column and its extraction handlers
+  // never set it, same as on the review.
+  string user_id = 5;
+
+  string data_extraction_review_id = 6;
+
+  // The extracted value.
+  //
+  // SOURCE CONFLICT, and under-determined. `types/DataExtraction.ts` declares
+  // `data: string`; demo's column is `jsonb` typed `any`. A string is right for
+  // `text`, `number`, `date`, `textarea` and `radio` elements, which is what
+  // the SPA's form produces today. It is not obviously right for `checkbox`
+  // elements, where several options can be selected — the SPA's checkbox
+  // handling would have to be read closely, or the shape decided deliberately,
+  // before this can be called settled. Declared as a string because that is
+  // what the client declares; flagged because `jsonb` was chosen for a reason.
+  string data = 7;
+
+  // Where in the PDF the value was read from, so a later reviewer can jump to
+  // it. Absent when the reviewer typed the value instead of selecting it.
+  repeated SourceLocationPage source_location = 8;
+
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// SourceLocationPage is the highlighted rectangles on one page of the PDF.
+message SourceLocationPage {
+  int32 page = 1;
+  repeated SourceRect rects = 2;
+}
+
+// SourceRect is one highlight rectangle, in the PDF viewer's coordinate space.
+//
+// `w`/`h` rather than `width`/`height`: `types/DataExtraction.ts` and demo's
+// column type both use the short names.
+message SourceRect {
+  double x = 1;
+  double y = 2;
+  double w = 3;
+  double h = 4;
+}
+
+// DataExtractionInput is one element's value as submitted.
+//
+// Distinct from `DataExtraction` because a submission has no id, no review id
+// and no timestamps — the server assigns those.
+message DataExtractionInput {
+  string protocol_element_id = 1;
+  string protocol_id = 2;
+  string paper_id = 3;
+  string data = 4;
+  repeated SourceLocationPage source_location = 5;
+}
+
+// DataExtractionListRequest is the body of `POST /extraction`.
+//
+// SOURCE CONFLICT: another read over POST. And a quirk demo's own comment calls
+// out — when either field is missing it returns *HTTP 200* with
+// `{"error": "Missing required fields"}` in the body, so a client checking
+// `response.ok` sails past the failure. That is a 400.
+message DataExtractionListRequest {
+  string paper_id = 1;
+  string extraction_review_id = 2;
+}
+
+// DataExtractionList is the response to `POST /extraction`.
+//
+// SOURCE CONFLICT: demo returns a bare JSON array.
+message DataExtractionList {
+  repeated DataExtraction items = 1;
+  ListMetadata metadata = 2;
+}
+
+// DataExtractionReviewListRequest is the body of `POST /extraction-review`.
+//
+// All three of `topic_id`, `paper_id` and `protocol_id` are required; demo
+// rejects a request missing any of them. It also `decodeURIComponent()`s
+// `topic_id` — see `PaperListRequest`.
+message DataExtractionReviewListRequest {
+  string topic_id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+// DataExtractionReviewList is the response to `POST /extraction-review`.
+//
+// SOURCE CONFLICT: demo returns a bare JSON array. The SPA reads only its
+// `.length`, to render the "reviews so far" counter.
+message DataExtractionReviewList {
+  repeated DataExtractionReview items = 1;
+  ListMetadata metadata = 2;
+}
+
+// DataExtractionCreateRequest is the body of `POST /extraction/create`.
+//
+// Creates the review and all of its extractions in one call.
+message DataExtractionCreateRequest {
+  string topic_id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  repeated DataExtractionInput data = 4;
+}
+
+// DataExtractionEditRequest is the body of `POST /extraction/edit`.
+//
+// Same as create but against an existing review. demo upserts element by
+// element: it looks each one up by
+// `(protocolElementId, protocolId, paperId, reviewId)` and inserts when there is
+// no match, so an edit can add answers the original submission omitted.
+message DataExtractionEditRequest {
+  string topic_id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  string extraction_review_id = 4;
+  repeated DataExtractionInput data = 5;
+}
+
+// `POST /extraction/create` and `POST /extraction/edit` both return the
+// affected `DataExtractionReview` bare.
+//
+// SOURCE CONFLICT: demo returns `{"message": "...", "status": 200}` — an HTTP
+// status code duplicated into the response body — and the SPA branches on
+// `response?.status === 200` rather than on the actual HTTP status. Returning
+// the review is consistent with the other writes here and, more usefully, gives
+// the caller the review id: after a create the SPA needs it to build the edit
+// URL, and today it cannot get it from the response.

@@ -1,0 +1,171 @@
+// Protocols: the extraction form a topic's reviewers fill in per paper.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Protocol is an ordered set of sections, each an ordered set of elements.
+//
+// infra routes `/topic/{topicId}/protocol` and
+// `/topic/{topicId}/protocol/{schemaId}` but every handler is
+// `handleUnimplemented` (HTTP 501), and its chaincode `Schema` type is an empty
+// struct. Protocols are therefore demo's shape alone, corroborated by
+// `types/Protocol.ts`.
+message Protocol {
+  string id = 1;
+  string title = 2;
+  repeated ProtocolSection protocol_sections = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// ProtocolSection is a titled group of elements, ordered by `sort_order`.
+message ProtocolSection {
+  string id = 1;
+  string title = 2;
+  int32 sort_order = 3;
+  repeated ProtocolElement protocol_elements = 4;
+}
+
+// ProtocolElement is one field of the extraction form.
+message ProtocolElement {
+  string id = 1;
+  string name = 2;
+
+  // The HTML input type: `text`, `number`, `date`, `textarea`, `radio` or
+  // `checkbox` are the values the SPA's editor produces and its renderers
+  // branch on.
+  //
+  // DELIBERATELY NOT AN ENUM. The value is passed straight through to an HTML
+  // `<input type={element.type}>`; PascalCasing it, which the enum convention
+  // would require, would stop the inputs rendering. The set is also open —
+  // any HTML input type would work — and neither backend constrains it.
+  string type = 3;
+
+  string label = 4;
+  string placeholder = 5;
+  bool required = 6;
+
+  // Set by the editor and stored, but no renderer reads it: the SPA has no
+  // conditional-display logic. A field waiting for a feature.
+  bool conditionally_shown = 7;
+
+  // Only meaningful for `radio` and `checkbox`.
+  repeated ProtocolElementOption options = 8;
+
+  int32 sort_order = 9;
+}
+
+// ProtocolElementOption is one choice of a radio or checkbox element.
+message ProtocolElementOption {
+  string name = 1;
+  string value = 2;
+}
+
+// ProtocolTemplate is a reusable protocol a topic can start from.
+//
+// demo stores templates in their own three tables (`protocol_template`,
+// `protocol_template_section`, `protocol_template_element`) that mirror the
+// protocol tables exactly, and its handler nests the sections under
+// `protocolSections` — the same field name the real protocol uses — so the SPA
+// can render a template with the protocol renderer.
+message ProtocolTemplate {
+  string id = 1;
+  string title = 2;
+  repeated ProtocolSection protocol_sections = 3;
+}
+
+// ProtocolCreateRequest is the body of `POST /protocol/create`.
+//
+// The body is `{"protocol": {...}}` — one wrapped object, not the fields at the
+// root. That is what demo reads and what the SPA sends.
+message ProtocolCreateRequest {
+  // Draft is a protocol that does not exist yet, so it has no id, and it names
+  // the topic it is being attached to.
+  //
+  // SOURCE CONFLICT: the sections carry ids in the request even though nothing
+  // is created yet — the SPA fills them with array indices in the create form
+  // and with negative timestamps in the edit form, and demo's edit handler
+  // treats `id > 0` as "update this row" and anything else as "insert". The
+  // contract keeps `ProtocolSection` as the draft type rather than inventing a
+  // parallel id-less one, and records that ids in a create body are
+  // client-side scratch values with no server meaning.
+  message Draft {
+    string title = 1;
+    string topic_id = 2;
+    repeated ProtocolSection sections = 3;
+  }
+
+  Draft protocol = 1;
+}
+
+// ProtocolEditRequest is the body of `POST /protocol/edit`.
+//
+// Sections with a positive id are updated in place; anything else is inserted.
+// There is no delete: removing a section from the array leaves its rows behind.
+message ProtocolEditRequest {
+  string protocol_id = 1;
+  repeated ProtocolSection sections = 2;
+}
+
+// `POST /protocol/create` and `POST /protocol/edit` both return the resulting
+// `Protocol` bare.
+//
+// SOURCE CONFLICT: demo returns `{"message": "Protocol created successfully"}`
+// and `{"message": "Protocol edit successful"}`, and the SPA branches on
+// `response?.message === "Protocol created successfully"` — a client that
+// string-matches English prose to detect success. Returning the affected
+// resource is both the shape the rest of this contract uses for writes and the
+// only one that lets the caller learn the new protocol's id. Adoption has to
+// change the SPA and demo together.
+
+// ProtocolListRequest is the body of `POST /protocol`.
+//
+// Not called by the SPA. Kept because `src/lib/routes.ts` declares the path and
+// demo serves it.
+message ProtocolListRequest {
+  // Filters to a single *topic* id, despite the endpoint's name. See
+  // `TopicProtocolList` in topic.proto.
+  string id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+// ProtocolTemplateListRequest is the body of `POST /protocol-template`.
+//
+// SOURCE CONFLICT: the SPA sends `{"ids": []}`. demo reads `{id, page, limit}`
+// and ignores `ids` entirely, so the SPA's body is inert. The contract declares
+// the fields the server reads; `ids` is a client-side fiction and is not here.
+message ProtocolTemplateListRequest {
+  string id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+// ProtocolTemplateList is the response to `POST /protocol-template`.
+message ProtocolTemplateList {
+  repeated ProtocolTemplate items = 1;
+  ListMetadata metadata = 2;
+}
+
+// ProtocolElementListRequest is the body of `POST /protocol-element`, which
+// lists the premade elements the protocol editor offers.
+//
+// SOURCE CONFLICT: the SPA sends `{"ids": []}`; demo reads no body whatsoever
+// and returns every row of `premade_protocol_element`. Empty here for the same
+// reason as `DomainListRequest`.
+message ProtocolElementListRequest {}
+
+// ProtocolElementList is the response to `POST /protocol-element`.
+//
+// The items are premade elements: the same shape as a protocol's own elements
+// but with no `sortOrder`, since they do not belong to a section yet. demo
+// returns the rows whole, so `sortOrder` is present and always absent-valued.
+message ProtocolElementList {
+  repeated ProtocolElement items = 1;
+  ListMetadata metadata = 2;
+}

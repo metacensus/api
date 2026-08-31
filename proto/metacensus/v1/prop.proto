@@ -1,0 +1,261 @@
+// Propositions and votes: the consensus mechanism.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Prop is a motion a topic's members vote on.
+//
+// infra is the authority on what a prop *is*: "Propositions can be both
+// functional and non-functional, causing changes to a topic or simply
+// establishing consensus amongst members". demo persists props in a table
+// called `consensus_statements` — the name predates props being general — with
+// a `type` discriminant added so the SPA can tell a consensus statement from a
+// meta-analysis question.
+//
+// The SPA reaches this resource through hardcoded paths:
+// `${routes.api.topic}/${topicId}/prop`. Neither `/topic/{id}/prop` nor
+// `/topic/{id}/prop/{propId}/vote` appears in `src/lib/routes.ts`, despite that
+// file's instruction never to hardcode a path at a call site. They are served
+// by both backends and are part of the surface.
+message Prop {
+  // Type is what the proposition would do if it passed.
+  //
+  // These are exactly infra's `propType` values, and exactly the union in
+  // `types/Prop.ts`. demo stores the discriminant as free text defaulting to
+  // `"Statement"` and validates nothing.
+  //
+  // SOURCE CONFLICT: infra names its zero value `Undefined` and emits that
+  // string. The contract's zero value is `Unspecified`, which is a
+  // wire-visible rename for infra.
+  //
+  // Only `Statement` and `TopicQuestion` are ever created today: the SPA's two
+  // creation forms send those. The other five are declared by infra's chaincode
+  // and by `types/Prop.ts` but nothing constructs them.
+  enum Type {
+    Unspecified = 0;
+    Statement = 1;
+    TopicQuestion = 2;
+    TopicChange = 3;
+    UserAdmit = 4;
+    UserExpulse = 5;
+    PaperExtractionComplete = 6;
+    PaperIncludeMetaAnalysis = 7;
+  }
+
+  string id = 1;
+
+  // SOURCE CONFLICT: demo emits `topicId`; infra's `Prop` has no topic field at
+  // all — the topic is in the path and the prop is stored under the topic's
+  // ledger scope. Kept because the SPA receives lists of props detached from
+  // their request context.
+  string topic_id = 2;
+
+  string author_id = 3;
+
+  // `created`, not `createdAt`: all three sources agree here.
+  google.protobuf.Timestamp created = 4;
+
+  Type type = 5;
+
+  // The text of the proposition.
+  //
+  // SOURCE CONFLICT: demo's column is `statement` and its create handler
+  // accepts any of `description`, `statement` or `text` in the body before
+  // emitting it as `description`. The SPA sends `description`; infra reads
+  // `description`. The contract is `description` and demo's leniency is not
+  // part of it.
+  string description = 6;
+
+  // When voting closed. Absent while the prop is open.
+  //
+  // SOURCE CONFLICT: `types/Prop.ts` declares `concluded: string` and demo
+  // emits the empty string `""` unconditionally — which is not a valid RFC 3339
+  // timestamp and would fail to parse. Modelling it as a `Timestamp` makes
+  // "still open" an absent field instead of an unparseable one.
+  google.protobuf.Timestamp concluded = 7;
+
+  // The outcome. See `PropConclusion`.
+  PropConclusion.Value conclusion = 8;
+
+  // The votes cast, embedded.
+  //
+  // SOURCE CONFLICT: infra's chaincode assembles this on every read — `Get` and
+  // `GetAll` both call `GetAllVotes` per prop and attach the result. demo never
+  // populates it; the SPA fetches votes separately from
+  // `/topic/{id}/prop/{propId}/vote`. Kept because infra is the authority on
+  // domain semantics and a prop without its votes is half a record, but a
+  // backend that finds the join expensive may leave it empty and serve the
+  // vote endpoint instead.
+  repeated Vote votes = 9;
+}
+
+// PropConclusion wraps the conclusion vocabulary.
+//
+// It is a wrapper message rather than a second enum nested in `Prop` because
+// protobuf scopes enum value names to the *parent* message, C++ style, not to
+// the enum. `Prop.Type` and a `Prop.Conclusion` would both contribute an
+// `Unspecified` constant to `Prop`'s scope and fail to compile. This is the one
+// place in the contract where that bites; every other enum is nested in the
+// message that owns it.
+//
+// SOURCE CONFLICT: `types/Prop.ts` spells these lowercase —
+// `"open" | "passed" | "failed" | "expired"` — and demo stores `"open"` as its
+// default `status`, mapping it into `conclusion` on the way out. infra has no
+// conclusion field: a prop is never concluded on chain. PascalCase here follows
+// the enum convention, so adopting it changes demo's stored values and the SPA's
+// comparisons (`p.conclusion === "open"`).
+message PropConclusion {
+  enum Value {
+    Unspecified = 0;
+    Open = 1;
+    Passed = 2;
+    Failed = 3;
+    Expired = 4;
+  }
+}
+
+// Vote is one member's position on one prop.
+//
+// Votes are overwritten, not appended: demo has a `(propId, userId)` unique
+// index and upserts, and infra's chaincode merges the new vote into the stored
+// one with `OverwriteWith`. There is no vote history in either backend, which
+// is why `last_cast` is named for the most recent cast rather than a creation
+// time.
+message Vote {
+  // Position is which way the member voted.
+  //
+  // `For`/`Against`/`Abstain` come from infra's `position` stringer and from
+  // `types/vote.ts`.
+  //
+  // SOURCE CONFLICT: demo stores `"agree" | "disagree" | "abstain"` in its
+  // `vote.value` column and translates at the edge — its route file carries
+  // `POSITION_TO_VALUE` and `VALUE_TO_POSITION` maps for exactly this. Its
+  // create handler accepts either vocabulary in the request body. The contract
+  // is the `For`/`Against`/`Abstain` vocabulary, matching two sources of three
+  // and the values the SPA sends.
+  //
+  // SOURCE CONFLICT: infra's zero value is named `Undefined`.
+  enum Position {
+    Unspecified = 0;
+    For = 1;
+    Against = 2;
+    Abstain = 3;
+  }
+
+  // SOURCE CONFLICT: demo emits an `id` (its serial, stringified);
+  // `types/vote.ts` declares no id; infra's `VoteSetResponse` returns a
+  // *composite* `DuoId` — `{prefix: "vote", id1: <propId>, id2: <userId>}` — an
+  // object, not a string. Ids are strings on the wire, so infra's composite has
+  // to be flattened before it reaches a client.
+  string id = 1;
+
+  string prop_id = 2;
+  string user_id = 3;
+  Position position = 4;
+
+  // Free-text rationale. Marked `// TODO, is this temp?` in infra, and required
+  // by nothing.
+  string explanation = 5;
+
+  // Character offsets into the prop's `description` that the voter highlighted.
+  //
+  // Domain rule, from infra's chaincode: citations are meaningful only for an
+  // `Against` vote. `types.NewVote` clears them for `For` and `Abstain`, and
+  // `OverwriteWith` clears them again on any change to those positions. The SPA
+  // enforces the same rule client-side. demo stores whatever it is given.
+  repeated PropCitation citations = 6;
+
+  // When the vote was most recently cast. Overwritten on every recast.
+  google.protobuf.Timestamp last_cast = 7;
+}
+
+// PropCitation is a half-open character range in a prop's `description`.
+message PropCitation {
+  uint32 start = 1;
+  uint32 end = 2;
+}
+
+// PropListRequest is the path parameter of `GET /topic/{topicId}/prop`.
+message PropListRequest {
+  string topic_id = 1;
+}
+
+// PropList is the response to `GET /topic/{topicId}/prop`.
+//
+// SOURCE CONFLICT: both backends return a bare JSON array — infra goes out of
+// its way to, with an explicit "Ensure we always return a JSON array (`[]`)
+// instead of `null`". Wrapping is a wire break for both.
+message PropList {
+  repeated Prop items = 1;
+  ListMetadata metadata = 2;
+}
+
+// PropGetRequest is the path parameters of
+// `GET /topic/{topicId}/prop/{propId}`, which returns a `Prop` bare.
+//
+// infra only; demo has no per-prop read and the SPA finds a prop by filtering
+// the list.
+//
+// SOURCE CONFLICT: infra wraps it in `{"prop": {...}}` (its `PropGetResponse`).
+// Single-resource reads return the resource bare.
+message PropGetRequest {
+  string topic_id = 1;
+  string prop_id = 2;
+}
+
+// PropCreateRequest is the body of `POST /topic/{topicId}/prop`.
+//
+// The author is the authenticated user; both backends take it from the token
+// and neither accepts it in the body. demo strips any client-supplied
+// `x-user-id` header for the same reason.
+message PropCreateRequest {
+  Prop.Type type = 1;
+  string description = 2;
+}
+
+// `POST /topic/{topicId}/prop` returns the created `Prop` bare.
+//
+// SOURCE CONFLICT: demo returns the created prop (HTTP 201); infra returns
+// `{"id": "prop:…"}`.
+
+// VoteListRequest is the path parameters of
+// `GET /topic/{topicId}/prop/{propId}/vote`.
+message VoteListRequest {
+  string topic_id = 1;
+  string prop_id = 2;
+}
+
+// VoteList is the response to `GET /topic/{topicId}/prop/{propId}/vote`.
+//
+// SOURCE CONFLICT: demo returns a bare JSON array. infra does not route this
+// method at all — it declares `VoteGet`/`VoteGetAll` on its `DataSource`
+// interface and leaves both commented out — so a vote list is reachable only
+// via the `votes` embedded in a prop. Both paths should exist.
+message VoteList {
+  repeated Vote items = 1;
+  ListMetadata metadata = 2;
+}
+
+// VoteSetRequest is the body of `POST /topic/{topicId}/prop/{propId}/vote`.
+//
+// Set, not create: a second call from the same user replaces the first.
+//
+// SOURCE CONFLICT: demo also accepts `{"value": "agree"}` as an alternative to
+// `{"position": "For"}`. Only `position` is in the contract.
+message VoteSetRequest {
+  Vote.Position position = 1;
+  string explanation = 2;
+  repeated PropCitation citations = 3;
+}
+
+// `POST /topic/{topicId}/prop/{propId}/vote` returns the resulting `Vote` bare.
+//
+// SOURCE CONFLICT: demo returns the upserted vote; infra returns
+// `{"id": {"prefix": "vote", "id1": {...}, "id2": {...}}}` — a nested composite
+// id object. Returning the vote is both more useful and the only one of the two
+// that keeps ids as strings.

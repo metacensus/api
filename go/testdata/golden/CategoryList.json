@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "6",
+      "name": "Pharmacogenomics"
+    }
+  ],
+  "metadata": {
+    "page": 1,
+    "limit": 30
+  }
+}
