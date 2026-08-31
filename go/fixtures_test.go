@@ -8,28 +8,20 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// The fixtures below populate every message in the contract, once each, and the
-// golden test marshals them and diffs the result against testdata/golden.
-//
-// They are written with the ids the two backends actually mint, deliberately
-// mixed: prefixed UUIDs (`topc:0192a642-…`) for the resources infra owns, and
-// stringified integer serials (`"17"`) for the ones only demo implements. Both
-// arrive as JSON strings, which is the point — the contract cannot ratify
-// either format, so it ratifies neither and requires strings.
+// One fixture per message. Ids are deliberately mixed between the formats the
+// two backends mint — prefixed UUIDs and stringified serials — since both cross
+// the wire as strings.
 
 const (
 	topicID = "topc:0192a642-817d-7a3e-a282-d7a282ebd482"
 	userID  = "user:0192a642-817d-7a3e-a282-d7a282ebd483"
 	propID  = "prop:0192a642-817d-7a3e-a282-d7a282ebd485"
 
-	// demo's serials, stringified. Papers, protocols and extractions exist only
-	// in demo, so these are the ids a caller sees today.
+	// demo's serials, stringified.
 	paperID      = "17"
 	protocolID   = "4"
 	sectionID    = "9"
 	elementID    = "31"
-	extractionID = "204"
-	reviewID     = "58"
 	templateID   = "3"
 )
 
@@ -127,16 +119,6 @@ func paper() *v1.Paper {
 	}
 }
 
-func extractionReview() *v1.DataExtractionReview {
-	return &v1.DataExtractionReview{
-		Id:         reviewID,
-		TopicId:    topicID,
-		PaperId:    paperID,
-		ProtocolId: protocolID,
-		Created:    ts("2024-11-08T09:00:00Z"),
-	}
-}
-
 func sourceLocation() []*v1.SourceLocationPage {
 	return []*v1.SourceLocationPage{
 		{Page: 3, Rects: []*v1.SourceRect{{X: 72.5, Y: 431.25, W: 268, H: 12.5}}},
@@ -145,44 +127,27 @@ func sourceLocation() []*v1.SourceLocationPage {
 
 func dataExtraction() *v1.DataExtraction {
 	return &v1.DataExtraction{
-		Id:                     extractionID,
-		DataExtractionReviewId: reviewID,
-		PaperId:                paperID,
-		ProtocolId:             protocolID,
-		ProtocolElementId:      elementID,
-		Data:                   "rct",
-		SourceLocation:         sourceLocation(),
-		Created:                ts("2024-11-08T09:12:00Z"),
+		TopicId:    topicID,
+		PaperId:    paperID,
+		ProtocolId: protocolID,
+		Data: []*v1.DatumExtraction{{
+			ProtocolElementId: elementID,
+			Datum:             "rct",
+			SourceLocation:    sourceLocation(),
+		}},
 	}
 }
-
-func extractionInput() *v1.DataExtractionInput {
-	return &v1.DataExtractionInput{
-		ProtocolElementId: elementID,
-		ProtocolId:        protocolID,
-		PaperId:           paperID,
-		Data:              "rct",
-		SourceLocation:    sourceLocation(),
-	}
-}
-
-// listMetadata is set explicitly on every list fixture so the goldens show the
-// envelope. Left unset it would be omitted entirely — a message field with
-// nothing in it — and the `{items, metadata}` shape would be invisible in the
-// very files that exist to demonstrate it.
-func listMetadata() *v1.ListMetadata { return &v1.ListMetadata{} }
 
 type fixture struct {
 	name string
 	msg  proto.Message
 }
 
-// fixtures covers every message declared in the contract. A message missing
-// from this list fails TestEveryMessageHasAFixture.
+// fixtures covers every message in the contract.
 func fixtures() []fixture {
 	return []fixture{
 		// common.proto
-		{"ListMetadata", listMetadata()},
+		{"ListMetadata", &v1.ListMetadata{Page: 1, Limit: 30, Total: 42}},
 		{"Error", &v1.Error{Error: "Invalid credentials"}},
 		{"HealthcheckResponse", &v1.HealthcheckResponse{Status: "healthy"}},
 
@@ -198,24 +163,23 @@ func fixtures() []fixture {
 		{"Session", &v1.Session{Token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.signature"}},
 		{"LogoutResponse", &v1.LogoutResponse{}},
 		{"UserListRequest", &v1.UserListRequest{}},
-		{"UserList", &v1.UserList{Items: []*v1.User{user()}, Metadata: listMetadata()}},
+		{"UserList", &v1.UserList{Items: []*v1.User{user()}}},
 		{"UserGetRequest", &v1.UserGetRequest{UserId: userID}},
 
 		// topic.proto
 		{"Topic", topic()},
 		{"TopicListRequest", &v1.TopicListRequest{}},
-		{"TopicList", &v1.TopicList{Items: []*v1.Topic{topic()}, Metadata: listMetadata()}},
+		{"TopicList", &v1.TopicList{Items: []*v1.Topic{topic()}}},
 		{"TopicGetRequest", &v1.TopicGetRequest{TopicId: topicID}},
 		{"TopicCreateRequest", &v1.TopicCreateRequest{
 			Name:        "DPYD Genotype and Fluoropyrimidine Toxicity",
 			Description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
 		}},
 		{"TopicProtocolRequest", &v1.TopicProtocolRequest{TopicId: topicID}},
-		{"Member", &v1.Member{Id: userID, Created: ts("2024-10-19T14:00:00Z")}},
+		{"Member", &v1.Member{Id: userID, Joined: ts("2024-10-19T14:00:00Z")}},
 		{"MemberListRequest", &v1.MemberListRequest{TopicId: topicID}},
 		{"MemberList", &v1.MemberList{
-			Items:    []*v1.Member{{Id: userID, Created: ts("2024-10-19T14:00:00Z")}},
-			Metadata: listMetadata(),
+			Items:    []*v1.Member{{Id: userID, Joined: ts("2024-10-19T14:00:00Z")}},
 		}},
 		{"MemberGetRequest", &v1.MemberGetRequest{TopicId: topicID, UserId: userID}},
 
@@ -224,14 +188,14 @@ func fixtures() []fixture {
 		{"Vote", vote()},
 		{"PropCitation", &v1.PropCitation{Start: 12, End: 48}},
 		{"PropListRequest", &v1.PropListRequest{TopicId: topicID}},
-		{"PropList", &v1.PropList{Items: []*v1.Prop{prop()}, Metadata: listMetadata()}},
+		{"PropList", &v1.PropList{Items: []*v1.Prop{prop()}}},
 		{"PropGetRequest", &v1.PropGetRequest{TopicId: topicID, PropId: propID}},
 		{"PropCreateRequest", &v1.PropCreateRequest{
 			Type:        v1.Prop_TopicQuestion,
 			Description: "Does DPYD genotype-guided dosing reduce severe toxicity?",
 		}},
 		{"VoteListRequest", &v1.VoteListRequest{TopicId: topicID, PropId: propID}},
-		{"VoteList", &v1.VoteList{Items: []*v1.Vote{vote()}, Metadata: listMetadata()}},
+		{"VoteList", &v1.VoteList{Items: []*v1.Vote{vote()}}},
 		{"VoteSetRequest", &v1.VoteSetRequest{
 			Position:    v1.Vote_Against,
 			Explanation: "The cited cohort excludes DPYD*2A heterozygotes.",
@@ -241,7 +205,7 @@ func fixtures() []fixture {
 		// paper.proto
 		{"Paper", paper()},
 		{"PaperListRequest", &v1.PaperListRequest{TopicId: topicID, PaperId: ""}},
-		{"PaperList", &v1.PaperList{Items: []*v1.Paper{paper()}, Metadata: listMetadata()}},
+		{"PaperList", &v1.PaperList{Items: []*v1.Paper{paper()}}},
 		{"PaperCreateRequest", &v1.PaperCreateRequest{
 			TopicId:  topicID,
 			Title:    "DPYD genotype-guided dose individualisation of fluoropyrimidine therapy",
@@ -258,10 +222,6 @@ func fixtures() []fixture {
 			Abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
 			Doi:      "10.1016/S1470-2045(18)30686-7",
 		}},
-		{"PaperPresignedUrlRequest", &v1.PaperPresignedUrlRequest{PaperId: paperID}},
-		{"PaperPresignedUrlResponse", &v1.PaperPresignedUrlResponse{
-			Url: "https://s3.example.org/papers/17/henricks-2018.pdf?X-Amz-Expires=900",
-		}},
 
 		// protocol.proto
 		{"Protocol", protocol()},
@@ -274,20 +234,12 @@ func fixtures() []fixture {
 			ProtocolSections: []*v1.ProtocolSection{protocolSection()},
 		}},
 		{"ProtocolCreateRequest", &v1.ProtocolCreateRequest{
-			Protocol: &v1.ProtocolCreateRequest_Draft{
-				Title:    "Custom Protocol",
-				TopicId:  topicID,
-				Sections: []*v1.ProtocolSection{protocolSection()},
-			},
-		}},
-		{"ProtocolCreateRequest_Draft", &v1.ProtocolCreateRequest_Draft{
-			Title:    "Custom Protocol",
 			TopicId:  topicID,
+			Title:    "Custom Protocol",
 			Sections: []*v1.ProtocolSection{protocolSection()},
 		}},
 		{"ProtocolEditRequest", &v1.ProtocolEditRequest{
-			ProtocolId: protocolID,
-			Sections:   []*v1.ProtocolSection{protocolSection()},
+			Sections: []*v1.ProtocolSection{protocolSection()},
 		}},
 		{"ProtocolTemplateListRequest", &v1.ProtocolTemplateListRequest{}},
 		{"ProtocolTemplateList", &v1.ProtocolTemplateList{
@@ -296,44 +248,23 @@ func fixtures() []fixture {
 				Title:            "Cochrane-style extraction template",
 				ProtocolSections: []*v1.ProtocolSection{protocolSection()},
 			}},
-			Metadata: listMetadata(),
 		}},
 		{"ProtocolElementListRequest", &v1.ProtocolElementListRequest{}},
 		{"ProtocolElementList", &v1.ProtocolElementList{
 			Items:    []*v1.ProtocolElement{protocolElement()},
-			Metadata: listMetadata(),
 		}},
 
 		// extraction.proto
-		{"DataExtractionReview", extractionReview()},
 		{"DataExtraction", dataExtraction()},
+		{"DatumExtraction", &v1.DatumExtraction{
+			ProtocolElementId: elementID,
+			Datum:             "rct",
+			SourceLocation:    sourceLocation(),
+		}},
 		{"SourceLocationPage", sourceLocation()[0]},
 		{"SourceRect", &v1.SourceRect{X: 72.5, Y: 431.25, W: 268, H: 12.5}},
-		{"DataExtractionInput", extractionInput()},
-		{"DataExtractionListRequest", &v1.DataExtractionListRequest{PaperId: paperID, ExtractionReviewId: reviewID}},
-		{"DataExtractionList", &v1.DataExtractionList{
-			Items:    []*v1.DataExtraction{dataExtraction()},
-			Metadata: listMetadata(),
-		}},
-		{"DataExtractionReviewListRequest", &v1.DataExtractionReviewListRequest{
+		{"DataExtractionGetRequest", &v1.DataExtractionGetRequest{
 			TopicId: topicID, PaperId: paperID, ProtocolId: protocolID,
-		}},
-		{"DataExtractionReviewList", &v1.DataExtractionReviewList{
-			Items:    []*v1.DataExtractionReview{extractionReview()},
-			Metadata: listMetadata(),
-		}},
-		{"DataExtractionCreateRequest", &v1.DataExtractionCreateRequest{
-			TopicId:    topicID,
-			PaperId:    paperID,
-			ProtocolId: protocolID,
-			Data:       []*v1.DataExtractionInput{extractionInput()},
-		}},
-		{"DataExtractionEditRequest", &v1.DataExtractionEditRequest{
-			TopicId:            topicID,
-			PaperId:            paperID,
-			ProtocolId:         protocolID,
-			ExtractionReviewId: reviewID,
-			Data:               []*v1.DataExtractionInput{extractionInput()},
 		}},
 	}
 }

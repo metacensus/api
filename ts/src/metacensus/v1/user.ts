@@ -5,7 +5,6 @@
 // source: metacensus/v1/user.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -27,7 +26,6 @@ export interface UserListRequest {
 /** UserList is the response to `GET /user`. */
 export interface UserList {
   items: User[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**

@@ -4,7 +4,6 @@ syntax = "proto3";
 package metacensus.v1;
 
 import "google/protobuf/timestamp.proto";
-import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
@@ -23,7 +22,6 @@ message UserListRequest {}
 // UserList is the response to `GET /user`.
 message UserList {
   repeated User items = 1;
-  ListMetadata metadata = 2;
 }
 
 // UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a

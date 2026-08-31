@@ -412,7 +412,6 @@ func (x *PropListRequest) GetTopicId() string {
 type PropList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Prop                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -450,13 +449,6 @@ func (*PropList) Descriptor() ([]byte, []int) {
 func (x *PropList) GetItems() []*Prop {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *PropList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -629,7 +621,6 @@ func (x *VoteListRequest) GetPropId() string {
 type VoteList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Vote                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -667,13 +658,6 @@ func (*VoteList) Descriptor() ([]byte, []int) {
 func (x *VoteList) GetItems() []*Vote {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *VoteList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -745,7 +729,7 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xe1\x02\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x02\n" +
 	"\x04Prop\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tauthor_id\x18\x02 \x01(\tR\bauthorId\x124\n" +
@@ -777,10 +761,9 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\x05start\x18\x01 \x01(\rR\x05start\x12\x10\n" +
 	"\x03end\x18\x02 \x01(\rR\x03end\",\n" +
 	"\x0fPropListRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"n\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"5\n" +
 	"\bPropList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.PropR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"D\n" +
+	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.PropR\x05items\"D\n" +
 	"\x0ePropGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\"c\n" +
@@ -789,10 +772,9 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"E\n" +
 	"\x0fVoteListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\"n\n" +
+	"\aprop_id\x18\x02 \x01(\tR\x06propId\"5\n" +
 	"\bVoteList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.VoteR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"\xa7\x01\n" +
+	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.VoteR\x05items\"\xa7\x01\n" +
 	"\x0eVoteSetRequest\x128\n" +
 	"\bposition\x18\x01 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
 	"\vexplanation\x18\x02 \x01(\tR\vexplanation\x129\n" +
@@ -826,7 +808,6 @@ var file_metacensus_v1_prop_proto_goTypes = []any{
 	(*VoteList)(nil),              // 10: metacensus.v1.VoteList
 	(*VoteSetRequest)(nil),        // 11: metacensus.v1.VoteSetRequest
 	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
-	(*ListMetadata)(nil),          // 13: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	12, // 0: metacensus.v1.Prop.created:type_name -> google.protobuf.Timestamp
@@ -835,17 +816,15 @@ var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	4,  // 3: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
 	12, // 4: metacensus.v1.Vote.last_cast:type_name -> google.protobuf.Timestamp
 	2,  // 5: metacensus.v1.PropList.items:type_name -> metacensus.v1.Prop
-	13, // 6: metacensus.v1.PropList.metadata:type_name -> metacensus.v1.ListMetadata
-	0,  // 7: metacensus.v1.PropCreateRequest.type:type_name -> metacensus.v1.Prop.Type
-	3,  // 8: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
-	13, // 9: metacensus.v1.VoteList.metadata:type_name -> metacensus.v1.ListMetadata
-	1,  // 10: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
-	4,  // 11: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	0,  // 6: metacensus.v1.PropCreateRequest.type:type_name -> metacensus.v1.Prop.Type
+	3,  // 7: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
+	1,  // 8: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
+	4,  // 9: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_prop_proto_init() }
@@ -853,7 +832,6 @@ func file_metacensus_v1_prop_proto_init() {
 	if File_metacensus_v1_prop_proto != nil {
 		return
 	}
-	file_metacensus_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

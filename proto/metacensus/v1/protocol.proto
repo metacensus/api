@@ -3,8 +3,6 @@ syntax = "proto3";
 
 package metacensus.v1;
 
-import "metacensus/v1/common.proto";
-
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
 // Protocol is an ordered set of sections, each an ordered set of elements.
@@ -54,26 +52,20 @@ message ProtocolTemplate {
   repeated ProtocolSection protocol_sections = 3;
 }
 
-// ProtocolCreateRequest is the body of `POST /protocol/create`, which returns
-// the created `Protocol`.
+// ProtocolCreateRequest is the body of `POST /protocol`, which returns the
+// created `Protocol`. Ids on the sections and elements are ignored.
 message ProtocolCreateRequest {
-  // Draft is a protocol that does not exist yet. Ids on its sections and
-  // elements are client-side scratch values and are ignored.
-  message Draft {
-    string title = 1;
-    string topic_id = 2;
-    repeated ProtocolSection sections = 3;
-  }
-
-  Draft protocol = 1;
+  string topic_id = 1;
+  string title = 2;
+  repeated ProtocolSection sections = 3;
 }
 
-// ProtocolEditRequest is the body of `POST /protocol/edit`, which returns the
-// updated `Protocol`. A section or element with a positive id is updated in
-// place; any other id inserts a new one. Omitting one does not delete it.
+// ProtocolEditRequest is the body of `POST /protocol/{protocolId}`, which
+// returns the updated `Protocol`. A section or element with a positive id is
+// updated in place; any other id inserts a new one. Omitting one does not
+// delete it.
 message ProtocolEditRequest {
-  string protocol_id = 1;
-  repeated ProtocolSection sections = 2;
+  repeated ProtocolSection sections = 1;
 }
 
 // ProtocolTemplateListRequest is the body of `POST /protocol-template`. No
@@ -83,7 +75,6 @@ message ProtocolTemplateListRequest {}
 // ProtocolTemplateList is the response to `POST /protocol-template`.
 message ProtocolTemplateList {
   repeated ProtocolTemplate items = 1;
-  ListMetadata metadata = 2;
 }
 
 // ProtocolElementListRequest is the body of `POST /protocol-element`, which
@@ -94,5 +85,4 @@ message ProtocolElementListRequest {}
 // elements belong to no section, so their `sort_order` is unset.
 message ProtocolElementList {
   repeated ProtocolElement items = 1;
-  ListMetadata metadata = 2;
 }

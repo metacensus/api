@@ -186,7 +186,6 @@ func (x *PaperListRequest) GetPaperId() string {
 type PaperList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Paper               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -224,13 +223,6 @@ func (*PaperList) Descriptor() ([]byte, []int) {
 func (x *PaperList) GetItems() []*Paper {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *PaperList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -448,105 +440,11 @@ func (x *PaperLookupResponse) GetDoi() string {
 	return ""
 }
 
-// PaperPresignedUrlRequest is the path parameter of
-// `GET /paper/{paperId}/presigned-url`.
-type PaperPresignedUrlRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PaperId       string                 `protobuf:"bytes,1,opt,name=paper_id,json=paperId,proto3" json:"paper_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaperPresignedUrlRequest) Reset() {
-	*x = PaperPresignedUrlRequest{}
-	mi := &file_metacensus_v1_paper_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaperPresignedUrlRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaperPresignedUrlRequest) ProtoMessage() {}
-
-func (x *PaperPresignedUrlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_paper_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaperPresignedUrlRequest.ProtoReflect.Descriptor instead.
-func (*PaperPresignedUrlRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_paper_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *PaperPresignedUrlRequest) GetPaperId() string {
-	if x != nil {
-		return x.PaperId
-	}
-	return ""
-}
-
-// PaperPresignedUrlResponse is the response to
-// `GET /paper/{paperId}/presigned-url`.
-type PaperPresignedUrlResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A short-lived URL for the paper's PDF, opaque to the client. Its expiry is
-	// not reported, so treat a 403 as "mint another".
-	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaperPresignedUrlResponse) Reset() {
-	*x = PaperPresignedUrlResponse{}
-	mi := &file_metacensus_v1_paper_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaperPresignedUrlResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaperPresignedUrlResponse) ProtoMessage() {}
-
-func (x *PaperPresignedUrlResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_paper_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaperPresignedUrlResponse.ProtoReflect.Descriptor instead.
-func (*PaperPresignedUrlResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_paper_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *PaperPresignedUrlResponse) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
 var File_metacensus_v1_paper_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/paper.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xda\x01\n" +
+	"\x19metacensus/v1/paper.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xda\x01\n" +
 	"\x05Paper\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\btopic_id\x18\x02 \x01(\tR\atopicId\x12\x14\n" +
@@ -558,10 +456,9 @@ const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\acreated\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"H\n" +
 	"\x10PaperListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x19\n" +
-	"\bpaper_id\x18\x02 \x01(\tR\apaperId\"p\n" +
+	"\bpaper_id\x18\x02 \x01(\tR\apaperId\"7\n" +
 	"\tPaperList\x12*\n" +
-	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.PaperR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"\xa1\x01\n" +
+	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.PaperR\x05items\"\xa1\x01\n" +
 	"\x12PaperCreateRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -576,11 +473,7 @@ const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
 	"\aauthors\x18\x03 \x03(\tR\aauthors\x12\x1a\n" +
 	"\babstract\x18\x04 \x01(\tR\babstract\x12\x10\n" +
-	"\x03doi\x18\x05 \x01(\tR\x03doi\"5\n" +
-	"\x18PaperPresignedUrlRequest\x12\x19\n" +
-	"\bpaper_id\x18\x01 \x01(\tR\apaperId\"-\n" +
-	"\x19PaperPresignedUrlResponse\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03urlBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x03doi\x18\x05 \x01(\tR\x03doiBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_paper_proto_rawDescOnce sync.Once
@@ -594,28 +487,24 @@ func file_metacensus_v1_paper_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_paper_proto_rawDescData
 }
 
-var file_metacensus_v1_paper_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_metacensus_v1_paper_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_metacensus_v1_paper_proto_goTypes = []any{
-	(*Paper)(nil),                     // 0: metacensus.v1.Paper
-	(*PaperListRequest)(nil),          // 1: metacensus.v1.PaperListRequest
-	(*PaperList)(nil),                 // 2: metacensus.v1.PaperList
-	(*PaperCreateRequest)(nil),        // 3: metacensus.v1.PaperCreateRequest
-	(*PaperLookupRequest)(nil),        // 4: metacensus.v1.PaperLookupRequest
-	(*PaperLookupResponse)(nil),       // 5: metacensus.v1.PaperLookupResponse
-	(*PaperPresignedUrlRequest)(nil),  // 6: metacensus.v1.PaperPresignedUrlRequest
-	(*PaperPresignedUrlResponse)(nil), // 7: metacensus.v1.PaperPresignedUrlResponse
-	(*timestamppb.Timestamp)(nil),     // 8: google.protobuf.Timestamp
-	(*ListMetadata)(nil),              // 9: metacensus.v1.ListMetadata
+	(*Paper)(nil),                 // 0: metacensus.v1.Paper
+	(*PaperListRequest)(nil),      // 1: metacensus.v1.PaperListRequest
+	(*PaperList)(nil),             // 2: metacensus.v1.PaperList
+	(*PaperCreateRequest)(nil),    // 3: metacensus.v1.PaperCreateRequest
+	(*PaperLookupRequest)(nil),    // 4: metacensus.v1.PaperLookupRequest
+	(*PaperLookupResponse)(nil),   // 5: metacensus.v1.PaperLookupResponse
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_metacensus_v1_paper_proto_depIdxs = []int32{
-	8, // 0: metacensus.v1.Paper.created:type_name -> google.protobuf.Timestamp
+	6, // 0: metacensus.v1.Paper.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.PaperList.items:type_name -> metacensus.v1.Paper
-	9, // 2: metacensus.v1.PaperList.metadata:type_name -> metacensus.v1.ListMetadata
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_paper_proto_init() }
@@ -623,14 +512,13 @@ func file_metacensus_v1_paper_proto_init() {
 	if File_metacensus_v1_paper_proto != nil {
 		return
 	}
-	file_metacensus_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_paper_proto_rawDesc), len(file_metacensus_v1_paper_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

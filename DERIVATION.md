@@ -39,13 +39,16 @@ Two tests decide most cases:
 These are not conflicts and are not recorded per-message anywhere:
 
 - Every response is a JSON object at the root. Both backends return bare arrays
-  from their list endpoints today; every list here is `{items, metadata}`.
+  from their list endpoints today; every list here wraps them in `items`.
+- Create is `POST /resource`; edit is `POST /resource/{id}`. No `/create` or
+  `/edit` suffixes.
 - Single-resource reads return the resource bare. infra wraps `/self`,
   `/user/{id}` and `/prop/{id}` in `{"user": …}` / `{"prop": …}`.
 - All ids are strings. demo mints integer serials, infra prefixed UUIDs
   (`user:0192a642-…`), and infra's vote id is a composite object.
 - Writes return the affected resource.
-- `created`, not `createdAt`, on every resource that has one.
+- `created`, not `createdAt`, on every resource that has one. The one exception
+  is `Member.joined`, which names the event rather than the record.
 - Enum zero values are `Unspecified`. infra emits `Undefined`.
 
 ## Endpoints excluded
@@ -107,11 +110,11 @@ Out of scope by instruction: the public backend in `server/`, at
 | `Paper.description`, `Paper.fullTextUrl` | `description` is undistinguished from `abstract`; `fullTextUrl` is derivable from `pmid`/`doi` | Is a stored canonical link needed for a paper with neither identifier? |
 | sign-up `key` (ECDSA public JWK) | JWK member names are fixed by RFC 7517 and one is `key_ops`, which protojson would spell `keyOps`. Nothing consumes it: demo accepts it, has no column, and never verifies the `X-Signature` the SPA derives from the private half | Request signing needs a design before it needs a wire shape. |
 
-### Pagination — removed surface-wide
+### Pagination — defined, not adopted
 
-Nothing on this surface paginates. No request carries `page`, `limit`, `offset`
-or a cursor; no response reports a total; `ListMetadata` is empty so a route can
-grow pagination later without a break.
+`ListMetadata` carries `page`, `limit` and `total`, so the shape is agreed in
+advance — but no response references it and no request carries a pagination
+parameter. Wiring it into a route is a separate, deliberate decision per route.
 
 This drops behaviour demo serves today:
 
@@ -124,10 +127,15 @@ infra paginates nothing and carries `// TODO Paginate this` on every `GetAll`.
 
 **Question:** offset or cursor, query string or body, per-route or uniform?
 
-`ListMetadata` is the pressure point: it is shared by the infra-derived lists
-and the demo-only ones alike, so the first field added to it is added to all of
-them on behalf of whichever route asked. If one route needs paging, page that
-route. `TestNoPaginationFields` enforces this.
+`TestNoPaginationFields` and `TestListMetadataIsUnreferenced` enforce this.
+
+### Removed in the route-convention pass
+
+| removed | finding | question |
+| --- | --- | --- |
+| `GET /paper/{paperId}/presigned-url`, `PaperPresignedUrl{Request,Response}` | A presigned URL is a standard, correct S3 mechanism — a time-limited signed URL for one object, so a browser fetches a PDF without the API proxying bytes and without a credential reaching the client. It is dropped because **infra has no object storage at all**, so the contract would be describing one backend's feature | Where does paper-PDF storage live once both backends share an implementation? |
+| `DataExtractionReview` and its list endpoints, `DataExtractionInput`, `DataExtraction{Create,Edit}Request`, `DataExtractionList{,Request}`, `DataExtractionReviewList{,Request}` | Replaced by the flat upsert (see below). The review entity keyed the old read endpoints, and it is exactly what the restructure questions | [metacensus/ui#42](https://github.com/metacensus/ui/issues/42) |
+| `ProtocolCreateRequest.Draft`, the `{"protocol": …}` body envelope | demo's wrapper; flattened with the route convention | — |
 
 ## What this contract requires of implementers
 
@@ -138,8 +146,11 @@ route. `TestNoPaginationFields` enforces this.
   no other way to read them. This is the one place the contract asks for new
   work rather than describing what exists.
 - infra: `Session` sheds `user`; enum zero values become `Unspecified`.
-- demo: `Topic.createdAt` → `created`; lists gain the `{items, metadata}`
-  envelope; writes return resources instead of `{"message": …}`.
+- demo: `Topic.createdAt` → `created`; lists wrap their arrays in `items`; writes
+  return resources instead of `{"message": …}`; sign-up moves from `POST /user`
+  to `POST /signup`; `/protocol/create` and `/protocol/edit` become
+  `POST /protocol` and `POST /protocol/{protocolId}`; the extraction write
+  endpoints collapse into one upsert.
 
 ## Behaviour found in the sources, not ratified here
 

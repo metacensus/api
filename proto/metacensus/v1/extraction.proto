@@ -1,40 +1,33 @@
-// Data extraction: one reviewer's pass over one paper against one protocol.
+// Data extraction: the values pulled from one paper against one protocol.
 syntax = "proto3";
 
 package metacensus.v1;
 
-import "google/protobuf/timestamp.proto";
-import "metacensus/v1/common.proto";
-
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
-// DataExtractionReview groups the values one reviewer extracted from one paper.
-// A paper needs several before it counts as extracted.
-message DataExtractionReview {
-  string id = 1;
-  string topic_id = 2;
-  string paper_id = 3;
-  string protocol_id = 4;
-  google.protobuf.Timestamp created = 5;
+// DataExtraction is the set of values extracted from one paper against one
+// protocol, identified by the three ids together.
+//
+// It is both the body of `POST /extraction`, which upserts it, and what that
+// route and `GET /extraction` return.
+message DataExtraction {
+  string topic_id = 1;
+  string paper_id = 2;
+  string protocol_id = 3;
+  repeated DatumExtraction data = 4;
 }
 
-// DataExtraction is one answered protocol element within a review.
-message DataExtraction {
-  string id = 1;
-  string data_extraction_review_id = 2;
-  string paper_id = 3;
-  string protocol_id = 4;
-  string protocol_element_id = 5;
+// DatumExtraction is one answered protocol element.
+message DatumExtraction {
+  string protocol_element_id = 1;
 
   // The extracted value. A string for every element type the contract
   // describes; multi-select elements have no representation yet.
-  string data = 6;
+  string datum = 2;
 
-  // Where in the PDF the value was read from. Empty when the reviewer typed the
-  // value rather than selecting it.
-  repeated SourceLocationPage source_location = 7;
-
-  google.protobuf.Timestamp created = 8;
+  // Where in the PDF the value was read from. Empty when the value was typed
+  // rather than selected.
+  repeated SourceLocationPage source_location = 3;
 }
 
 // SourceLocationPage is the highlighted rectangles on one page of a PDF.
@@ -51,60 +44,11 @@ message SourceRect {
   double h = 4;
 }
 
-// DataExtractionInput is one element's value as submitted. The server assigns
-// the id, review id and timestamp.
-message DataExtractionInput {
-  string protocol_element_id = 1;
-  string protocol_id = 2;
-  string paper_id = 3;
-  string data = 4;
-  repeated SourceLocationPage source_location = 5;
-}
-
-// DataExtractionListRequest is the body of `POST /extraction`. Both fields are
-// required.
-message DataExtractionListRequest {
-  string paper_id = 1;
-  string extraction_review_id = 2;
-}
-
-// DataExtractionList is the response to `POST /extraction`.
-message DataExtractionList {
-  repeated DataExtraction items = 1;
-  ListMetadata metadata = 2;
-}
-
-// DataExtractionReviewListRequest is the body of `POST /extraction-review`. All
-// three fields are required.
-message DataExtractionReviewListRequest {
+// DataExtractionGetRequest is the query string of `GET /extraction`, which
+// returns a `DataExtraction`. All three fields are required: together they
+// identify it.
+message DataExtractionGetRequest {
   string topic_id = 1;
   string paper_id = 2;
   string protocol_id = 3;
-}
-
-// DataExtractionReviewList is the response to `POST /extraction-review`.
-message DataExtractionReviewList {
-  repeated DataExtractionReview items = 1;
-  ListMetadata metadata = 2;
-}
-
-// DataExtractionCreateRequest is the body of `POST /extraction/create`, which
-// creates a review with all of its values and returns the
-// `DataExtractionReview`.
-message DataExtractionCreateRequest {
-  string topic_id = 1;
-  string paper_id = 2;
-  string protocol_id = 3;
-  repeated DataExtractionInput data = 4;
-}
-
-// DataExtractionEditRequest is the body of `POST /extraction/edit`, which
-// returns the updated `DataExtractionReview`. Values are matched per element
-// and inserted when absent, so an edit can add answers the original omitted.
-message DataExtractionEditRequest {
-  string topic_id = 1;
-  string paper_id = 2;
-  string protocol_id = 3;
-  string extraction_review_id = 4;
-  repeated DataExtractionInput data = 5;
 }

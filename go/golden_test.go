@@ -24,15 +24,9 @@ const (
 	protoPkg   = "metacensus.v1"
 )
 
-// marshalGolden renders one fixture the way the contract says to, then
-// re-indents it.
-//
-// The re-indent is not cosmetic. protojson deliberately randomises the
-// whitespace between JSON members — the same message marshalled twice can
-// differ byte for byte — precisely so that nobody builds a byte comparison on
-// top of it. Running the output back through encoding/json normalises the
-// framing while preserving field order, which protojson emits in field-number
-// order. That is what makes a committed golden file possible at all.
+// marshalGolden renders one fixture and re-indents it. protojson varies its
+// whitespace between runs, so a byte comparison needs the output normalised
+// first; encoding/json preserves field order while doing that.
 func marshalGolden(t *testing.T, f fixture) []byte {
 	t.Helper()
 
@@ -49,20 +43,13 @@ func marshalGolden(t *testing.T, f fixture) []byte {
 	return buf.Bytes()
 }
 
-// TestGolden is the check that makes the contract's conventions real.
-//
-// Everything the .proto files and buf config assert about the wire — that
-// fields are lowerCamelCase, that enums are PascalCase strings, that timestamps
-// are RFC 3339, that ids are strings, that a list is `{items, metadata}` — is
-// only true if the encoder actually does it. These files are what the encoder
-// actually does.
+// TestGolden diffs every fixture's protojson output against a committed file.
 func TestGolden(t *testing.T) {
 	if *update {
 		if err := os.MkdirAll(goldenDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		// Remove stale goldens so a renamed or deleted message does not leave
-		// an orphan behind that the freshness check would never notice.
+		// Remove stale goldens so a renamed message leaves no orphan.
 		existing, err := filepath.Glob(filepath.Join(goldenDir, "*.json"))
 		if err != nil {
 			t.Fatal(err)
@@ -101,13 +88,8 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// TestRoundTrip proves the golden files are not just what the encoder emits but
-// what the decoder accepts: every golden parses back into its message and
-// re-marshals identically.
-//
-// This is where a golden that was hand-edited into something protojson cannot
-// read gets caught — an enum spelled the JSON way rather than the proto way, a
-// timestamp that is not RFC 3339, a 64-bit integer left unquoted.
+// TestRoundTrip checks every golden parses back and re-marshals identically,
+// so a hand-edited golden the decoder cannot read fails.
 func TestRoundTrip(t *testing.T) {
 	for _, f := range fixtures() {
 		t.Run(f.name, func(t *testing.T) {
@@ -130,9 +112,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// TestEveryMessageHasAFixture keeps the golden set honest: a message added to
-// the contract without a fixture has no proof that its wire shape is what
-// anyone intended.
+// TestEveryMessageHasAFixture fails on a message with no golden.
 func TestEveryMessageHasAFixture(t *testing.T) {
 	covered := map[string]bool{}
 	for _, f := range fixtures() {
@@ -152,8 +132,7 @@ func TestEveryMessageHasAFixture(t *testing.T) {
 	}
 }
 
-// forEachContractMessage visits every message declared in package
-// metacensus.v1, nested messages included.
+// forEachContractMessage visits every message in package metacensus.v1.
 func forEachContractMessage(t *testing.T, visit func(protoreflect.MessageDescriptor)) {
 	t.Helper()
 
@@ -161,9 +140,7 @@ func forEachContractMessage(t *testing.T, visit func(protoreflect.MessageDescrip
 	walk = func(mds protoreflect.MessageDescriptors) {
 		for i := 0; i < mds.Len(); i++ {
 			md := mds.Get(i)
-			// Skip synthetic map entry messages: they are an implementation
-			// detail of `map<k, v>` and never appear on the wire as objects of
-			// their own.
+			// Map entries are synthetic and never appear on the wire.
 			if md.IsMapEntry() {
 				continue
 			}
@@ -178,10 +155,6 @@ func forEachContractMessage(t *testing.T, visit func(protoreflect.MessageDescrip
 }
 
 // forEachContractFile visits every .proto file in package metacensus.v1.
-//
-// The generated packages register themselves on import, so the registry is the
-// complete contract as long as this test binary imports the generated package —
-// which it does, via the fixtures.
 func forEachContractFile(t *testing.T, visit func(protoreflect.FileDescriptor)) {
 	t.Helper()
 
@@ -200,15 +173,9 @@ func forEachContractFile(t *testing.T, visit func(protoreflect.FileDescriptor)) 
 
 // --- TypeScript cross-check generation ------------------------------------
 //
-// The Go tests prove the JSON is what the contract says. They cannot prove the
-// generated TypeScript agrees with it — that the field the encoder emits is the
-// field the interface declares, that a field the encoder omits is one the
-// interface marks optional, that the enum string is a member of the generated
-// enum. Only tsc can prove that, and only against a typed literal.
-//
-// So the same test run that writes the golden JSON also writes that literal,
-// transcribed from the identical bytes. Hand-writing it would let the two drift;
-// generating it means they cannot. CI regenerates both and fails on any diff.
+// Writes contract/ts/test/golden.ts from the same bytes as the golden JSON, so
+// tsc can check the documents against the generated interfaces. Generated
+// rather than hand-written so the two cannot drift.
 
 func writeTypeScriptGolden(t *testing.T) {
 	t.Helper()
@@ -231,9 +198,7 @@ func writeTypeScriptGolden(t *testing.T) {
 
 		addImport(typeImports, tsModule(md), tsName(md))
 		lit := tsMessageLiteral(t, md, compact.Bytes(), 1, valueImports, enumAsserts)
-		// `golden` prefix so the constant never collides with the type it is
-		// annotated with, or with a global (`Error` is both a message here and
-		// a TypeScript built-in).
+		// `golden` prefix avoids colliding with the type, or with `Error`.
 		fmt.Fprintf(&body, "export const golden%s: %s = %s;\n\n", f.name, tsName(md), lit)
 	}
 
@@ -269,12 +234,8 @@ func writeTypeScriptGolden(t *testing.T) {
 	// carries. The literal above proves the member is accepted where the
 	// interface wants the enum; this proves the member serialises back to the
 	// same characters protojson wrote.
-	// `${Enum.Member}` is a template literal type, which resolves a string enum
-	// member down to its literal value. Annotating the property with it and
-	// assigning the characters protojson actually wrote makes tsc compare the
-	// two: rename a proto enum value on one side only and this stops compiling.
-	// A plain `Record<string, string>` would prove nothing — every enum member
-	// is a string.
+	// `${Enum.Member}` resolves a string enum member to its literal value, so
+	// tsc compares it against the characters protojson wrote.
 	out.WriteString(`// Every enum member used in the literals above, pinned to the exact characters
 // protojson emitted for it. This is what proves the two languages share one
 // enum vocabulary and not merely one set of field names.
@@ -298,9 +259,8 @@ export const enumWireValues: {
 	}
 }
 
-// tsMessageLiteral transcribes one JSON object into a TypeScript object
-// literal, walking the message descriptor alongside it so enum-valued fields
-// come out as enum members rather than bare strings.
+// tsMessageLiteral transcribes a JSON object into a TypeScript literal, walking
+// the descriptor alongside it so enum fields come out as enum members.
 func tsMessageLiteral(
 	t *testing.T,
 	md protoreflect.MessageDescriptor,
@@ -401,8 +361,7 @@ func tsScalarOrMessage(
 
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		md := fd.Message()
-		// Well-known types serialise as scalars, not objects: a Timestamp is an
-		// RFC 3339 string, an Int32Value is a number. ts-proto unwraps them the
+		// Well-known types serialise as scalars and ts-proto unwraps them the
 		// same way, so the raw JSON is already the right literal.
 		if strings.HasPrefix(string(md.FullName()), "google.protobuf.") {
 			return string(raw)
@@ -410,9 +369,7 @@ func tsScalarOrMessage(
 		return tsMessageLiteral(t, md, raw, depth, valueImports, enumAsserts)
 
 	default:
-		// Strings, numbers and booleans are valid TypeScript literals as JSON
-		// wrote them, 64-bit integers included: protojson quotes those and
-		// ts-proto's forceLong=string types them as strings.
+		// Valid TypeScript as JSON wrote them, quoted 64-bit integers included.
 		return string(raw)
 	}
 }
@@ -421,9 +378,8 @@ func tsName(d protoreflect.Descriptor) string {
 	return strings.ReplaceAll(strings.TrimPrefix(string(d.FullName()), protoPkg+"."), ".", "_")
 }
 
-// tsModule is the specifier the cross-check imports a type from. The `.js`
-// suffix matches ts-proto's `importSuffix=.js`, which NodeNext resolution
-// requires on relative imports.
+// tsModule is the specifier a type is imported from; `.js` matches ts-proto's
+// importSuffix.
 func tsModule(d protoreflect.Descriptor) string {
 	return "../src/" + strings.TrimSuffix(d.ParentFile().Path(), ".proto") + ".js"
 }

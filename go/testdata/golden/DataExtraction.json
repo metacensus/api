@@ -1,22 +1,24 @@
 {
-  "id": "204",
-  "dataExtractionReviewId": "58",
+  "topicId": "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   "paperId": "17",
   "protocolId": "4",
-  "protocolElementId": "31",
-  "data": "rct",
-  "sourceLocation": [
+  "data": [
     {
-      "page": 3,
-      "rects": [
+      "protocolElementId": "31",
+      "datum": "rct",
+      "sourceLocation": [
         {
-          "x": 72.5,
-          "y": 431.25,
-          "w": 268,
-          "h": 12.5
+          "page": 3,
+          "rects": [
+            {
+              "x": 72.5,
+              "y": 431.25,
+              "w": 268,
+              "h": 12.5
+            }
+          ]
         }
       ]
     }
-  ],
-  "created": "2024-11-08T09:12:00Z"
+  ]
 }

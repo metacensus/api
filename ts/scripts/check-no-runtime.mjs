@@ -1,23 +1,9 @@
-// Assert that the generated TypeScript is types, not code.
+// Assert that the generated TypeScript is types, not code: no declared
+// dependencies, and no value imports under src/. ts-proto's default forceLong
+// would pull in `long`; dropping onlyTypes would pull in protobufjs.
 //
-// "No runtime dependencies" is a property that decays quietly. ts-proto's
-// *default* `forceLong` setting imports the `long` package; dropping
-// `onlyTypes` brings in encode/decode helpers that pull in `protobufjs/minimal`.
-// Either change would still compile, still pass the golden checks, and still
-// look like a types package — right up until a consumer's bundle grew.
-//
-// So this runs in CI, and it checks two things:
-//
-//   1. `dependencies` in package.json is empty. Nothing to install means
-//      nothing to ship.
-//   2. No file under src/ has a value import. `import type { X }` erases at
-//      compile time; a bare `import { X }` does not, and its presence means
-//      some generated file now needs another module at runtime.
-//
-// The generated files do contain one runtime value — ts-proto emits
-// `export const protobufPackage = "metacensus.v1"` per file. That is a string
-// literal with no imports and no dependencies, so it is allowed and asserted
-// to be the only such thing.
+// `export const protobufPackage` is the one permitted runtime emission — a
+// string literal with no imports.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -57,14 +43,11 @@ function* walk(dir) {
   }
 }
 
-// `import type ...`, `export type ...` and `export ... from` are erased at
-// compile time. Anything else that imports is a runtime edge.
+// Type-only imports are erased at compile time; anything else is a runtime edge.
 const importLine = /^\s*import\s/;
 const typeOnlyImport = /^\s*import\s+type\s/;
 
-// The one permitted runtime emission, plus the enum declarations, which are
-// values but self-contained: a string enum compiles to an object literal with
-// no imports.
+// Permitted: a string enum compiles to a self-contained object literal.
 const allowedValueDecl = /^\s*(export\s+const\s+protobufPackage\s*=|export\s+enum\s)/;
 
 let sawProtobufPackage = false;
@@ -88,8 +71,7 @@ for (const file of walk(srcRoot)) {
 }
 
 if (!sawProtobufPackage) {
-  // Not a failure in itself, but it means ts-proto's output changed shape and
-  // the assumptions above deserve a re-read.
+  // Not a failure, but ts-proto's output changed shape.
   console.warn("note: no `protobufPackage` constant found; ts-proto output may have changed shape");
 }
 

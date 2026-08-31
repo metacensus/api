@@ -24,12 +24,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ListMetadata is the `metadata` half of every list response. Empty: nothing on
-// this surface paginates. It exists so that a route can grow pagination without
-// breaking consumers, and it is shared by every list, so a field added here is
-// added to all of them.
+// ListMetadata is the pagination envelope for list responses. Defined, but
+// referenced by nothing: no route paginates yet.
 type ListMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// 1-based.
+	Page int32 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	// Items per page.
+	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Items across all pages, not just this one.
+	Total         int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -62,6 +66,27 @@ func (x *ListMetadata) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListMetadata.ProtoReflect.Descriptor instead.
 func (*ListMetadata) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ListMetadata) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListMetadata) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListMetadata) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
 }
 
 // Error is the body of any failed request.
@@ -158,8 +183,11 @@ var File_metacensus_v1_common_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\"\x0e\n" +
-	"\fListMetadata\"\x1d\n" +
+	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\"N\n" +
+	"\fListMetadata\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x05R\x05total\"\x1d\n" +
 	"\x05Error\x12\x14\n" +
 	"\x05error\x18\x01 \x01(\tR\x05error\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +

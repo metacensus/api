@@ -1,64 +1,29 @@
 version: v2
 
-# IMPORTANT: every relative path in this file — the plugin paths, the `out`
-# paths and the input directory — is resolved against the *working directory
-# buf is invoked from*, not against this file. That directory is `contract/go`,
-# because `contract/go/go.mod` is the only place the pinned `buf` and
-# `protoc-gen-go` binaries exist: they are Go 1.24 `tool` dependencies, so
-# `go tool buf` has to run inside that module. `contract/Makefile` is the entry
-# point that gets this right; run it rather than invoking buf by hand.
+# Paths are relative to `contract/go`, which is where buf runs. Use
+# `contract/Makefile`; see contract/README.md.
 
 plugins:
-  # Upstream protoc-gen-go and nothing else. In particular NOT
-  # protoc-gen-go-patch / protopatch, which infra/temporal uses: it exists to
-  # rewrite `json:` struct tags, and these types are marshalled with protojson,
-  # which ignores struct tags entirely. It also could not fix what would
-  # actually break under `encoding/json` — enums would marshal as integers,
-  # timestamps as `{seconds, nanos}` objects, and oneofs as wrapper structs.
-  # The rule is: protojson, always.
   - local: [go, tool, protoc-gen-go]
     out: .
     opt:
       - paths=source_relative
 
-  # ts-proto, pinned in contract/ts/package.json and run out of that package's
-  # own node_modules. `contract/ts` is deliberately not an npm workspace of this
-  # repo, so nothing hoists the binary somewhere this path cannot find it.
   - local: ../ts/node_modules/.bin/protoc-gen-ts_proto
     out: ../ts/src
     opt:
-      # Interfaces only: no encode/decode, no fromJSON/toJSON, no client stubs,
-      # nothing that would need a runtime dependency.
+      # These five together describe protojson output rather than protobuf
+      # binary. Changing any of them breaks the golden cross-check.
       - onlyTypes=true
-      # `useDate` and `stringEnums` are NOT implied by onlyTypes — that was
-      # checked against ts-proto 2.7.7 rather than assumed, and the defaults
-      # describe protobuf *binary*: `Date` objects for timestamps and numeric
-      # enum members. protojson emits RFC 3339 strings and enum value names, so
-      # both have to be set explicitly or the TypeScript would describe a wire
-      # format this contract does not have.
       - useDate=string
       - stringEnums=true
-      # Drop ts-proto's synthetic `UNRECOGNIZED` member. It models protobuf
-      # binary's tolerance of unknown enum numbers; protojson rejects an unknown
-      # enum string outright and can never emit one, so leaving it in would make
-      # the TypeScript type strictly wider than the wire.
       - unrecognizedEnum=false
-      # 64-bit integers as strings, matching protojson, which quotes them
-      # because JSON numbers cannot hold them precisely. ts-proto's default
-      # (`forceLong=long`) would pull in the `long` package — a runtime
-      # dependency in a types-only package. The no-value-imports check in CI is
-      # there to catch a regression on exactly this.
       - forceLong=string
-      # Message-typed fields become `field?: T`; scalars, enums and repeated
-      # fields stay required. This is the half of the emit decision that lives
-      # on the TypeScript side; protojson's EmitDefaultValues is the other half.
-      # See contract/README.md — they only agree in this combination.
+      # Message fields optional, scalars required — pairs with
+      # EmitDefaultValues in contract/go/wire.go.
       - useOptionals=messages
       - esModuleInterop=true
-      # ts-proto emits extensionless relative imports by default, which
-      # TypeScript's NodeNext resolution rejects. The package is published and
-      # has to resolve under plain Node, not only inside a bundler — the same
-      # call packages/contract makes — so the suffix goes on at generation time.
+      # NodeNext resolution requires extensions on relative imports.
       - importSuffix=.js
 
 inputs:

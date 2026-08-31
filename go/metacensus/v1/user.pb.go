@@ -142,7 +142,6 @@ func (*UserListRequest) Descriptor() ([]byte, []int) {
 type UserList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*User                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -180,13 +179,6 @@ func (*UserList) Descriptor() ([]byte, []int) {
 func (x *UserList) GetItems() []*User {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *UserList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -241,17 +233,16 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\x90\x01\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x90\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x18\n" +
 	"\acountry\x18\x04 \x01(\tR\acountry\x124\n" +
 	"\acreated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"\x11\n" +
-	"\x0fUserListRequest\"n\n" +
+	"\x0fUserListRequest\"5\n" +
 	"\bUserList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\")\n" +
+	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
 	"\x0eUserGetRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userIdBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
@@ -274,17 +265,15 @@ var file_metacensus_v1_user_proto_goTypes = []any{
 	(*UserList)(nil),              // 2: metacensus.v1.UserList
 	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
 	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
-	(*ListMetadata)(nil),          // 5: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
 	4, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
-	5, // 2: metacensus.v1.UserList.metadata:type_name -> metacensus.v1.ListMetadata
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_user_proto_init() }
@@ -292,7 +281,6 @@ func file_metacensus_v1_user_proto_init() {
 	if File_metacensus_v1_user_proto != nil {
 		return
 	}
-	file_metacensus_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

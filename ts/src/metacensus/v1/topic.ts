@@ -5,7 +5,6 @@
 // source: metacensus/v1/topic.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -26,7 +25,6 @@ export interface TopicListRequest {
 /** TopicList is the response to `GET /topic`. */
 export interface TopicList {
   items: Topic[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**
@@ -62,7 +60,7 @@ export interface Member {
   /** The member's user id, not an id of the membership itself. */
   id: string;
   /** When the user joined the topic. */
-  created?: string | undefined;
+  joined?: string | undefined;
 }
 
 /** MemberListRequest is the path parameter of `GET /topic/{topicId}/member`. */
@@ -73,7 +71,6 @@ export interface MemberListRequest {
 /** MemberList is the response to `GET /topic/{topicId}/member`. */
 export interface MemberList {
   items: Member[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**

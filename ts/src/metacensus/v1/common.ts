@@ -14,12 +14,16 @@ export const protobufPackage = "metacensus.v1";
  */
 
 /**
- * ListMetadata is the `metadata` half of every list response. Empty: nothing on
- * this surface paginates. It exists so that a route can grow pagination without
- * breaking consumers, and it is shared by every list, so a field added here is
- * added to all of them.
+ * ListMetadata is the pagination envelope for list responses. Defined, but
+ * referenced by nothing: no route paginates yet.
  */
 export interface ListMetadata {
+  /** 1-based. */
+  page: number;
+  /** Items per page. */
+  limit: number;
+  /** Items across all pages, not just this one. */
+  total: number;
 }
 
 /** Error is the body of any failed request. */

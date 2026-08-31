@@ -134,7 +134,6 @@ func (*TopicListRequest) Descriptor() ([]byte, []int) {
 type TopicList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Topic               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -172,13 +171,6 @@ func (*TopicList) Descriptor() ([]byte, []int) {
 func (x *TopicList) GetItems() []*Topic {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *TopicList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -336,7 +328,7 @@ type Member struct {
 	// The member's user id, not an id of the membership itself.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// When the user joined the topic.
-	Created       *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created,proto3" json:"created,omitempty"`
+	Joined        *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=joined,proto3" json:"joined,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -378,9 +370,9 @@ func (x *Member) GetId() string {
 	return ""
 }
 
-func (x *Member) GetCreated() *timestamppb.Timestamp {
+func (x *Member) GetJoined() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Created
+		return x.Joined
 	}
 	return nil
 }
@@ -434,7 +426,6 @@ func (x *MemberListRequest) GetTopicId() string {
 type MemberList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Member              `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -472,13 +463,6 @@ func (*MemberList) Descriptor() ([]byte, []int) {
 func (x *MemberList) GetItems() []*Member {
 	if x != nil {
 		return x.Items
-	}
-	return nil
-}
-
-func (x *MemberList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
 	}
 	return nil
 }
@@ -541,32 +525,30 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\x83\x01\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\x01\n" +
 	"\x05Topic\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
 	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x04 \x01(\tR\vdescription\"\x12\n" +
-	"\x10TopicListRequest\"p\n" +
+	"\x10TopicListRequest\"7\n" +
 	"\tTopicList\x12*\n" +
-	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\",\n" +
+	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\",\n" +
 	"\x0fTopicGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"J\n" +
 	"\x12TopicCreateRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"1\n" +
 	"\x14TopicProtocolRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"N\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"L\n" +
 	"\x06Member\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
-	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\".\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
+	"\x06joined\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x06joined\".\n" +
 	"\x11MemberListRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"r\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"9\n" +
 	"\n" +
 	"MemberList\x12+\n" +
-	"\x05items\x18\x01 \x03(\v2\x15.metacensus.v1.MemberR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"F\n" +
+	"\x05items\x18\x01 \x03(\v2\x15.metacensus.v1.MemberR\x05items\"F\n" +
 	"\x10MemberGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userIdBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
@@ -596,20 +578,17 @@ var file_metacensus_v1_topic_proto_goTypes = []any{
 	(*MemberList)(nil),            // 8: metacensus.v1.MemberList
 	(*MemberGetRequest)(nil),      // 9: metacensus.v1.MemberGetRequest
 	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
-	(*ListMetadata)(nil),          // 11: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_topic_proto_depIdxs = []int32{
 	10, // 0: metacensus.v1.Topic.created:type_name -> google.protobuf.Timestamp
 	0,  // 1: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
-	11, // 2: metacensus.v1.TopicList.metadata:type_name -> metacensus.v1.ListMetadata
-	10, // 3: metacensus.v1.Member.created:type_name -> google.protobuf.Timestamp
-	6,  // 4: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
-	11, // 5: metacensus.v1.MemberList.metadata:type_name -> metacensus.v1.ListMetadata
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	10, // 2: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
+	6,  // 3: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
+	4,  // [4:4] is the sub-list for method output_type
+	4,  // [4:4] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_topic_proto_init() }
@@ -617,7 +596,6 @@ func file_metacensus_v1_topic_proto_init() {
 	if File_metacensus_v1_topic_proto != nil {
 		return
 	}
-	file_metacensus_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

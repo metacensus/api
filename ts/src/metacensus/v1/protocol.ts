@@ -5,7 +5,6 @@
 // source: metacensus/v1/protocol.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -57,30 +56,22 @@ export interface ProtocolTemplate {
 }
 
 /**
- * ProtocolCreateRequest is the body of `POST /protocol/create`, which returns
- * the created `Protocol`.
+ * ProtocolCreateRequest is the body of `POST /protocol`, which returns the
+ * created `Protocol`. Ids on the sections and elements are ignored.
  */
 export interface ProtocolCreateRequest {
-  protocol?: ProtocolCreateRequest_Draft | undefined;
-}
-
-/**
- * Draft is a protocol that does not exist yet. Ids on its sections and
- * elements are client-side scratch values and are ignored.
- */
-export interface ProtocolCreateRequest_Draft {
-  title: string;
   topicId: string;
+  title: string;
   sections: ProtocolSection[];
 }
 
 /**
- * ProtocolEditRequest is the body of `POST /protocol/edit`, which returns the
- * updated `Protocol`. A section or element with a positive id is updated in
- * place; any other id inserts a new one. Omitting one does not delete it.
+ * ProtocolEditRequest is the body of `POST /protocol/{protocolId}`, which
+ * returns the updated `Protocol`. A section or element with a positive id is
+ * updated in place; any other id inserts a new one. Omitting one does not
+ * delete it.
  */
 export interface ProtocolEditRequest {
-  protocolId: string;
   sections: ProtocolSection[];
 }
 
@@ -94,7 +85,6 @@ export interface ProtocolTemplateListRequest {
 /** ProtocolTemplateList is the response to `POST /protocol-template`. */
 export interface ProtocolTemplateList {
   items: ProtocolTemplate[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**
@@ -110,5 +100,4 @@ export interface ProtocolElementListRequest {
  */
 export interface ProtocolElementList {
   items: ProtocolElement[];
-  metadata?: ListMetadata | undefined;
 }

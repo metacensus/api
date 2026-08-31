@@ -79,7 +79,7 @@ func (x *LoginRequest) GetPassword() string {
 	return ""
 }
 
-// SignUpRequest is the body of `POST /user` (unauthenticated).
+// SignUpRequest is the body of `POST /signup` (unauthenticated).
 type SignUpRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -149,7 +149,7 @@ func (x *SignUpRequest) GetPassword() string {
 	return ""
 }
 
-// Session is the response to `POST /login` and to `POST /user`.
+// Session is the response to `POST /login` and to `POST /signup`.
 type Session struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bearer token, sent back as `Authorization: Bearer <token>`.

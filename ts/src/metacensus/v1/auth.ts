@@ -23,7 +23,7 @@ export interface LoginRequest {
   password: string;
 }
 
-/** SignUpRequest is the body of `POST /user` (unauthenticated). */
+/** SignUpRequest is the body of `POST /signup` (unauthenticated). */
 export interface SignUpRequest {
   name: string;
   email: string;
@@ -32,7 +32,7 @@ export interface SignUpRequest {
   password: string;
 }
 
-/** Session is the response to `POST /login` and to `POST /user`. */
+/** Session is the response to `POST /login` and to `POST /signup`. */
 export interface Session {
   /** Bearer token, sent back as `Authorization: Bearer <token>`. */
   token: string;

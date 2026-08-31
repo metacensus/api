@@ -15,15 +15,19 @@
 /* eslint-disable */
 import type { LoginRequest, LogoutResponse, Session, SignUpRequest } from "../src/metacensus/v1/auth.js";
 import type { Error, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
-import type { DataExtraction, DataExtractionCreateRequest, DataExtractionEditRequest, DataExtractionInput, DataExtractionList, DataExtractionListRequest, DataExtractionReview, DataExtractionReviewList, DataExtractionReviewListRequest, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
-import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse, PaperPresignedUrlRequest, PaperPresignedUrlResponse } from "../src/metacensus/v1/paper.js";
+import type { DataExtraction, DataExtractionGetRequest, DatumExtraction, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
+import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse } from "../src/metacensus/v1/paper.js";
 import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
-import type { Protocol, ProtocolCreateRequest, ProtocolCreateRequest_Draft, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
+import type { Protocol, ProtocolCreateRequest, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "../src/metacensus/v1/topic.js";
 import type { User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
 import { Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
 
-export const goldenListMetadata: ListMetadata = {};
+export const goldenListMetadata: ListMetadata = {
+  page: 1,
+  limit: 30,
+  total: 42,
+};
 
 export const goldenError: Error = {
   error: "Invalid credentials",
@@ -71,7 +75,6 @@ export const goldenUserList: UserList = {
       created: "2024-09-01T10:00:00Z",
     },
   ],
-  metadata: {},
 };
 
 export const goldenUserGetRequest: UserGetRequest = {
@@ -96,7 +99,6 @@ export const goldenTopicList: TopicList = {
       description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
     },
   ],
-  metadata: {},
 };
 
 export const goldenTopicGetRequest: TopicGetRequest = {
@@ -114,7 +116,7 @@ export const goldenTopicProtocolRequest: TopicProtocolRequest = {
 
 export const goldenMember: Member = {
   id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-  created: "2024-10-19T14:00:00Z",
+  joined: "2024-10-19T14:00:00Z",
 };
 
 export const goldenMemberListRequest: MemberListRequest = {
@@ -125,10 +127,9 @@ export const goldenMemberList: MemberList = {
   items: [
     {
       id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-      created: "2024-10-19T14:00:00Z",
+      joined: "2024-10-19T14:00:00Z",
     },
   ],
-  metadata: {},
 };
 
 export const goldenMemberGetRequest: MemberGetRequest = {
@@ -177,7 +178,6 @@ export const goldenPropList: PropList = {
       description: "DPYD genotype-guided dosing reduces grade 3+ toxicity.",
     },
   ],
-  metadata: {},
 };
 
 export const goldenPropGetRequest: PropGetRequest = {
@@ -211,7 +211,6 @@ export const goldenVoteList: VoteList = {
       lastCast: "2024-11-10T07:22:31Z",
     },
   ],
-  metadata: {},
 };
 
 export const goldenVoteSetRequest: VoteSetRequest = {
@@ -260,7 +259,6 @@ export const goldenPaperList: PaperList = {
       created: "2024-10-22T12:00:00Z",
     },
   ],
-  metadata: {},
 };
 
 export const goldenPaperCreateRequest: PaperCreateRequest = {
@@ -288,14 +286,6 @@ export const goldenPaperLookupResponse: PaperLookupResponse = {
   ],
   abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
   doi: "10.1016/S1470-2045(18)30686-7",
-};
-
-export const goldenPaperPresignedUrlRequest: PaperPresignedUrlRequest = {
-  paperId: "17",
-};
-
-export const goldenPaperPresignedUrlResponse: PaperPresignedUrlResponse = {
-  url: "https://s3.example.org/papers/17/henricks-2018.pdf?X-Amz-Expires=900",
 };
 
 export const goldenProtocol: Protocol = {
@@ -417,43 +407,8 @@ export const goldenProtocolTemplate: ProtocolTemplate = {
 };
 
 export const goldenProtocolCreateRequest: ProtocolCreateRequest = {
-  protocol: {
-    title: "Custom Protocol",
-    topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-    sections: [
-      {
-        id: "9",
-        title: "Study characteristics",
-        sortOrder: 0,
-        protocolElements: [
-          {
-            id: "31",
-            name: "studyDesign",
-            type: "radio",
-            label: "Study design",
-            placeholder: "",
-            required: true,
-            options: [
-              {
-                name: "Randomised controlled trial",
-                value: "rct",
-              },
-              {
-                name: "Cohort",
-                value: "cohort",
-              },
-            ],
-            sortOrder: 1,
-          },
-        ],
-      },
-    ],
-  },
-};
-
-export const goldenProtocolCreateRequest_Draft: ProtocolCreateRequest_Draft = {
-  title: "Custom Protocol",
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
+  title: "Custom Protocol",
   sections: [
     {
       id: "9",
@@ -485,7 +440,6 @@ export const goldenProtocolCreateRequest_Draft: ProtocolCreateRequest_Draft = {
 };
 
 export const goldenProtocolEditRequest: ProtocolEditRequest = {
-  protocolId: "4",
   sections: [
     {
       id: "9",
@@ -553,7 +507,6 @@ export const goldenProtocolTemplateList: ProtocolTemplateList = {
       ],
     },
   ],
-  metadata: {},
 };
 
 export const goldenProtocolElementListRequest: ProtocolElementListRequest = {};
@@ -580,24 +533,36 @@ export const goldenProtocolElementList: ProtocolElementList = {
       sortOrder: 1,
     },
   ],
-  metadata: {},
-};
-
-export const goldenDataExtractionReview: DataExtractionReview = {
-  id: "58",
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  paperId: "17",
-  protocolId: "4",
-  created: "2024-11-08T09:00:00Z",
 };
 
 export const goldenDataExtraction: DataExtraction = {
-  id: "204",
-  dataExtractionReviewId: "58",
+  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   paperId: "17",
   protocolId: "4",
+  data: [
+    {
+      protocolElementId: "31",
+      datum: "rct",
+      sourceLocation: [
+        {
+          page: 3,
+          rects: [
+            {
+              x: 72.5,
+              y: 431.25,
+              w: 268,
+              h: 12.5,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+export const goldenDatumExtraction: DatumExtraction = {
   protocolElementId: "31",
-  data: "rct",
+  datum: "rct",
   sourceLocation: [
     {
       page: 3,
@@ -611,7 +576,6 @@ export const goldenDataExtraction: DataExtraction = {
       ],
     },
   ],
-  created: "2024-11-08T09:12:00Z",
 };
 
 export const goldenSourceLocationPage: SourceLocationPage = {
@@ -633,131 +597,10 @@ export const goldenSourceRect: SourceRect = {
   h: 12.5,
 };
 
-export const goldenDataExtractionInput: DataExtractionInput = {
-  protocolElementId: "31",
-  protocolId: "4",
-  paperId: "17",
-  data: "rct",
-  sourceLocation: [
-    {
-      page: 3,
-      rects: [
-        {
-          x: 72.5,
-          y: 431.25,
-          w: 268,
-          h: 12.5,
-        },
-      ],
-    },
-  ],
-};
-
-export const goldenDataExtractionListRequest: DataExtractionListRequest = {
-  paperId: "17",
-  extractionReviewId: "58",
-};
-
-export const goldenDataExtractionList: DataExtractionList = {
-  items: [
-    {
-      id: "204",
-      dataExtractionReviewId: "58",
-      paperId: "17",
-      protocolId: "4",
-      protocolElementId: "31",
-      data: "rct",
-      sourceLocation: [
-        {
-          page: 3,
-          rects: [
-            {
-              x: 72.5,
-              y: 431.25,
-              w: 268,
-              h: 12.5,
-            },
-          ],
-        },
-      ],
-      created: "2024-11-08T09:12:00Z",
-    },
-  ],
-  metadata: {},
-};
-
-export const goldenDataExtractionReviewListRequest: DataExtractionReviewListRequest = {
+export const goldenDataExtractionGetRequest: DataExtractionGetRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   paperId: "17",
   protocolId: "4",
-};
-
-export const goldenDataExtractionReviewList: DataExtractionReviewList = {
-  items: [
-    {
-      id: "58",
-      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-      paperId: "17",
-      protocolId: "4",
-      created: "2024-11-08T09:00:00Z",
-    },
-  ],
-  metadata: {},
-};
-
-export const goldenDataExtractionCreateRequest: DataExtractionCreateRequest = {
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  paperId: "17",
-  protocolId: "4",
-  data: [
-    {
-      protocolElementId: "31",
-      protocolId: "4",
-      paperId: "17",
-      data: "rct",
-      sourceLocation: [
-        {
-          page: 3,
-          rects: [
-            {
-              x: 72.5,
-              y: 431.25,
-              w: 268,
-              h: 12.5,
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-export const goldenDataExtractionEditRequest: DataExtractionEditRequest = {
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  paperId: "17",
-  protocolId: "4",
-  extractionReviewId: "58",
-  data: [
-    {
-      protocolElementId: "31",
-      protocolId: "4",
-      paperId: "17",
-      data: "rct",
-      sourceLocation: [
-        {
-          page: 3,
-          rects: [
-            {
-              x: 72.5,
-              y: 431.25,
-              w: 268,
-              h: 12.5,
-            },
-          ],
-        },
-      ],
-    },
-  ],
 };
 
 // Every enum member used in the literals above, pinned to the exact characters

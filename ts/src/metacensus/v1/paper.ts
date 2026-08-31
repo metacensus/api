@@ -5,7 +5,6 @@
 // source: metacensus/v1/paper.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -40,7 +39,6 @@ export interface PaperListRequest {
 /** PaperList is the response to `POST /paper`. */
 export interface PaperList {
   items: Paper[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**
@@ -79,24 +77,4 @@ export interface PaperLookupResponse {
    */
   abstract: string;
   doi: string;
-}
-
-/**
- * PaperPresignedUrlRequest is the path parameter of
- * `GET /paper/{paperId}/presigned-url`.
- */
-export interface PaperPresignedUrlRequest {
-  paperId: string;
-}
-
-/**
- * PaperPresignedUrlResponse is the response to
- * `GET /paper/{paperId}/presigned-url`.
- */
-export interface PaperPresignedUrlResponse {
-  /**
-   * A short-lived URL for the paper's PDF, opaque to the client. Its expiry is
-   * not reported, so treat a 403 as "mint another".
-   */
-  url: string;
 }

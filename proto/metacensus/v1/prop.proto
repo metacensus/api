@@ -4,7 +4,6 @@ syntax = "proto3";
 package metacensus.v1;
 
 import "google/protobuf/timestamp.proto";
-import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
@@ -71,7 +70,6 @@ message PropListRequest {
 // PropList is the response to `GET /topic/{topicId}/prop`.
 message PropList {
   repeated Prop items = 1;
-  ListMetadata metadata = 2;
 }
 
 // PropGetRequest is the path parameters of
@@ -100,7 +98,6 @@ message VoteListRequest {
 // is the only way to read a prop's votes.
 message VoteList {
   repeated Vote items = 1;
-  ListMetadata metadata = 2;
 }
 
 // VoteSetRequest is the body of `POST /topic/{topicId}/prop/{propId}/vote`,

@@ -1,8 +1,6 @@
 {
   "protocolElementId": "31",
-  "protocolId": "4",
-  "paperId": "17",
-  "data": "rct",
+  "datum": "rct",
   "sourceLocation": [
     {
       "page": 3,

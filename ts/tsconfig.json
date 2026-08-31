@@ -1,21 +1,17 @@
 {
   "compilerOptions": {
-    // NodeNext, like packages/contract: this is a publishable package, so its
-    // types have to resolve under plain Node and not only inside a bundler.
+    // NodeNext: the package is published, so its types must resolve under plain
+    // Node, not only inside a bundler.
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2022",
     "lib": ["ES2022"],
 
-    // Strict is the point. `useOptionals=messages` marks message-typed fields
-    // `?: T | undefined`, and that only means anything under strictNullChecks —
-    // without it the golden cross-check would accept a `null` where the
-    // contract says a key is simply absent, which is exactly the
-    // EmitUnpopulated behaviour this contract rejected.
+    // strictNullChecks is what makes `?: T | undefined` mean anything, and what
+    // makes the golden cross-check reject a `null` where a key is absent.
     "strict": true,
 
-    // Nothing is compiled: the package ships the `.ts` sources and consumers
-    // import them as types. `tsc --noEmit` is a check, not a build.
+    // The package ships .ts sources; tsc is a check, not a build.
     "noEmit": true,
 
     "skipLibCheck": true,

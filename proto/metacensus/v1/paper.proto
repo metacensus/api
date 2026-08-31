@@ -4,7 +4,6 @@ syntax = "proto3";
 package metacensus.v1;
 
 import "google/protobuf/timestamp.proto";
-import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
@@ -37,7 +36,6 @@ message PaperListRequest {
 // PaperList is the response to `POST /paper`.
 message PaperList {
   repeated Paper items = 1;
-  ListMetadata metadata = 2;
 }
 
 // PaperCreateRequest is the JSON body of `POST /paper/create`, which returns
@@ -70,18 +68,4 @@ message PaperLookupResponse {
   string abstract = 4;
 
   string doi = 5;
-}
-
-// PaperPresignedUrlRequest is the path parameter of
-// `GET /paper/{paperId}/presigned-url`.
-message PaperPresignedUrlRequest {
-  string paper_id = 1;
-}
-
-// PaperPresignedUrlResponse is the response to
-// `GET /paper/{paperId}/presigned-url`.
-message PaperPresignedUrlResponse {
-  // A short-lived URL for the paper's PDF, opaque to the client. Its expiry is
-  // not reported, so treat a 403 as "mint another".
-  string url = 1;
 }

@@ -5,42 +5,38 @@
 // source: metacensus/v1/extraction.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
-/** Data extraction: one reviewer's pass over one paper against one protocol. */
+/** Data extraction: the values pulled from one paper against one protocol. */
 
 /**
- * DataExtractionReview groups the values one reviewer extracted from one paper.
- * A paper needs several before it counts as extracted.
+ * DataExtraction is the set of values extracted from one paper against one
+ * protocol, identified by the three ids together.
+ *
+ * It is both the body of `POST /extraction`, which upserts it, and what that
+ * route and `GET /extraction` return.
  */
-export interface DataExtractionReview {
-  id: string;
+export interface DataExtraction {
   topicId: string;
   paperId: string;
   protocolId: string;
-  created?: string | undefined;
+  data: DatumExtraction[];
 }
 
-/** DataExtraction is one answered protocol element within a review. */
-export interface DataExtraction {
-  id: string;
-  dataExtractionReviewId: string;
-  paperId: string;
-  protocolId: string;
+/** DatumExtraction is one answered protocol element. */
+export interface DatumExtraction {
   protocolElementId: string;
   /**
    * The extracted value. A string for every element type the contract
    * describes; multi-select elements have no representation yet.
    */
-  data: string;
+  datum: string;
   /**
-   * Where in the PDF the value was read from. Empty when the reviewer typed the
-   * value rather than selecting it.
+   * Where in the PDF the value was read from. Empty when the value was typed
+   * rather than selected.
    */
   sourceLocation: SourceLocationPage[];
-  created?: string | undefined;
 }
 
 /** SourceLocationPage is the highlighted rectangles on one page of a PDF. */
@@ -58,69 +54,12 @@ export interface SourceRect {
 }
 
 /**
- * DataExtractionInput is one element's value as submitted. The server assigns
- * the id, review id and timestamp.
+ * DataExtractionGetRequest is the query string of `GET /extraction`, which
+ * returns a `DataExtraction`. All three fields are required: together they
+ * identify it.
  */
-export interface DataExtractionInput {
-  protocolElementId: string;
-  protocolId: string;
-  paperId: string;
-  data: string;
-  sourceLocation: SourceLocationPage[];
-}
-
-/**
- * DataExtractionListRequest is the body of `POST /extraction`. Both fields are
- * required.
- */
-export interface DataExtractionListRequest {
-  paperId: string;
-  extractionReviewId: string;
-}
-
-/** DataExtractionList is the response to `POST /extraction`. */
-export interface DataExtractionList {
-  items: DataExtraction[];
-  metadata?: ListMetadata | undefined;
-}
-
-/**
- * DataExtractionReviewListRequest is the body of `POST /extraction-review`. All
- * three fields are required.
- */
-export interface DataExtractionReviewListRequest {
+export interface DataExtractionGetRequest {
   topicId: string;
   paperId: string;
   protocolId: string;
-}
-
-/** DataExtractionReviewList is the response to `POST /extraction-review`. */
-export interface DataExtractionReviewList {
-  items: DataExtractionReview[];
-  metadata?: ListMetadata | undefined;
-}
-
-/**
- * DataExtractionCreateRequest is the body of `POST /extraction/create`, which
- * creates a review with all of its values and returns the
- * `DataExtractionReview`.
- */
-export interface DataExtractionCreateRequest {
-  topicId: string;
-  paperId: string;
-  protocolId: string;
-  data: DataExtractionInput[];
-}
-
-/**
- * DataExtractionEditRequest is the body of `POST /extraction/edit`, which
- * returns the updated `DataExtractionReview`. Values are matched per element
- * and inserted when absent, so an edit can add answers the original omitted.
- */
-export interface DataExtractionEditRequest {
-  topicId: string;
-  paperId: string;
-  protocolId: string;
-  extractionReviewId: string;
-  data: DataExtractionInput[];
 }

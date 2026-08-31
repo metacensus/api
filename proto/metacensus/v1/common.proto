@@ -6,11 +6,18 @@ package metacensus.v1;
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
-// ListMetadata is the `metadata` half of every list response. Empty: nothing on
-// this surface paginates. It exists so that a route can grow pagination without
-// breaking consumers, and it is shared by every list, so a field added here is
-// added to all of them.
-message ListMetadata {}
+// ListMetadata is the pagination envelope for list responses. Defined, but
+// referenced by nothing: no route paginates yet.
+message ListMetadata {
+  // 1-based.
+  int32 page = 1;
+
+  // Items per page.
+  int32 limit = 2;
+
+  // Items across all pages, not just this one.
+  int32 total = 3;
+}
 
 // Error is the body of any failed request.
 message Error {

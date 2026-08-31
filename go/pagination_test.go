@@ -6,24 +6,10 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TestNoPaginationFields locks in a ruling about the whole surface: there is no
-// pagination anywhere in this contract. Every route serves everything, all
-// together. A route grows pagination when it needs it — at which point the
-// `{items, metadata}` envelope on every list response lets it do so without
-// breaking consumers, which is the only reason that envelope exists today.
-//
-// This is a test rather than a one-time audit because the failure mode is
-// gradual. demo genuinely paginates today — `GET /topic` and `GET /user` take
-// `page`/`limit` in the query string, `POST /paper`, `POST /extraction-review`
-// and `POST /protocol-template` take them as body fields — so re-deriving any
-// one of those request messages from demo would quietly reintroduce the
-// parameters, one endpoint at a time, with no single change large enough to
-// argue about.
-//
-// It also guards the shared `ListMetadata`, which is where the same pressure
-// would land from the response side. See the warning on that message: it is
-// shared by infra-derived lists and demo-only lists alike, so the first field
-// added to it is added to all of them on behalf of whichever route asked.
+// TestNoPaginationFields holds the line that no route paginates. demo does
+// paginate today, so re-deriving any of its request messages would reintroduce
+// the parameters one endpoint at a time — hence a test, not a one-off audit.
+// Pagination fields belong on `ListMetadata`, which nothing references.
 func TestNoPaginationFields(t *testing.T) {
 	paginationNames := map[string]bool{
 		"page": true, "limit": true, "offset": true, "cursor": true,
@@ -32,9 +18,14 @@ func TestNoPaginationFields(t *testing.T) {
 		"start": true, "end": true,
 	}
 
-	// The legitimate uses of those words on this surface. Both are offsets into
-	// a document rather than into a result set.
+	// The legitimate uses of those words on this surface.
 	allowed := map[string]bool{
+		// ListMetadata is the reserved home for pagination. It is referenced by
+		// no response — TestListMetadataIsUnreferenced holds that — so defining
+		// its fields commits nothing.
+		"metacensus.v1.ListMetadata.page":  true,
+		"metacensus.v1.ListMetadata.limit": true,
+		"metacensus.v1.ListMetadata.total": true,
 		// Where in a PDF a reviewer highlighted an extracted value.
 		"metacensus.v1.SourceLocationPage.page": true,
 		// A character range in a prop's description, highlighted by a voter.

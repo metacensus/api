@@ -13,27 +13,18 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// The golden files record what the wire looks like. These tests record what it
-// is required to look like — the constraints the contract was written under,
-// asserted directly rather than inferred by reading the goldens.
-//
-// The distinction matters when someone adds a message: the golden for it will
-// be whatever the encoder produced, and only these tests will notice that what
-// it produced breaks a rule.
+// The goldens record what the wire looks like; these record what it must look
+// like. A new message's golden is whatever the encoder produced — only these
+// notice that it broke a rule.
 
 var (
 	lowerCamel = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
 	pascalCase = regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)
 )
 
-// TestJSONKeysAreLowerCamelCase walks every golden document and checks every
-// key at every depth.
-//
-// This is the constraint that costs nothing and is therefore easiest to break:
-// protojson derives lowerCamelCase from proto's snake_case automatically, so it
-// holds as long as nobody adds a `json_name` override or a field name that is
-// already camel-cased in the .proto (`sortOrder` instead of `sort_order`, which
-// protoc accepts and passes through unchanged).
+// TestJSONKeysAreLowerCamelCase checks every key at every depth. protojson does
+// this automatically; a `json_name` override or an already-camelCased proto
+// field name would break it.
 func TestJSONKeysAreLowerCamelCase(t *testing.T) {
 	forEachGoldenDocument(t, func(t *testing.T, name string, doc any) {
 		walkJSON(doc, "", func(path string, key string, _ any) {
@@ -44,13 +35,9 @@ func TestJSONKeysAreLowerCamelCase(t *testing.T) {
 	})
 }
 
-// TestEnumsSerialiseAsPascalCaseStrings checks the enum convention on the wire
-// rather than in the .proto: every enum-valued field must be a JSON string, and
-// that string must be PascalCase.
-//
-// The reason to assert it here and not just trust buf's lint config is that the
-// lint config *excepts* the rule that would normally police enum value names.
-// Something has to police them instead.
+// TestEnumsSerialiseAsPascalCaseStrings checks the enum convention on the wire.
+// buf's lint config excepts the rule that would normally police value names, so
+// this replaces it.
 func TestEnumsSerialiseAsPascalCaseStrings(t *testing.T) {
 	for _, f := range fixtures() {
 		f := f
@@ -116,8 +103,7 @@ func checkEnums(t *testing.T, md protoreflect.MessageDescriptor, doc any, path s
 	}
 }
 
-// TestEveryEnumZeroValueIsUnspecified backs up the buf lint setting with a
-// check that runs even if someone edits buf.yaml.
+// TestEveryEnumZeroValueIsUnspecified holds even if buf.yaml is edited.
 func TestEveryEnumZeroValueIsUnspecified(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		enums := md.Enums()
@@ -130,14 +116,9 @@ func TestEveryEnumZeroValueIsUnspecified(t *testing.T) {
 	})
 }
 
-// TestNoEnumsAtPackageScope checks the nesting rule.
-//
-// Enum value names are scoped to the enclosing message, C++ style, not to the
-// enum. Two package-scope enums could not both have an `Unspecified` value, and
-// a package-scope enum's Go constants would be named for the enum rather than
-// for anything that owns them. Nesting each enum inside its resource keeps the
-// vocabulary attached to the thing it describes and makes collisions
-// structurally impossible.
+// TestNoEnumsAtPackageScope keeps every enum nested in its resource. Value
+// names are scoped to the enclosing message, so two package-scope enums could
+// not both have an `Unspecified`.
 func TestNoEnumsAtPackageScope(t *testing.T) {
 	forEachContractFile(t, func(fd protoreflect.FileDescriptor) {
 		if n := fd.Enums().Len(); n > 0 {
@@ -149,13 +130,12 @@ func TestNoEnumsAtPackageScope(t *testing.T) {
 	})
 }
 
-// TestListResponsesUseItemsAndMetadata enforces the list envelope.
+// TestListResponsesWrapItems enforces the list envelope: a list response is an
+// object with a single repeated `items`, never a bare array.
 //
-// Any message whose name ends in `List` is a list response and must have
-// exactly two fields: a repeated `items` and a `metadata`. The k8s shape,
-// picked because it leaves room to add to a list response without breaking it —
-// which a bare array does not.
-func TestListResponsesUseItemsAndMetadata(t *testing.T) {
+// `ListMetadata` is defined but referenced by nothing — see
+// TestListMetadataIsUnreferenced — so a list carries only its items today.
+func TestListResponsesWrapItems(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		name := string(md.Name())
 		if !strings.HasSuffix(name, "List") || strings.HasSuffix(name, "ListRequest") {
@@ -163,34 +143,39 @@ func TestListResponsesUseItemsAndMetadata(t *testing.T) {
 		}
 
 		fields := md.Fields()
-		if fields.Len() != 2 {
-			t.Errorf("%s: list response has %d fields, want exactly items and metadata", name, fields.Len())
+		if fields.Len() != 1 {
+			t.Errorf("%s: list response has %d fields, want only items", name, fields.Len())
 			return
 		}
-
 		items := fields.ByName("items")
 		if items == nil {
 			t.Errorf("%s: no `items` field", name)
 		} else if !items.IsList() {
 			t.Errorf("%s: `items` is not repeated", name)
 		}
+	})
+}
 
-		metadata := fields.ByName("metadata")
-		if metadata == nil {
-			t.Errorf("%s: no `metadata` field", name)
-		} else if metadata.Kind() != protoreflect.MessageKind ||
-			metadata.Message().FullName() != "metacensus.v1.ListMetadata" {
-			t.Errorf("%s: `metadata` is not a ListMetadata", name)
+// TestListMetadataIsUnreferenced holds the line that pagination is defined and
+// not yet adopted. `ListMetadata` carries the fields a paginated response will
+// need, so that the shape is agreed in advance; wiring it into a response is a
+// separate, deliberate decision per route.
+func TestListMetadataIsUnreferenced(t *testing.T) {
+	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			fd := fields.Get(i)
+			if fd.Kind() == protoreflect.MessageKind &&
+				fd.Message().FullName() == "metacensus.v1.ListMetadata" {
+				t.Errorf("%s.%s references ListMetadata. No route paginates yet; "+
+					"adopting it is a per-route decision, not a default.", md.FullName(), fd.Name())
+			}
 		}
 	})
 }
 
-// TestNoTopLevelArrays checks that no golden document is a bare array.
-//
-// Every current backend returns bare arrays from its list endpoints; this is
-// the rule that says they may not. A top-level array cannot grow a sibling
-// field, so pagination or a warning can never be added to one without breaking
-// every consumer.
+// TestNoTopLevelArrays checks no golden document is a bare array. An array
+// cannot grow a sibling field without breaking every consumer.
 func TestNoTopLevelArrays(t *testing.T) {
 	forEachGoldenDocument(t, func(t *testing.T, name string, doc any) {
 		if _, ok := doc.(map[string]any); !ok {
@@ -199,11 +184,8 @@ func TestNoTopLevelArrays(t *testing.T) {
 	})
 }
 
-// TestIdsAreStrings checks constraint 6 on the wire.
-//
-// demo mints integer serials and infra mints prefixed UUIDs, so any numeric id
-// in a payload would be ratifying one backend's format. Every field whose name
-// is or ends in `id` must be declared as a string and must serialise as one.
+// TestIdsAreStrings requires every field named `id` or `*_id` to be a string.
+// The two backends mint incompatible id formats; strings ratify neither.
 func TestIdsAreStrings(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()
@@ -220,12 +202,8 @@ func TestIdsAreStrings(t *testing.T) {
 	})
 }
 
-// TestTimestampsAreRFC3339 checks that every timestamp in every golden parses
-// as RFC 3339.
-//
-// It also catches the shape a `time.Time` would take under encoding/json rather
-// than protojson: `{"seconds":…,"nanos":…}` is an object, not a string, and
-// fails here.
+// TestTimestampsAreRFC3339 also catches the `{"seconds":…,"nanos":…}` shape a
+// timestamp takes under encoding/json rather than protojson.
 func TestTimestampsAreRFC3339(t *testing.T) {
 	for _, f := range fixtures() {
 		f := f
@@ -282,16 +260,9 @@ func checkTimestamps(t *testing.T, md protoreflect.MessageDescriptor, doc any, p
 	}
 }
 
-// TestPresenceIsExpressedOnlyByMessageFields locks in the other half of the
-// EmitDefaultValues decision.
-//
-// Under EmitDefaultValues a scalar is always emitted and a message field is
-// emitted only when set, which is exactly what ts-proto's
-// `useOptionals=messages` describes. A proto3 `optional` scalar would be a
-// third case — omitted by the encoder but not marked optional by ts-proto under
-// that setting — and the two languages would disagree about whether the key is
-// always there. Wrapper types (`Int32Value`) express the same optionality
-// through a message field, which both sides already agree on.
+// TestPresenceIsExpressedOnlyByMessageFields keeps Go and TypeScript agreeing
+// about which keys are always present. A proto3 `optional` scalar is a third
+// case neither side's settings describe.
 func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()

@@ -15,7 +15,7 @@ message LoginRequest {
   string password = 2;
 }
 
-// SignUpRequest is the body of `POST /user` (unauthenticated).
+// SignUpRequest is the body of `POST /signup` (unauthenticated).
 message SignUpRequest {
   string name = 1;
   string email = 2;
@@ -25,7 +25,7 @@ message SignUpRequest {
   string password = 4;
 }
 
-// Session is the response to `POST /login` and to `POST /user`.
+// Session is the response to `POST /login` and to `POST /signup`.
 message Session {
   // Bearer token, sent back as `Authorization: Bearer <token>`.
   string token = 1;

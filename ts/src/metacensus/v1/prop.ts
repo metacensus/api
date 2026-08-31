@@ -5,7 +5,6 @@
 // source: metacensus/v1/prop.proto
 
 /* eslint-disable */
-import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -76,7 +75,6 @@ export interface PropListRequest {
 /** PropList is the response to `GET /topic/{topicId}/prop`. */
 export interface PropList {
   items: Prop[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**
@@ -113,7 +111,6 @@ export interface VoteListRequest {
  */
 export interface VoteList {
   items: Vote[];
-  metadata?: ListMetadata | undefined;
 }
 
 /**
