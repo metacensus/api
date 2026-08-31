@@ -24,126 +24,82 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Status is the topic's position in the review lifecycle.
-//
-// SOURCE CONFLICT, and the weakest enum here. Both backends store it as free
-// text and neither validates it. The only enumeration anywhere in the three
-// sources is the colour map in `types/enums.ts`, which mixes topic statuses,
-// paper statuses and a prop conclusion into one flat `Record<string, string>`
-// for styling purposes. These five values are the ones in that map that are
-// not paper statuses. That is thin evidence and the vocabulary should be
-// confirmed by someone who knows the workflow.
-//
-// The map's keys are spelled with spaces — `"Pending Protocol"` — so adopting
-// these PascalCase names changes both the stored values and the SPA's
-// `statusMap` keys.
-type Topic_Status int32
-
-const (
-	Topic_Unspecified       Topic_Status = 0
-	Topic_PendingProtocol   Topic_Status = 1
-	Topic_ProtocolInProcess Topic_Status = 2
-	Topic_ProtocolCompleted Topic_Status = 3
-	Topic_ReviewingPapers   Topic_Status = 4
-	Topic_Finished          Topic_Status = 5
-)
-
-// Enum value maps for Topic_Status.
-var (
-	Topic_Status_name = map[int32]string{
-		0: "Unspecified",
-		1: "PendingProtocol",
-		2: "ProtocolInProcess",
-		3: "ProtocolCompleted",
-		4: "ReviewingPapers",
-		5: "Finished",
-	}
-	Topic_Status_value = map[string]int32{
-		"Unspecified":       0,
-		"PendingProtocol":   1,
-		"ProtocolInProcess": 2,
-		"ProtocolCompleted": 3,
-		"ReviewingPapers":   4,
-		"Finished":          5,
-	}
-)
-
-func (x Topic_Status) Enum() *Topic_Status {
-	p := new(Topic_Status)
-	*p = x
-	return p
-}
-
-func (x Topic_Status) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Topic_Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_metacensus_v1_topic_proto_enumTypes[0].Descriptor()
-}
-
-func (Topic_Status) Type() protoreflect.EnumType {
-	return &file_metacensus_v1_topic_proto_enumTypes[0]
-}
-
-func (x Topic_Status) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Topic_Status.Descriptor instead.
-func (Topic_Status) EnumDescriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{0, 0}
-}
-
 // Topic is a systematic review in progress.
 //
-// SOURCE CONFLICT, structural: infra's HTTP-facing `apiTopic` is four fields —
-// `{id, created, name, description}` — and its chaincode `Topic` is the same
-// four. demo and `types/Topic.ts` agree on a much richer record. The contract
-// takes the rich shape: two sources agree on it, the SPA renders every field of
-// it, and infra's four are a strict subset it can grow into.
+// Four fields, which is both infra's HTTP-facing `apiTopic` and its chaincode
+// `Topic` exactly. demo and `types/Topic.ts` describe a record roughly four
+// times the size; almost all of the difference is removed here.
+//
+// The earlier draft took demo's rich shape on the grounds that two sources
+// agreed on it. That reasoning does not hold once demo is understood as a
+// rapidly-built superset rather than a design: "the client and demo agree" is
+// mostly the client having been written against demo's ORM output. What
+// remains is what a topic is regardless of implementation — an identified,
+// named, described thing that was created at a time.
+//
+// REMOVED IN THE FIRST PASS
+//
+//	topicCategories, topicReviewers, topicAdmins, topicContributors —
+//	        ORM artifacts, and mostly empty ones. These arrive as
+//	        `[{category: {…}}]` rather than `[{…}]` purely because demo's
+//	        query projects junction rows that way; `types/Topic.ts` was
+//	        written against that output. Worse, only two of the four are ever
+//	        written: `POST /topic` inserts `topic_categories` and
+//	        `topic_admins`, and no handler anywhere inserts into
+//	        `topic_reviewers` or `topic_contributors`, so those two always
+//	        come back empty through the API however full the seed data is.
+//	        The people on a topic are a membership relation that infra already
+//	        routes as `/topic/{topicId}/member`, and modelling the same
+//	        information a second way — inline, wrapper-objects, four parallel
+//	        lists — is the opposite of elegant. Question: is topic membership
+//	        one relation with a role, or four lists? If one, `Member` is where
+//	        it belongs and this is the wrong object for it.
+//
+//	domain — demo-only, and removed together with `POST /domain` and
+//	        `POST /category`, which have no infra counterpart at all. A
+//	        taxonomy is one design question; splitting it across a topic field
+//	        and two endpoints answers it three times. Question: how is a topic
+//	        classified, and is that a fixed vocabulary or free tagging?
+//
+//	status, statusDescription — demo-only free text that neither backend
+//	        validates. The five-value enum in the earlier draft was inferred
+//	        from the badge-colour map in `types/enums.ts`, which is a styling
+//	        table that mixes topic statuses, paper statuses and a prop
+//	        conclusion into one flat record. That is not a specification, and
+//	        publishing a vocabulary derived from a CSS lookup would freeze a
+//	        guess. Question: what is a topic's lifecycle, and is its state
+//	        stored or derived from the work done in it?
+//
+//	question — demo reads and stores it, and the SPA's create form has no
+//	        input that sends it, so it is set by nothing. `description`
+//	        carries the same information today. Question: does a topic need a
+//	        formal research question distinct from its description?
+//
+//	minimumExtractionReviews — real workflow configuration (how many
+//	        independent extractions a paper needs) but it belongs to the
+//	        extraction feature, which infra has not built. Removed with the
+//	        rest of that feature's uncertainty rather than landing its config
+//	        knob first. Question: is the review threshold per topic, per
+//	        protocol, or global?
+//
+//	protocol — demo embeds the whole protocol in every topic, on both the list
+//	        and the detail read. `GET /topic/{topicId}/protocol` already
+//	        serves it. Embedding it makes every topic list carry every form
+//	        definition. Question: none, really — this one is just duplication.
 type Topic struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// SOURCE CONFLICT: demo's topic id is a text UUID it mints with
+	// SOURCE CONFLICT: demo's topic id is a text UUID from
 	// `crypto.randomUUID()` — the one id demo does not serialise as an integer.
 	// infra mints `"topc:0192a642-…"`. String either way.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// SOURCE CONFLICT: `types/Topic.ts` declares `created` and infra emits
 	// `created`, but demo's column is `createdAt` and its handlers return the row
 	// unmapped — so demo serves `createdAt` and the SPA's `Topic.created` is
-	// never populated by the backend it actually runs against. Two sources out of
-	// three say `created`, so `created` it is, and demo has a rename to do.
-	//
-	// Note that every *other* resource in this contract uses `createdAt`. That
-	// inconsistency is inherited, not introduced; normalising it is a separate
-	// decision from defining the contract.
-	Created     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created,proto3" json:"created,omitempty"`
-	Name        string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Description string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// The review question. demo reads it on create and stores it; the SPA's
-	// create form has no input for it, so it is set by nothing today.
-	Question string       `protobuf:"bytes,5,opt,name=question,proto3" json:"question,omitempty"`
-	Status   Topic_Status `protobuf:"varint,6,opt,name=status,proto3,enum=metacensus.v1.Topic_Status" json:"status,omitempty"`
-	// Free-text elaboration on `status`, rendered beside it.
-	StatusDescription string `protobuf:"bytes,7,opt,name=status_description,json=statusDescription,proto3" json:"status_description,omitempty"`
-	// How many independent extraction reviews a paper needs before it counts as
-	// extracted. demo defaults it to 2.
-	MinimumExtractionReviews int32      `protobuf:"varint,8,opt,name=minimum_extraction_reviews,json=minimumExtractionReviews,proto3" json:"minimum_extraction_reviews,omitempty"`
-	Domain                   *Reference `protobuf:"bytes,9,opt,name=domain,proto3" json:"domain,omitempty"`
-	// SOURCE CONFLICT: these four are junction-table rows leaking to the wire —
-	// `[{category: {...}}]` rather than `[{...}]` — because demo's ORM projects
-	// them that way and `types/Topic.ts` was written against that output. It is
-	// an ORM artifact, not a domain shape, and `categories`/`admins` would be the
-	// better field. Kept because client and backend agree on it and changing it
-	// is a wire break with no functional gain; listed as an open question.
-	TopicCategories   []*TopicCategory    `protobuf:"bytes,10,rep,name=topic_categories,json=topicCategories,proto3" json:"topic_categories,omitempty"`
-	TopicReviewers    []*TopicReviewer    `protobuf:"bytes,11,rep,name=topic_reviewers,json=topicReviewers,proto3" json:"topic_reviewers,omitempty"`
-	TopicAdmins       []*TopicAdmin       `protobuf:"bytes,12,rep,name=topic_admins,json=topicAdmins,proto3" json:"topic_admins,omitempty"`
-	TopicContributors []*TopicContributor `protobuf:"bytes,13,rep,name=topic_contributors,json=topicContributors,proto3" json:"topic_contributors,omitempty"`
-	// The topic's protocol, embedded. demo's `topicWith` join returns it inline
-	// on both the list and the detail read, so the SPA can render a topic card
-	// without a second call. Absent until a protocol is created.
-	Protocol      *Protocol `protobuf:"bytes,14,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	// never populated by the backend it actually runs against. `created` matches
+	// infra and the client's own declaration; demo has a rename to do.
+	Created       *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created,proto3" json:"created,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -206,268 +162,19 @@ func (x *Topic) GetDescription() string {
 	return ""
 }
 
-func (x *Topic) GetQuestion() string {
-	if x != nil {
-		return x.Question
-	}
-	return ""
-}
-
-func (x *Topic) GetStatus() Topic_Status {
-	if x != nil {
-		return x.Status
-	}
-	return Topic_Unspecified
-}
-
-func (x *Topic) GetStatusDescription() string {
-	if x != nil {
-		return x.StatusDescription
-	}
-	return ""
-}
-
-func (x *Topic) GetMinimumExtractionReviews() int32 {
-	if x != nil {
-		return x.MinimumExtractionReviews
-	}
-	return 0
-}
-
-func (x *Topic) GetDomain() *Reference {
-	if x != nil {
-		return x.Domain
-	}
-	return nil
-}
-
-func (x *Topic) GetTopicCategories() []*TopicCategory {
-	if x != nil {
-		return x.TopicCategories
-	}
-	return nil
-}
-
-func (x *Topic) GetTopicReviewers() []*TopicReviewer {
-	if x != nil {
-		return x.TopicReviewers
-	}
-	return nil
-}
-
-func (x *Topic) GetTopicAdmins() []*TopicAdmin {
-	if x != nil {
-		return x.TopicAdmins
-	}
-	return nil
-}
-
-func (x *Topic) GetTopicContributors() []*TopicContributor {
-	if x != nil {
-		return x.TopicContributors
-	}
-	return nil
-}
-
-func (x *Topic) GetProtocol() *Protocol {
-	if x != nil {
-		return x.Protocol
-	}
-	return nil
-}
-
-// TopicCategory is one row of `Topic.topic_categories`.
-type TopicCategory struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Category      *Reference             `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicCategory) Reset() {
-	*x = TopicCategory{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicCategory) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicCategory) ProtoMessage() {}
-
-func (x *TopicCategory) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicCategory.ProtoReflect.Descriptor instead.
-func (*TopicCategory) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *TopicCategory) GetCategory() *Reference {
-	if x != nil {
-		return x.Category
-	}
-	return nil
-}
-
-// TopicReviewer is one row of `Topic.topic_reviewers`.
-type TopicReviewer struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reviewer      *UserReference         `protobuf:"bytes,1,opt,name=reviewer,proto3" json:"reviewer,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicReviewer) Reset() {
-	*x = TopicReviewer{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicReviewer) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicReviewer) ProtoMessage() {}
-
-func (x *TopicReviewer) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicReviewer.ProtoReflect.Descriptor instead.
-func (*TopicReviewer) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *TopicReviewer) GetReviewer() *UserReference {
-	if x != nil {
-		return x.Reviewer
-	}
-	return nil
-}
-
-// TopicAdmin is one row of `Topic.topic_admins`.
-type TopicAdmin struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Admin         *UserReference         `protobuf:"bytes,1,opt,name=admin,proto3" json:"admin,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicAdmin) Reset() {
-	*x = TopicAdmin{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicAdmin) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicAdmin) ProtoMessage() {}
-
-func (x *TopicAdmin) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicAdmin.ProtoReflect.Descriptor instead.
-func (*TopicAdmin) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *TopicAdmin) GetAdmin() *UserReference {
-	if x != nil {
-		return x.Admin
-	}
-	return nil
-}
-
-// TopicContributor is one row of `Topic.topic_contributors`.
-type TopicContributor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Contributor   *UserReference         `protobuf:"bytes,1,opt,name=contributor,proto3" json:"contributor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicContributor) Reset() {
-	*x = TopicContributor{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicContributor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicContributor) ProtoMessage() {}
-
-func (x *TopicContributor) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicContributor.ProtoReflect.Descriptor instead.
-func (*TopicContributor) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *TopicContributor) GetContributor() *UserReference {
-	if x != nil {
-		return x.Contributor
-	}
-	return nil
-}
-
 // TopicListRequest is the query string of `GET /topic`.
+//
+// Empty for the same reason as `UserListRequest`: the only parameters either
+// backend takes are `page` and `limit`, and the pagination model is unsettled.
 type TopicListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TopicListRequest) Reset() {
 	*x = TopicListRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -479,7 +186,7 @@ func (x *TopicListRequest) String() string {
 func (*TopicListRequest) ProtoMessage() {}
 
 func (x *TopicListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -492,21 +199,7 @@ func (x *TopicListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicListRequest.ProtoReflect.Descriptor instead.
 func (*TopicListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *TopicListRequest) GetPage() int32 {
-	if x != nil {
-		return x.Page
-	}
-	return 0
-}
-
-func (x *TopicListRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{1}
 }
 
 // TopicList is the response to `GET /topic`.
@@ -523,7 +216,7 @@ type TopicList struct {
 
 func (x *TopicList) Reset() {
 	*x = TopicList{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[6]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +228,7 @@ func (x *TopicList) String() string {
 func (*TopicList) ProtoMessage() {}
 
 func (x *TopicList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[6]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +241,7 @@ func (x *TopicList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicList.ProtoReflect.Descriptor instead.
 func (*TopicList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{6}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TopicList) GetItems() []*Topic {
@@ -565,12 +258,12 @@ func (x *TopicList) GetMetadata() *ListMetadata {
 	return nil
 }
 
-// TopicGetRequest is the path parameter of `GET /topic/{topicId}`.
+// TopicGetRequest is the path parameter of `GET /topic/{topicId}`, which
+// returns a `Topic` bare.
 //
-// infra maps the literal id `"default"` to a hardcoded topic id
-// (`topc:0192a642-817d-7a3e-a282-d7a282ebd482`, seeded by its chaincode
-// `InitLedger`) behind a `// TODO remove me after demo`. That alias is not part
-// of the contract.
+// infra maps the literal id `"default"` to a hardcoded topic id seeded by its
+// chaincode `InitLedger`, behind a `// TODO remove me after demo`. That alias
+// is not part of the contract.
 type TopicGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -580,7 +273,7 @@ type TopicGetRequest struct {
 
 func (x *TopicGetRequest) Reset() {
 	*x = TopicGetRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +285,7 @@ func (x *TopicGetRequest) String() string {
 func (*TopicGetRequest) ProtoMessage() {}
 
 func (x *TopicGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +298,7 @@ func (x *TopicGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicGetRequest.ProtoReflect.Descriptor instead.
 func (*TopicGetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{7}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TopicGetRequest) GetTopicId() string {
@@ -617,29 +310,23 @@ func (x *TopicGetRequest) GetTopicId() string {
 
 // TopicCreateRequest is the body of `POST /topic`.
 //
-// SOURCE CONFLICT: infra reads only `{name, description}` and mints the id
-// itself. demo reads all of the below and lets the client supply an id.
-// `domain`, `categories` and `admins` are sent as `{id, name}` objects by the
-// SPA but only their `id` is read, which is why they are `Reference`s here.
+// Exactly what infra reads. demo additionally reads `id`, `question`,
+// `minimumExtractionReviews`, `domain`, `categories` and `admins`; all six are
+// removed for the reasons given on `Topic`, plus `id` — demo lets a client
+// supply the topic's id and infra always mints its own. Letting a caller choose
+// a primary key is a decision that needs a reason, and there is no evidence of
+// one; the SPA sends no id.
 type TopicCreateRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional client-supplied id. demo mints a UUID when this is blank; infra
-	// always mints its own and ignores anything sent.
-	Id                       string       `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name                     string       `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Description              string       `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Question                 string       `protobuf:"bytes,4,opt,name=question,proto3" json:"question,omitempty"`
-	MinimumExtractionReviews int32        `protobuf:"varint,5,opt,name=minimum_extraction_reviews,json=minimumExtractionReviews,proto3" json:"minimum_extraction_reviews,omitempty"`
-	Domain                   *Reference   `protobuf:"bytes,6,opt,name=domain,proto3" json:"domain,omitempty"`
-	Categories               []*Reference `protobuf:"bytes,7,rep,name=categories,proto3" json:"categories,omitempty"`
-	Admins                   []*Reference `protobuf:"bytes,8,rep,name=admins,proto3" json:"admins,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TopicCreateRequest) Reset() {
 	*x = TopicCreateRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[8]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -651,7 +338,7 @@ func (x *TopicCreateRequest) String() string {
 func (*TopicCreateRequest) ProtoMessage() {}
 
 func (x *TopicCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[8]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -664,14 +351,7 @@ func (x *TopicCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TopicCreateRequest.ProtoReflect.Descriptor instead.
 func (*TopicCreateRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *TopicCreateRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TopicCreateRequest) GetName() string {
@@ -688,42 +368,7 @@ func (x *TopicCreateRequest) GetDescription() string {
 	return ""
 }
 
-func (x *TopicCreateRequest) GetQuestion() string {
-	if x != nil {
-		return x.Question
-	}
-	return ""
-}
-
-func (x *TopicCreateRequest) GetMinimumExtractionReviews() int32 {
-	if x != nil {
-		return x.MinimumExtractionReviews
-	}
-	return 0
-}
-
-func (x *TopicCreateRequest) GetDomain() *Reference {
-	if x != nil {
-		return x.Domain
-	}
-	return nil
-}
-
-func (x *TopicCreateRequest) GetCategories() []*Reference {
-	if x != nil {
-		return x.Categories
-	}
-	return nil
-}
-
-func (x *TopicCreateRequest) GetAdmins() []*Reference {
-	if x != nil {
-		return x.Admins
-	}
-	return nil
-}
-
-// TopicProtocolListRequest is the path parameter of
+// TopicProtocolRequest is the path parameter of
 // `GET /topic/{topicId}/protocol`, which returns the topic's `Protocol` bare.
 //
 // SOURCE CONFLICT, behavioural: demo's handler binds the path parameter to
@@ -731,28 +376,28 @@ func (x *TopicCreateRequest) GetAdmins() []*Reference {
 // returns whichever protocol the database hands back first, for every topic.
 // That is a bug; the contract's semantics are the ones the route name states.
 // infra routes the same path to `handleUnimplemented` (HTTP 501).
-type TopicProtocolListRequest struct {
+type TopicProtocolRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TopicProtocolListRequest) Reset() {
-	*x = TopicProtocolListRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
+func (x *TopicProtocolRequest) Reset() {
+	*x = TopicProtocolRequest{}
+	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TopicProtocolListRequest) String() string {
+func (x *TopicProtocolRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TopicProtocolListRequest) ProtoMessage() {}
+func (*TopicProtocolRequest) ProtoMessage() {}
 
-func (x *TopicProtocolListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
+func (x *TopicProtocolRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -763,209 +408,44 @@ func (x *TopicProtocolListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TopicProtocolListRequest.ProtoReflect.Descriptor instead.
-func (*TopicProtocolListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{9}
+// Deprecated: Use TopicProtocolRequest.ProtoReflect.Descriptor instead.
+func (*TopicProtocolRequest) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *TopicProtocolListRequest) GetTopicId() string {
+func (x *TopicProtocolRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-// TopicProtocolList is the response to `POST /protocol`.
+// Member is a user's membership of a topic.
 //
-// It lives in topic.proto, and its items are `Topic`s, because that is what the
-// endpoint returns: demo's `POST /protocol` handler queries the *topic* table
-// with the protocol join, so "list protocols" is really "list topics, with
-// their protocols". The endpoint is misnamed and the SPA never calls it.
-// Putting the message here also avoids protocol.proto and topic.proto importing
-// each other.
-type TopicProtocolList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Topic               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicProtocolList) Reset() {
-	*x = TopicProtocolList{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicProtocolList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicProtocolList) ProtoMessage() {}
-
-func (x *TopicProtocolList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicProtocolList.ProtoReflect.Descriptor instead.
-func (*TopicProtocolList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *TopicProtocolList) GetItems() []*Topic {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-func (x *TopicProtocolList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-// TopicMyVoteListRequest is the path parameter of
-// `GET /topic/{topicId}/my-votes`.
-type TopicMyVoteListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicMyVoteListRequest) Reset() {
-	*x = TopicMyVoteListRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicMyVoteListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicMyVoteListRequest) ProtoMessage() {}
-
-func (x *TopicMyVoteListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicMyVoteListRequest.ProtoReflect.Descriptor instead.
-func (*TopicMyVoteListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *TopicMyVoteListRequest) GetTopicId() string {
-	if x != nil {
-		return x.TopicId
-	}
-	return ""
-}
-
-// TopicMyVoteList is the response to `GET /topic/{topicId}/my-votes`: the ids
-// of the props the authenticated user has already voted on in this topic.
+// UNIMPLEMENTED EVERYWHERE, and kept on purpose. infra routes
+// `GET /topic/{topicId}/member` and `GET /topic/{topicId}/member/{userId}` to
+// `handleUnimplemented` (HTTP 501); demo has neither route. This is the
+// lower-concern kind of gap — the route is declared, it will be designed when
+// it is implemented, and the review happens then. It is also the place the four
+// removed `Topic` junction lists should end up, so leaving a named home for
+// them keeps that connection visible.
 //
-// It exists to save the SPA a request per votable prop. `items` is a list of
-// prop ids rather than a list of votes because that is all the caller needs and
-// all demo returns.
-//
-// SOURCE CONFLICT: demo returns a bare JSON array of strings. infra has no such
-// endpoint. Unpaginated in practice — `metadata` is present for consistency.
-type TopicMyVoteList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []string               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	Metadata      *ListMetadata          `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicMyVoteList) Reset() {
-	*x = TopicMyVoteList{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicMyVoteList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicMyVoteList) ProtoMessage() {}
-
-func (x *TopicMyVoteList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicMyVoteList.ProtoReflect.Descriptor instead.
-func (*TopicMyVoteList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *TopicMyVoteList) GetItems() []string {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-func (x *TopicMyVoteList) GetMetadata() *ListMetadata {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-// Member is a user's membership of a topic, with the ledger accounting that
-// governs their voting weight.
-//
-// UNIMPLEMENTED EVERYWHERE. infra routes `GET /topic/{topicId}/member` and
-// `GET /topic/{topicId}/member/{userId}` to `handleUnimplemented` (HTTP 501);
-// demo has neither route. The shape is infra's chaincode `types.Member`, which
-// is real and complete. The SPA lists a topic's people from `GET /user` today
-// and carries a `// TODO change this to "members" after the demo`.
-//
-// Declared because infra routes it and the domain type exists; flagged because
-// nothing serves it.
+// The shape is infra's chaincode `types.Member` minus its two accounting
+// fields, removed for the same reason as on `User`: `lastActive` and
+// `lastCredits` are set once and never updated by anything.
 type Member struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The member's user id.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// When they joined the topic.
 	Created       *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created,proto3" json:"created,omitempty"`
-	LastActive    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
-	LastCredits   uint64                 `protobuf:"varint,4,opt,name=last_credits,json=lastCredits,proto3" json:"last_credits,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Member) Reset() {
 	*x = Member{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[13]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -977,7 +457,7 @@ func (x *Member) String() string {
 func (*Member) ProtoMessage() {}
 
 func (x *Member) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[13]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -990,7 +470,7 @@ func (x *Member) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Member.ProtoReflect.Descriptor instead.
 func (*Member) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{13}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Member) GetId() string {
@@ -1007,20 +487,6 @@ func (x *Member) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *Member) GetLastActive() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastActive
-	}
-	return nil
-}
-
-func (x *Member) GetLastCredits() uint64 {
-	if x != nil {
-		return x.LastCredits
-	}
-	return 0
-}
-
 // MemberListRequest is the path parameter of `GET /topic/{topicId}/member`.
 type MemberListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1031,7 +497,7 @@ type MemberListRequest struct {
 
 func (x *MemberListRequest) Reset() {
 	*x = MemberListRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[14]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1043,7 +509,7 @@ func (x *MemberListRequest) String() string {
 func (*MemberListRequest) ProtoMessage() {}
 
 func (x *MemberListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[14]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1056,7 +522,7 @@ func (x *MemberListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberListRequest.ProtoReflect.Descriptor instead.
 func (*MemberListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{14}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *MemberListRequest) GetTopicId() string {
@@ -1077,7 +543,7 @@ type MemberList struct {
 
 func (x *MemberList) Reset() {
 	*x = MemberList{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[15]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +555,7 @@ func (x *MemberList) String() string {
 func (*MemberList) ProtoMessage() {}
 
 func (x *MemberList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[15]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +568,7 @@ func (x *MemberList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberList.ProtoReflect.Descriptor instead.
 func (*MemberList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{15}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MemberList) GetItems() []*Member {
@@ -1131,7 +597,7 @@ type MemberGetRequest struct {
 
 func (x *MemberGetRequest) Reset() {
 	*x = MemberGetRequest{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[16]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +609,7 @@ func (x *MemberGetRequest) String() string {
 func (*MemberGetRequest) ProtoMessage() {}
 
 func (x *MemberGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[16]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +622,7 @@ func (x *MemberGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberGetRequest.ProtoReflect.Descriptor instead.
 func (*MemberGetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{16}
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *MemberGetRequest) GetTopicId() string {
@@ -1177,74 +643,26 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\x1a\x1cmetacensus/v1/protocol.proto\x1a\x18metacensus/v1/user.proto\"\xc7\x06\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\x83\x01\n" +
 	"\x05Topic\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
 	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x12\x1a\n" +
-	"\bquestion\x18\x05 \x01(\tR\bquestion\x123\n" +
-	"\x06status\x18\x06 \x01(\x0e2\x1b.metacensus.v1.Topic.StatusR\x06status\x12-\n" +
-	"\x12status_description\x18\a \x01(\tR\x11statusDescription\x12<\n" +
-	"\x1aminimum_extraction_reviews\x18\b \x01(\x05R\x18minimumExtractionReviews\x120\n" +
-	"\x06domain\x18\t \x01(\v2\x18.metacensus.v1.ReferenceR\x06domain\x12G\n" +
-	"\x10topic_categories\x18\n" +
-	" \x03(\v2\x1c.metacensus.v1.TopicCategoryR\x0ftopicCategories\x12E\n" +
-	"\x0ftopic_reviewers\x18\v \x03(\v2\x1c.metacensus.v1.TopicReviewerR\x0etopicReviewers\x12<\n" +
-	"\ftopic_admins\x18\f \x03(\v2\x19.metacensus.v1.TopicAdminR\vtopicAdmins\x12N\n" +
-	"\x12topic_contributors\x18\r \x03(\v2\x1f.metacensus.v1.TopicContributorR\x11topicContributors\x123\n" +
-	"\bprotocol\x18\x0e \x01(\v2\x17.metacensus.v1.ProtocolR\bprotocol\"\x7f\n" +
-	"\x06Status\x12\x0f\n" +
-	"\vUnspecified\x10\x00\x12\x13\n" +
-	"\x0fPendingProtocol\x10\x01\x12\x15\n" +
-	"\x11ProtocolInProcess\x10\x02\x12\x15\n" +
-	"\x11ProtocolCompleted\x10\x03\x12\x13\n" +
-	"\x0fReviewingPapers\x10\x04\x12\f\n" +
-	"\bFinished\x10\x05\"E\n" +
-	"\rTopicCategory\x124\n" +
-	"\bcategory\x18\x01 \x01(\v2\x18.metacensus.v1.ReferenceR\bcategory\"I\n" +
-	"\rTopicReviewer\x128\n" +
-	"\breviewer\x18\x01 \x01(\v2\x1c.metacensus.v1.UserReferenceR\breviewer\"@\n" +
-	"\n" +
-	"TopicAdmin\x122\n" +
-	"\x05admin\x18\x01 \x01(\v2\x1c.metacensus.v1.UserReferenceR\x05admin\"R\n" +
-	"\x10TopicContributor\x12>\n" +
-	"\vcontributor\x18\x01 \x01(\v2\x1c.metacensus.v1.UserReferenceR\vcontributor\"<\n" +
-	"\x10TopicListRequest\x12\x12\n" +
-	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"p\n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\"\x12\n" +
+	"\x10TopicListRequest\"p\n" +
 	"\tTopicList\x12*\n" +
 	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\x127\n" +
 	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\",\n" +
 	"\x0fTopicGetRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"\xd2\x02\n" +
-	"\x12TopicCreateRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
-	"\bquestion\x18\x04 \x01(\tR\bquestion\x12<\n" +
-	"\x1aminimum_extraction_reviews\x18\x05 \x01(\x05R\x18minimumExtractionReviews\x120\n" +
-	"\x06domain\x18\x06 \x01(\v2\x18.metacensus.v1.ReferenceR\x06domain\x128\n" +
-	"\n" +
-	"categories\x18\a \x03(\v2\x18.metacensus.v1.ReferenceR\n" +
-	"categories\x120\n" +
-	"\x06admins\x18\b \x03(\v2\x18.metacensus.v1.ReferenceR\x06admins\"5\n" +
-	"\x18TopicProtocolListRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"x\n" +
-	"\x11TopicProtocolList\x12*\n" +
-	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"3\n" +
-	"\x16TopicMyVoteListRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"`\n" +
-	"\x0fTopicMyVoteList\x12\x14\n" +
-	"\x05items\x18\x01 \x03(\tR\x05items\x127\n" +
-	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\"\xae\x01\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"J\n" +
+	"\x12TopicCreateRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"1\n" +
+	"\x14TopicProtocolRequest\x12\x19\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"N\n" +
 	"\x06Member\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
-	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12;\n" +
-	"\vlast_active\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"lastActive\x12!\n" +
-	"\flast_credits\x18\x04 \x01(\x04R\vlastCredits\".\n" +
+	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\".\n" +
 	"\x11MemberListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"r\n" +
 	"\n" +
@@ -1267,63 +685,33 @@ func file_metacensus_v1_topic_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_topic_proto_rawDescData
 }
 
-var file_metacensus_v1_topic_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_metacensus_v1_topic_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_metacensus_v1_topic_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_metacensus_v1_topic_proto_goTypes = []any{
-	(Topic_Status)(0),                // 0: metacensus.v1.Topic.Status
-	(*Topic)(nil),                    // 1: metacensus.v1.Topic
-	(*TopicCategory)(nil),            // 2: metacensus.v1.TopicCategory
-	(*TopicReviewer)(nil),            // 3: metacensus.v1.TopicReviewer
-	(*TopicAdmin)(nil),               // 4: metacensus.v1.TopicAdmin
-	(*TopicContributor)(nil),         // 5: metacensus.v1.TopicContributor
-	(*TopicListRequest)(nil),         // 6: metacensus.v1.TopicListRequest
-	(*TopicList)(nil),                // 7: metacensus.v1.TopicList
-	(*TopicGetRequest)(nil),          // 8: metacensus.v1.TopicGetRequest
-	(*TopicCreateRequest)(nil),       // 9: metacensus.v1.TopicCreateRequest
-	(*TopicProtocolListRequest)(nil), // 10: metacensus.v1.TopicProtocolListRequest
-	(*TopicProtocolList)(nil),        // 11: metacensus.v1.TopicProtocolList
-	(*TopicMyVoteListRequest)(nil),   // 12: metacensus.v1.TopicMyVoteListRequest
-	(*TopicMyVoteList)(nil),          // 13: metacensus.v1.TopicMyVoteList
-	(*Member)(nil),                   // 14: metacensus.v1.Member
-	(*MemberListRequest)(nil),        // 15: metacensus.v1.MemberListRequest
-	(*MemberList)(nil),               // 16: metacensus.v1.MemberList
-	(*MemberGetRequest)(nil),         // 17: metacensus.v1.MemberGetRequest
-	(*timestamppb.Timestamp)(nil),    // 18: google.protobuf.Timestamp
-	(*Reference)(nil),                // 19: metacensus.v1.Reference
-	(*Protocol)(nil),                 // 20: metacensus.v1.Protocol
-	(*UserReference)(nil),            // 21: metacensus.v1.UserReference
-	(*ListMetadata)(nil),             // 22: metacensus.v1.ListMetadata
+	(*Topic)(nil),                 // 0: metacensus.v1.Topic
+	(*TopicListRequest)(nil),      // 1: metacensus.v1.TopicListRequest
+	(*TopicList)(nil),             // 2: metacensus.v1.TopicList
+	(*TopicGetRequest)(nil),       // 3: metacensus.v1.TopicGetRequest
+	(*TopicCreateRequest)(nil),    // 4: metacensus.v1.TopicCreateRequest
+	(*TopicProtocolRequest)(nil),  // 5: metacensus.v1.TopicProtocolRequest
+	(*Member)(nil),                // 6: metacensus.v1.Member
+	(*MemberListRequest)(nil),     // 7: metacensus.v1.MemberListRequest
+	(*MemberList)(nil),            // 8: metacensus.v1.MemberList
+	(*MemberGetRequest)(nil),      // 9: metacensus.v1.MemberGetRequest
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*ListMetadata)(nil),          // 11: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_topic_proto_depIdxs = []int32{
-	18, // 0: metacensus.v1.Topic.created:type_name -> google.protobuf.Timestamp
-	0,  // 1: metacensus.v1.Topic.status:type_name -> metacensus.v1.Topic.Status
-	19, // 2: metacensus.v1.Topic.domain:type_name -> metacensus.v1.Reference
-	2,  // 3: metacensus.v1.Topic.topic_categories:type_name -> metacensus.v1.TopicCategory
-	3,  // 4: metacensus.v1.Topic.topic_reviewers:type_name -> metacensus.v1.TopicReviewer
-	4,  // 5: metacensus.v1.Topic.topic_admins:type_name -> metacensus.v1.TopicAdmin
-	5,  // 6: metacensus.v1.Topic.topic_contributors:type_name -> metacensus.v1.TopicContributor
-	20, // 7: metacensus.v1.Topic.protocol:type_name -> metacensus.v1.Protocol
-	19, // 8: metacensus.v1.TopicCategory.category:type_name -> metacensus.v1.Reference
-	21, // 9: metacensus.v1.TopicReviewer.reviewer:type_name -> metacensus.v1.UserReference
-	21, // 10: metacensus.v1.TopicAdmin.admin:type_name -> metacensus.v1.UserReference
-	21, // 11: metacensus.v1.TopicContributor.contributor:type_name -> metacensus.v1.UserReference
-	1,  // 12: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
-	22, // 13: metacensus.v1.TopicList.metadata:type_name -> metacensus.v1.ListMetadata
-	19, // 14: metacensus.v1.TopicCreateRequest.domain:type_name -> metacensus.v1.Reference
-	19, // 15: metacensus.v1.TopicCreateRequest.categories:type_name -> metacensus.v1.Reference
-	19, // 16: metacensus.v1.TopicCreateRequest.admins:type_name -> metacensus.v1.Reference
-	1,  // 17: metacensus.v1.TopicProtocolList.items:type_name -> metacensus.v1.Topic
-	22, // 18: metacensus.v1.TopicProtocolList.metadata:type_name -> metacensus.v1.ListMetadata
-	22, // 19: metacensus.v1.TopicMyVoteList.metadata:type_name -> metacensus.v1.ListMetadata
-	18, // 20: metacensus.v1.Member.created:type_name -> google.protobuf.Timestamp
-	18, // 21: metacensus.v1.Member.last_active:type_name -> google.protobuf.Timestamp
-	14, // 22: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
-	22, // 23: metacensus.v1.MemberList.metadata:type_name -> metacensus.v1.ListMetadata
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	10, // 0: metacensus.v1.Topic.created:type_name -> google.protobuf.Timestamp
+	0,  // 1: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
+	11, // 2: metacensus.v1.TopicList.metadata:type_name -> metacensus.v1.ListMetadata
+	10, // 3: metacensus.v1.Member.created:type_name -> google.protobuf.Timestamp
+	6,  // 4: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
+	11, // 5: metacensus.v1.MemberList.metadata:type_name -> metacensus.v1.ListMetadata
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_topic_proto_init() }
@@ -1332,21 +720,18 @@ func file_metacensus_v1_topic_proto_init() {
 		return
 	}
 	file_metacensus_v1_common_proto_init()
-	file_metacensus_v1_protocol_proto_init()
-	file_metacensus_v1_user_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_topic_proto_rawDesc), len(file_metacensus_v1_topic_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   17,
+			NumEnums:      0,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_metacensus_v1_topic_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_topic_proto_depIdxs,
-		EnumInfos:         file_metacensus_v1_topic_proto_enumTypes,
 		MessageInfos:      file_metacensus_v1_topic_proto_msgTypes,
 	}.Build()
 	File_metacensus_v1_topic_proto = out.File

@@ -46,10 +46,12 @@ import (
 // A consequence worth knowing: because presence is the only thing that
 // distinguishes "absent" from "zero", and only message fields have presence,
 // this contract expresses optionality exclusively through message-typed fields.
-// `google.protobuf.Timestamp` covers the timestamps; `google.protobuf.Int32Value`
-// covers `ListMetadata.total`. There are no proto3 `optional` scalars, because
-// ts-proto's handling of them under `useOptionals=messages` is a third set of
-// rules nobody needs to learn.
+// `google.protobuf.Timestamp` covers every optional field the contract
+// currently has. There are no proto3 `optional` scalars, because ts-proto's
+// handling of them under `useOptionals=messages` is a third set of rules nobody
+// needs to learn. Where a scalar does one day need to be absent, the wrapper
+// types (`google.protobuf.Int32Value` and friends) express the same optionality
+// through a message field, which both sides already agree on.
 var MarshalOptions = protojson.MarshalOptions{
 	EmitDefaultValues: true,
 }

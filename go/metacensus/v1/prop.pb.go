@@ -28,15 +28,18 @@ const (
 //
 // These are exactly infra's `propType` values, and exactly the union in
 // `types/Prop.ts`. demo stores the discriminant as free text defaulting to
-// `"Statement"` and validates nothing.
+// `"Statement"` and validates nothing, while infra's chaincode rejects any
+// value outside this set. Kept whole — unlike the topic and paper status
+// vocabularies, this one was deliberately enumerated by the source that
+// designs, not inferred from a colour map.
+//
+// Only `Statement` and `TopicQuestion` are ever created today: the SPA's two
+// creation forms send those. The other five are declared and validated by
+// infra's chaincode but nothing constructs them yet.
 //
 // SOURCE CONFLICT: infra names its zero value `Undefined` and emits that
 // string. The contract's zero value is `Unspecified`, which is a
 // wire-visible rename for infra.
-//
-// Only `Statement` and `TopicQuestion` are ever created today: the SPA's two
-// creation forms send those. The other five are declared by infra's chaincode
-// and by `types/Prop.ts` but nothing constructs them.
 type Prop_Type int32
 
 const (
@@ -101,61 +104,6 @@ func (Prop_Type) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{0, 0}
 }
 
-type PropConclusion_Value int32
-
-const (
-	PropConclusion_Unspecified PropConclusion_Value = 0
-	PropConclusion_Open        PropConclusion_Value = 1
-	PropConclusion_Passed      PropConclusion_Value = 2
-	PropConclusion_Failed      PropConclusion_Value = 3
-	PropConclusion_Expired     PropConclusion_Value = 4
-)
-
-// Enum value maps for PropConclusion_Value.
-var (
-	PropConclusion_Value_name = map[int32]string{
-		0: "Unspecified",
-		1: "Open",
-		2: "Passed",
-		3: "Failed",
-		4: "Expired",
-	}
-	PropConclusion_Value_value = map[string]int32{
-		"Unspecified": 0,
-		"Open":        1,
-		"Passed":      2,
-		"Failed":      3,
-		"Expired":     4,
-	}
-)
-
-func (x PropConclusion_Value) Enum() *PropConclusion_Value {
-	p := new(PropConclusion_Value)
-	*p = x
-	return p
-}
-
-func (x PropConclusion_Value) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PropConclusion_Value) Descriptor() protoreflect.EnumDescriptor {
-	return file_metacensus_v1_prop_proto_enumTypes[1].Descriptor()
-}
-
-func (PropConclusion_Value) Type() protoreflect.EnumType {
-	return &file_metacensus_v1_prop_proto_enumTypes[1]
-}
-
-func (x PropConclusion_Value) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PropConclusion_Value.Descriptor instead.
-func (PropConclusion_Value) EnumDescriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1, 0}
-}
-
 // Position is which way the member voted.
 //
 // `For`/`Against`/`Abstain` come from infra's `position` stringer and from
@@ -163,10 +111,10 @@ func (PropConclusion_Value) EnumDescriptor() ([]byte, []int) {
 //
 // SOURCE CONFLICT: demo stores `"agree" | "disagree" | "abstain"` in its
 // `vote.value` column and translates at the edge — its route file carries
-// `POSITION_TO_VALUE` and `VALUE_TO_POSITION` maps for exactly this. Its
+// `POSITION_TO_VALUE` and `VALUE_TO_POSITION` maps for exactly this — and its
 // create handler accepts either vocabulary in the request body. The contract
-// is the `For`/`Against`/`Abstain` vocabulary, matching two sources of three
-// and the values the SPA sends.
+// is `For`/`Against`/`Abstain`: infra's spelling, the SPA's spelling, and the
+// one that reads as a position rather than an opinion.
 //
 // SOURCE CONFLICT: infra's zero value is named `Undefined`.
 type Vote_Position int32
@@ -205,11 +153,11 @@ func (x Vote_Position) String() string {
 }
 
 func (Vote_Position) Descriptor() protoreflect.EnumDescriptor {
-	return file_metacensus_v1_prop_proto_enumTypes[2].Descriptor()
+	return file_metacensus_v1_prop_proto_enumTypes[1].Descriptor()
 }
 
 func (Vote_Position) Type() protoreflect.EnumType {
-	return &file_metacensus_v1_prop_proto_enumTypes[2]
+	return &file_metacensus_v1_prop_proto_enumTypes[1]
 }
 
 func (x Vote_Position) Number() protoreflect.EnumNumber {
@@ -218,7 +166,7 @@ func (x Vote_Position) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Vote_Position.Descriptor instead.
 func (Vote_Position) EnumDescriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{2, 0}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1, 0}
 }
 
 // Prop is a motion a topic's members vote on.
@@ -227,53 +175,69 @@ func (Vote_Position) EnumDescriptor() ([]byte, []int) {
 // functional and non-functional, causing changes to a topic or simply
 // establishing consensus amongst members". demo persists props in a table
 // called `consensus_statements` — the name predates props being general — with
-// a `type` discriminant added so the SPA can tell a consensus statement from a
-// meta-analysis question.
+// a `type` discriminant bolted on so the SPA can tell a consensus statement
+// from a meta-analysis question.
 //
-// The SPA reaches this resource through hardcoded paths:
+// This resource is one of the few both backends genuinely implement, and the
+// first pass is infra's `Prop` minus its embedded votes.
+//
+// The SPA reaches it through hardcoded paths:
 // `${routes.api.topic}/${topicId}/prop`. Neither `/topic/{id}/prop` nor
 // `/topic/{id}/prop/{propId}/vote` appears in `src/lib/routes.ts`, despite that
-// file's instruction never to hardcode a path at a call site. They are served
-// by both backends and are part of the surface.
+// file's own instruction never to hardcode a path at a call site. Both are
+// served by both backends and are part of the surface.
+//
+// REMOVED IN THE FIRST PASS
+//
+//	conclusion, concluded — demo-only, and the clearest case of a field that
+//	        would lie. demo stores a `status` column defaulting to `"open"`,
+//	        maps it to `conclusion` on the way out, and never changes it: no
+//	        handler concludes anything, so the value is a constant. `concluded`
+//	        is worse — demo emits the empty string unconditionally, which is
+//	        not a parseable timestamp at all. infra has neither field, and that
+//	        looks deliberate rather than incomplete: concluding a proposition
+//	        requires a rule (quorum? threshold? expiry?) that does not exist
+//	        yet, and publishing the *result* field before the rule invites a
+//	        client to trust a value nothing computes. Question: how does a
+//	        proposition conclude — what counts as quorum, what carries a
+//	        motion, and does it expire? The answer probably adds both fields
+//	        back, and possibly a tally alongside them.
+//
+//	votes — infra embeds them, joining every prop read against its votes in
+//	        both `Get` and `GetAll`; demo never populates the field and the SPA
+//	        fetches `/prop/{propId}/vote` separately. This is a case where the
+//	        first-principles answer differs from both. A prop's votes are an
+//	        unbounded, separately-addressable collection, and embedding them
+//	        means `GET /topic/{id}/prop` carries every vote in the topic — the
+//	        payload grows without limit as participation grows, which is the
+//	        one thing a consensus system should expect to happen. What the UI
+//	        actually renders is a *tally* (`PropVoteStatus` counts For,
+//	        Against and Abstain), not the vote list. Removing this is a
+//	        deliberate departure from infra, and it is flagged as one.
+//	        Question: should a prop carry a vote tally — counts, and perhaps
+//	        the caller's own vote — rather than the votes themselves? That
+//	        would also subsume the removed `/my-votes` endpoint.
+//
+//	topicId — demo emits it; infra's `Prop` has no topic field, because the
+//	        topic is the scope the prop is stored under and the only route to
+//	        a prop already names its topic. Nothing in the SPA reads it.
+//	        Redundant rather than wrong, and redundancy in an identifier is
+//	        how two sources of truth start.
 type Prop struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// SOURCE CONFLICT: demo emits `topicId`; infra's `Prop` has no topic field at
-	// all — the topic is in the path and the prop is stored under the topic's
-	// ledger scope. Kept because the SPA receives lists of props detached from
-	// their request context.
-	TopicId  string `protobuf:"bytes,2,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	AuthorId string `protobuf:"bytes,3,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	AuthorId string                 `protobuf:"bytes,2,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
 	// `created`, not `createdAt`: all three sources agree here.
-	Created *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created,proto3" json:"created,omitempty"`
-	Type    Prop_Type              `protobuf:"varint,5,opt,name=type,proto3,enum=metacensus.v1.Prop_Type" json:"type,omitempty"`
+	Created *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created,proto3" json:"created,omitempty"`
+	Type    Prop_Type              `protobuf:"varint,4,opt,name=type,proto3,enum=metacensus.v1.Prop_Type" json:"type,omitempty"`
 	// The text of the proposition.
 	//
 	// SOURCE CONFLICT: demo's column is `statement` and its create handler
 	// accepts any of `description`, `statement` or `text` in the body before
 	// emitting it as `description`. The SPA sends `description`; infra reads
-	// `description`. The contract is `description` and demo's leniency is not
-	// part of it.
-	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
-	// When voting closed. Absent while the prop is open.
-	//
-	// SOURCE CONFLICT: `types/Prop.ts` declares `concluded: string` and demo
-	// emits the empty string `""` unconditionally — which is not a valid RFC 3339
-	// timestamp and would fail to parse. Modelling it as a `Timestamp` makes
-	// "still open" an absent field instead of an unparseable one.
-	Concluded *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=concluded,proto3" json:"concluded,omitempty"`
-	// The outcome. See `PropConclusion`.
-	Conclusion PropConclusion_Value `protobuf:"varint,8,opt,name=conclusion,proto3,enum=metacensus.v1.PropConclusion_Value" json:"conclusion,omitempty"`
-	// The votes cast, embedded.
-	//
-	// SOURCE CONFLICT: infra's chaincode assembles this on every read — `Get` and
-	// `GetAll` both call `GetAllVotes` per prop and attach the result. demo never
-	// populates it; the SPA fetches votes separately from
-	// `/topic/{id}/prop/{propId}/vote`. Kept because infra is the authority on
-	// domain semantics and a prop without its votes is half a record, but a
-	// backend that finds the join expensive may leave it empty and serve the
-	// vote endpoint instead.
-	Votes         []*Vote `protobuf:"bytes,9,rep,name=votes,proto3" json:"votes,omitempty"`
+	// `description`. The contract is `description`, and demo's leniency — three
+	// spellings for one field — is not part of it.
+	Description   string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -315,13 +279,6 @@ func (x *Prop) GetId() string {
 	return ""
 }
 
-func (x *Prop) GetTopicId() string {
-	if x != nil {
-		return x.TopicId
-	}
-	return ""
-}
-
 func (x *Prop) GetAuthorId() string {
 	if x != nil {
 		return x.AuthorId
@@ -350,115 +307,46 @@ func (x *Prop) GetDescription() string {
 	return ""
 }
 
-func (x *Prop) GetConcluded() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Concluded
-	}
-	return nil
-}
-
-func (x *Prop) GetConclusion() PropConclusion_Value {
-	if x != nil {
-		return x.Conclusion
-	}
-	return PropConclusion_Unspecified
-}
-
-func (x *Prop) GetVotes() []*Vote {
-	if x != nil {
-		return x.Votes
-	}
-	return nil
-}
-
-// PropConclusion wraps the conclusion vocabulary.
-//
-// It is a wrapper message rather than a second enum nested in `Prop` because
-// protobuf scopes enum value names to the *parent* message, C++ style, not to
-// the enum. `Prop.Type` and a `Prop.Conclusion` would both contribute an
-// `Unspecified` constant to `Prop`'s scope and fail to compile. This is the one
-// place in the contract where that bites; every other enum is nested in the
-// message that owns it.
-//
-// SOURCE CONFLICT: `types/Prop.ts` spells these lowercase —
-// `"open" | "passed" | "failed" | "expired"` — and demo stores `"open"` as its
-// default `status`, mapping it into `conclusion` on the way out. infra has no
-// conclusion field: a prop is never concluded on chain. PascalCase here follows
-// the enum convention, so adopting it changes demo's stored values and the SPA's
-// comparisons (`p.conclusion === "open"`).
-type PropConclusion struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PropConclusion) Reset() {
-	*x = PropConclusion{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PropConclusion) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PropConclusion) ProtoMessage() {}
-
-func (x *PropConclusion) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PropConclusion.ProtoReflect.Descriptor instead.
-func (*PropConclusion) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1}
-}
-
 // Vote is one member's position on one prop.
 //
 // Votes are overwritten, not appended: demo has a `(propId, userId)` unique
 // index and upserts, and infra's chaincode merges the new vote into the stored
-// one with `OverwriteWith`. There is no vote history in either backend, which
-// is why `last_cast` is named for the most recent cast rather than a creation
-// time.
+// one with `OverwriteWith`. Neither retains history, which is why the timestamp
+// is named for the most recent cast rather than for a creation.
+//
+// REMOVED IN THE FIRST PASS
+//
+//	id — a vote is identified by the pair `(propId, userId)`, which is exactly
+//	     what infra's `NewVoteId` builds and what demo's unique index
+//	     enforces. demo additionally exposes its table serial, and infra
+//	     returns a *composite object* (`{prefix, id1, id2}`) that could not be
+//	     a string id anyway. A surrogate id on a record with a natural key
+//	     gives clients two ways to name the same vote.
 type Vote struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// SOURCE CONFLICT: demo emits an `id` (its serial, stringified);
-	// `types/vote.ts` declares no id; infra's `VoteSetResponse` returns a
-	// *composite* `DuoId` — `{prefix: "vote", id1: <propId>, id2: <userId>}` — an
-	// object, not a string. Ids are strings on the wire, so infra's composite has
-	// to be flattened before it reaches a client.
-	Id       string        `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	PropId   string        `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
-	UserId   string        `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Position Vote_Position `protobuf:"varint,4,opt,name=position,proto3,enum=metacensus.v1.Vote_Position" json:"position,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	PropId   string                 `protobuf:"bytes,1,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
+	UserId   string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Position Vote_Position          `protobuf:"varint,3,opt,name=position,proto3,enum=metacensus.v1.Vote_Position" json:"position,omitempty"`
 	// Free-text rationale. Marked `// TODO, is this temp?` in infra, and required
-	// by nothing.
-	Explanation string `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`
+	// by nothing — but it is the substance of a dissent, and both backends carry
+	// it.
+	Explanation string `protobuf:"bytes,4,opt,name=explanation,proto3" json:"explanation,omitempty"`
 	// Character offsets into the prop's `description` that the voter highlighted.
 	//
 	// Domain rule, from infra's chaincode: citations are meaningful only for an
 	// `Against` vote. `types.NewVote` clears them for `For` and `Abstain`, and
 	// `OverwriteWith` clears them again on any change to those positions. The SPA
 	// enforces the same rule client-side. demo stores whatever it is given.
-	Citations []*PropCitation `protobuf:"bytes,6,rep,name=citations,proto3" json:"citations,omitempty"`
+	Citations []*PropCitation `protobuf:"bytes,5,rep,name=citations,proto3" json:"citations,omitempty"`
 	// When the vote was most recently cast. Overwritten on every recast.
-	LastCast      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_cast,json=lastCast,proto3" json:"last_cast,omitempty"`
+	LastCast      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_cast,json=lastCast,proto3" json:"last_cast,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Vote) Reset() {
 	*x = Vote{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +358,7 @@ func (x *Vote) String() string {
 func (*Vote) ProtoMessage() {}
 
 func (x *Vote) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,14 +371,7 @@ func (x *Vote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vote.ProtoReflect.Descriptor instead.
 func (*Vote) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Vote) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Vote) GetPropId() string {
@@ -546,7 +427,7 @@ type PropCitation struct {
 
 func (x *PropCitation) Reset() {
 	*x = PropCitation{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -558,7 +439,7 @@ func (x *PropCitation) String() string {
 func (*PropCitation) ProtoMessage() {}
 
 func (x *PropCitation) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -571,7 +452,7 @@ func (x *PropCitation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropCitation.ProtoReflect.Descriptor instead.
 func (*PropCitation) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PropCitation) GetStart() uint32 {
@@ -598,7 +479,7 @@ type PropListRequest struct {
 
 func (x *PropListRequest) Reset() {
 	*x = PropListRequest{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[4]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -610,7 +491,7 @@ func (x *PropListRequest) String() string {
 func (*PropListRequest) ProtoMessage() {}
 
 func (x *PropListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[4]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -623,7 +504,7 @@ func (x *PropListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropListRequest.ProtoReflect.Descriptor instead.
 func (*PropListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{4}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PropListRequest) GetTopicId() string {
@@ -637,7 +518,7 @@ func (x *PropListRequest) GetTopicId() string {
 //
 // SOURCE CONFLICT: both backends return a bare JSON array — infra goes out of
 // its way to, with an explicit "Ensure we always return a JSON array (`[]`)
-// instead of `null`". Wrapping is a wire break for both.
+// instead of `null`". Wrapping is a break for both.
 type PropList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Prop                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -648,7 +529,7 @@ type PropList struct {
 
 func (x *PropList) Reset() {
 	*x = PropList{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -660,7 +541,7 @@ func (x *PropList) String() string {
 func (*PropList) ProtoMessage() {}
 
 func (x *PropList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -673,7 +554,7 @@ func (x *PropList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropList.ProtoReflect.Descriptor instead.
 func (*PropList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{5}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PropList) GetItems() []*Prop {
@@ -708,7 +589,7 @@ type PropGetRequest struct {
 
 func (x *PropGetRequest) Reset() {
 	*x = PropGetRequest{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -720,7 +601,7 @@ func (x *PropGetRequest) String() string {
 func (*PropGetRequest) ProtoMessage() {}
 
 func (x *PropGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -733,7 +614,7 @@ func (x *PropGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropGetRequest.ProtoReflect.Descriptor instead.
 func (*PropGetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{6}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *PropGetRequest) GetTopicId() string {
@@ -765,7 +646,7 @@ type PropCreateRequest struct {
 
 func (x *PropCreateRequest) Reset() {
 	*x = PropCreateRequest{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +658,7 @@ func (x *PropCreateRequest) String() string {
 func (*PropCreateRequest) ProtoMessage() {}
 
 func (x *PropCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +671,7 @@ func (x *PropCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropCreateRequest.ProtoReflect.Descriptor instead.
 func (*PropCreateRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{7}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *PropCreateRequest) GetType() Prop_Type {
@@ -819,7 +700,7 @@ type VoteListRequest struct {
 
 func (x *VoteListRequest) Reset() {
 	*x = VoteListRequest{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[8]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -831,7 +712,7 @@ func (x *VoteListRequest) String() string {
 func (*VoteListRequest) ProtoMessage() {}
 
 func (x *VoteListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[8]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -844,7 +725,7 @@ func (x *VoteListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoteListRequest.ProtoReflect.Descriptor instead.
 func (*VoteListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{8}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *VoteListRequest) GetTopicId() string {
@@ -865,8 +746,10 @@ func (x *VoteListRequest) GetPropId() string {
 //
 // SOURCE CONFLICT: demo returns a bare JSON array. infra does not route this
 // method at all — it declares `VoteGet`/`VoteGetAll` on its `DataSource`
-// interface and leaves both commented out — so a vote list is reachable only
-// via the `votes` embedded in a prop. Both paths should exist.
+// interface and leaves both commented out — so under infra a prop's votes are
+// reachable only through the `votes` this contract just removed from `Prop`.
+// Removing that field therefore makes implementing this route load-bearing for
+// infra rather than optional.
 type VoteList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Vote                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -877,7 +760,7 @@ type VoteList struct {
 
 func (x *VoteList) Reset() {
 	*x = VoteList{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -889,7 +772,7 @@ func (x *VoteList) String() string {
 func (*VoteList) ProtoMessage() {}
 
 func (x *VoteList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -902,7 +785,7 @@ func (x *VoteList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoteList.ProtoReflect.Descriptor instead.
 func (*VoteList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{9}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *VoteList) GetItems() []*Vote {
@@ -936,7 +819,7 @@ type VoteSetRequest struct {
 
 func (x *VoteSetRequest) Reset() {
 	*x = VoteSetRequest{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[10]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +831,7 @@ func (x *VoteSetRequest) String() string {
 func (*VoteSetRequest) ProtoMessage() {}
 
 func (x *VoteSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[10]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +844,7 @@ func (x *VoteSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VoteSetRequest.ProtoReflect.Descriptor instead.
 func (*VoteSetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{10}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *VoteSetRequest) GetPosition() Vote_Position {
@@ -989,19 +872,13 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xa6\x04\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xe1\x02\n" +
 	"\x04Prop\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
-	"\btopic_id\x18\x02 \x01(\tR\atopicId\x12\x1b\n" +
-	"\tauthor_id\x18\x03 \x01(\tR\bauthorId\x124\n" +
-	"\acreated\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12,\n" +
-	"\x04type\x18\x05 \x01(\x0e2\x18.metacensus.v1.Prop.TypeR\x04type\x12 \n" +
-	"\vdescription\x18\x06 \x01(\tR\vdescription\x128\n" +
-	"\tconcluded\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tconcluded\x12C\n" +
-	"\n" +
-	"conclusion\x18\b \x01(\x0e2#.metacensus.v1.PropConclusion.ValueR\n" +
-	"conclusion\x12)\n" +
-	"\x05votes\x18\t \x03(\v2\x13.metacensus.v1.VoteR\x05votes\"\xa5\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tauthor_id\x18\x02 \x01(\tR\bauthorId\x124\n" +
+	"\acreated\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12,\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x18.metacensus.v1.Prop.TypeR\x04type\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\"\xa5\x01\n" +
 	"\x04Type\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\r\n" +
 	"\tStatement\x10\x01\x12\x11\n" +
@@ -1010,24 +887,14 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\tUserAdmit\x10\x04\x12\x0f\n" +
 	"\vUserExpulse\x10\x05\x12\x1b\n" +
 	"\x17PaperExtractionComplete\x10\x06\x12\x1c\n" +
-	"\x18PaperIncludeMetaAnalysis\x10\a\"Y\n" +
-	"\x0ePropConclusion\"G\n" +
-	"\x05Value\x12\x0f\n" +
-	"\vUnspecified\x10\x00\x12\b\n" +
-	"\x04Open\x10\x01\x12\n" +
-	"\n" +
-	"\x06Passed\x10\x02\x12\n" +
-	"\n" +
-	"\x06Failed\x10\x03\x12\v\n" +
-	"\aExpired\x10\x04\"\xd8\x02\n" +
-	"\x04Vote\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12\x17\n" +
-	"\auser_id\x18\x03 \x01(\tR\x06userId\x128\n" +
-	"\bposition\x18\x04 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
-	"\vexplanation\x18\x05 \x01(\tR\vexplanation\x129\n" +
-	"\tcitations\x18\x06 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations\x127\n" +
-	"\tlast_cast\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\blastCast\">\n" +
+	"\x18PaperIncludeMetaAnalysis\x10\a\"\xc8\x02\n" +
+	"\x04Vote\x12\x17\n" +
+	"\aprop_id\x18\x01 \x01(\tR\x06propId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x128\n" +
+	"\bposition\x18\x03 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
+	"\vexplanation\x18\x04 \x01(\tR\vexplanation\x129\n" +
+	"\tcitations\x18\x05 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations\x127\n" +
+	"\tlast_cast\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\blastCast\">\n" +
 	"\bPosition\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\a\n" +
 	"\x03For\x10\x01\x12\v\n" +
@@ -1070,47 +937,42 @@ func file_metacensus_v1_prop_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_prop_proto_rawDescData
 }
 
-var file_metacensus_v1_prop_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_metacensus_v1_prop_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_metacensus_v1_prop_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_metacensus_v1_prop_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_metacensus_v1_prop_proto_goTypes = []any{
 	(Prop_Type)(0),                // 0: metacensus.v1.Prop.Type
-	(PropConclusion_Value)(0),     // 1: metacensus.v1.PropConclusion.Value
-	(Vote_Position)(0),            // 2: metacensus.v1.Vote.Position
-	(*Prop)(nil),                  // 3: metacensus.v1.Prop
-	(*PropConclusion)(nil),        // 4: metacensus.v1.PropConclusion
-	(*Vote)(nil),                  // 5: metacensus.v1.Vote
-	(*PropCitation)(nil),          // 6: metacensus.v1.PropCitation
-	(*PropListRequest)(nil),       // 7: metacensus.v1.PropListRequest
-	(*PropList)(nil),              // 8: metacensus.v1.PropList
-	(*PropGetRequest)(nil),        // 9: metacensus.v1.PropGetRequest
-	(*PropCreateRequest)(nil),     // 10: metacensus.v1.PropCreateRequest
-	(*VoteListRequest)(nil),       // 11: metacensus.v1.VoteListRequest
-	(*VoteList)(nil),              // 12: metacensus.v1.VoteList
-	(*VoteSetRequest)(nil),        // 13: metacensus.v1.VoteSetRequest
-	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
-	(*ListMetadata)(nil),          // 15: metacensus.v1.ListMetadata
+	(Vote_Position)(0),            // 1: metacensus.v1.Vote.Position
+	(*Prop)(nil),                  // 2: metacensus.v1.Prop
+	(*Vote)(nil),                  // 3: metacensus.v1.Vote
+	(*PropCitation)(nil),          // 4: metacensus.v1.PropCitation
+	(*PropListRequest)(nil),       // 5: metacensus.v1.PropListRequest
+	(*PropList)(nil),              // 6: metacensus.v1.PropList
+	(*PropGetRequest)(nil),        // 7: metacensus.v1.PropGetRequest
+	(*PropCreateRequest)(nil),     // 8: metacensus.v1.PropCreateRequest
+	(*VoteListRequest)(nil),       // 9: metacensus.v1.VoteListRequest
+	(*VoteList)(nil),              // 10: metacensus.v1.VoteList
+	(*VoteSetRequest)(nil),        // 11: metacensus.v1.VoteSetRequest
+	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
+	(*ListMetadata)(nil),          // 13: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_prop_proto_depIdxs = []int32{
-	14, // 0: metacensus.v1.Prop.created:type_name -> google.protobuf.Timestamp
+	12, // 0: metacensus.v1.Prop.created:type_name -> google.protobuf.Timestamp
 	0,  // 1: metacensus.v1.Prop.type:type_name -> metacensus.v1.Prop.Type
-	14, // 2: metacensus.v1.Prop.concluded:type_name -> google.protobuf.Timestamp
-	1,  // 3: metacensus.v1.Prop.conclusion:type_name -> metacensus.v1.PropConclusion.Value
-	5,  // 4: metacensus.v1.Prop.votes:type_name -> metacensus.v1.Vote
-	2,  // 5: metacensus.v1.Vote.position:type_name -> metacensus.v1.Vote.Position
-	6,  // 6: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
-	14, // 7: metacensus.v1.Vote.last_cast:type_name -> google.protobuf.Timestamp
-	3,  // 8: metacensus.v1.PropList.items:type_name -> metacensus.v1.Prop
-	15, // 9: metacensus.v1.PropList.metadata:type_name -> metacensus.v1.ListMetadata
-	0,  // 10: metacensus.v1.PropCreateRequest.type:type_name -> metacensus.v1.Prop.Type
-	5,  // 11: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
-	15, // 12: metacensus.v1.VoteList.metadata:type_name -> metacensus.v1.ListMetadata
-	2,  // 13: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
-	6,  // 14: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	1,  // 2: metacensus.v1.Vote.position:type_name -> metacensus.v1.Vote.Position
+	4,  // 3: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
+	12, // 4: metacensus.v1.Vote.last_cast:type_name -> google.protobuf.Timestamp
+	2,  // 5: metacensus.v1.PropList.items:type_name -> metacensus.v1.Prop
+	13, // 6: metacensus.v1.PropList.metadata:type_name -> metacensus.v1.ListMetadata
+	0,  // 7: metacensus.v1.PropCreateRequest.type:type_name -> metacensus.v1.Prop.Type
+	3,  // 8: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
+	13, // 9: metacensus.v1.VoteList.metadata:type_name -> metacensus.v1.ListMetadata
+	1,  // 10: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
+	4,  // 11: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_prop_proto_init() }
@@ -1124,8 +986,8 @@ func file_metacensus_v1_prop_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_prop_proto_rawDesc), len(file_metacensus_v1_prop_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   11,
+			NumEnums:      2,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

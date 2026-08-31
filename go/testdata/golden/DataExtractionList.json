@@ -2,11 +2,10 @@
   "items": [
     {
       "id": "204",
+      "dataExtractionReviewId": "58",
       "paperId": "17",
       "protocolId": "4",
       "protocolElementId": "31",
-      "userId": "",
-      "dataExtractionReviewId": "58",
       "data": "rct",
       "sourceLocation": [
         {
@@ -21,12 +20,8 @@
           ]
         }
       ],
-      "createdAt": "2024-11-08T09:12:00Z",
-      "updatedAt": "2024-11-08T09:12:00Z"
+      "created": "2024-11-08T09:12:00Z"
     }
   ],
-  "metadata": {
-    "page": 1,
-    "limit": 30
-  }
+  "metadata": {}
 }

@@ -18,24 +18,57 @@ export const protobufPackage = "metacensus.v1";
  * functional and non-functional, causing changes to a topic or simply
  * establishing consensus amongst members". demo persists props in a table
  * called `consensus_statements` — the name predates props being general — with
- * a `type` discriminant added so the SPA can tell a consensus statement from a
- * meta-analysis question.
+ * a `type` discriminant bolted on so the SPA can tell a consensus statement
+ * from a meta-analysis question.
  *
- * The SPA reaches this resource through hardcoded paths:
+ * This resource is one of the few both backends genuinely implement, and the
+ * first pass is infra's `Prop` minus its embedded votes.
+ *
+ * The SPA reaches it through hardcoded paths:
  * `${routes.api.topic}/${topicId}/prop`. Neither `/topic/{id}/prop` nor
  * `/topic/{id}/prop/{propId}/vote` appears in `src/lib/routes.ts`, despite that
- * file's instruction never to hardcode a path at a call site. They are served
- * by both backends and are part of the surface.
+ * file's own instruction never to hardcode a path at a call site. Both are
+ * served by both backends and are part of the surface.
+ *
+ * REMOVED IN THE FIRST PASS
+ *
+ *   conclusion, concluded — demo-only, and the clearest case of a field that
+ *           would lie. demo stores a `status` column defaulting to `"open"`,
+ *           maps it to `conclusion` on the way out, and never changes it: no
+ *           handler concludes anything, so the value is a constant. `concluded`
+ *           is worse — demo emits the empty string unconditionally, which is
+ *           not a parseable timestamp at all. infra has neither field, and that
+ *           looks deliberate rather than incomplete: concluding a proposition
+ *           requires a rule (quorum? threshold? expiry?) that does not exist
+ *           yet, and publishing the *result* field before the rule invites a
+ *           client to trust a value nothing computes. Question: how does a
+ *           proposition conclude — what counts as quorum, what carries a
+ *           motion, and does it expire? The answer probably adds both fields
+ *           back, and possibly a tally alongside them.
+ *
+ *   votes — infra embeds them, joining every prop read against its votes in
+ *           both `Get` and `GetAll`; demo never populates the field and the SPA
+ *           fetches `/prop/{propId}/vote` separately. This is a case where the
+ *           first-principles answer differs from both. A prop's votes are an
+ *           unbounded, separately-addressable collection, and embedding them
+ *           means `GET /topic/{id}/prop` carries every vote in the topic — the
+ *           payload grows without limit as participation grows, which is the
+ *           one thing a consensus system should expect to happen. What the UI
+ *           actually renders is a *tally* (`PropVoteStatus` counts For,
+ *           Against and Abstain), not the vote list. Removing this is a
+ *           deliberate departure from infra, and it is flagged as one.
+ *           Question: should a prop carry a vote tally — counts, and perhaps
+ *           the caller's own vote — rather than the votes themselves? That
+ *           would also subsume the removed `/my-votes` endpoint.
+ *
+ *   topicId — demo emits it; infra's `Prop` has no topic field, because the
+ *           topic is the scope the prop is stored under and the only route to
+ *           a prop already names its topic. Nothing in the SPA reads it.
+ *           Redundant rather than wrong, and redundancy in an identifier is
+ *           how two sources of truth start.
  */
 export interface Prop {
   id: string;
-  /**
-   * SOURCE CONFLICT: demo emits `topicId`; infra's `Prop` has no topic field at
-   * all — the topic is in the path and the prop is stored under the topic's
-   * ledger scope. Kept because the SPA receives lists of props detached from
-   * their request context.
-   */
-  topicId: string;
   authorId: string;
   /** `created`, not `createdAt`: all three sources agree here. */
   created?: string | undefined;
@@ -46,35 +79,10 @@ export interface Prop {
    * SOURCE CONFLICT: demo's column is `statement` and its create handler
    * accepts any of `description`, `statement` or `text` in the body before
    * emitting it as `description`. The SPA sends `description`; infra reads
-   * `description`. The contract is `description` and demo's leniency is not
-   * part of it.
+   * `description`. The contract is `description`, and demo's leniency — three
+   * spellings for one field — is not part of it.
    */
   description: string;
-  /**
-   * When voting closed. Absent while the prop is open.
-   *
-   * SOURCE CONFLICT: `types/Prop.ts` declares `concluded: string` and demo
-   * emits the empty string `""` unconditionally — which is not a valid RFC 3339
-   * timestamp and would fail to parse. Modelling it as a `Timestamp` makes
-   * "still open" an absent field instead of an unparseable one.
-   */
-  concluded?:
-    | string
-    | undefined;
-  /** The outcome. See `PropConclusion`. */
-  conclusion: PropConclusion_Value;
-  /**
-   * The votes cast, embedded.
-   *
-   * SOURCE CONFLICT: infra's chaincode assembles this on every read — `Get` and
-   * `GetAll` both call `GetAllVotes` per prop and attach the result. demo never
-   * populates it; the SPA fetches votes separately from
-   * `/topic/{id}/prop/{propId}/vote`. Kept because infra is the authority on
-   * domain semantics and a prop without its votes is half a record, but a
-   * backend that finds the join expensive may leave it empty and serve the
-   * vote endpoint instead.
-   */
-  votes: Vote[];
 }
 
 /**
@@ -82,15 +90,18 @@ export interface Prop {
  *
  * These are exactly infra's `propType` values, and exactly the union in
  * `types/Prop.ts`. demo stores the discriminant as free text defaulting to
- * `"Statement"` and validates nothing.
+ * `"Statement"` and validates nothing, while infra's chaincode rejects any
+ * value outside this set. Kept whole — unlike the topic and paper status
+ * vocabularies, this one was deliberately enumerated by the source that
+ * designs, not inferred from a colour map.
+ *
+ * Only `Statement` and `TopicQuestion` are ever created today: the SPA's two
+ * creation forms send those. The other five are declared and validated by
+ * infra's chaincode but nothing constructs them yet.
  *
  * SOURCE CONFLICT: infra names its zero value `Undefined` and emits that
  * string. The contract's zero value is `Unspecified`, which is a
  * wire-visible rename for infra.
- *
- * Only `Statement` and `TopicQuestion` are ever created today: the SPA's two
- * creation forms send those. The other five are declared by infra's chaincode
- * and by `types/Prop.ts` but nothing constructs them.
  */
 export enum Prop_Type {
   Unspecified = "Unspecified",
@@ -104,57 +115,29 @@ export enum Prop_Type {
 }
 
 /**
- * PropConclusion wraps the conclusion vocabulary.
- *
- * It is a wrapper message rather than a second enum nested in `Prop` because
- * protobuf scopes enum value names to the *parent* message, C++ style, not to
- * the enum. `Prop.Type` and a `Prop.Conclusion` would both contribute an
- * `Unspecified` constant to `Prop`'s scope and fail to compile. This is the one
- * place in the contract where that bites; every other enum is nested in the
- * message that owns it.
- *
- * SOURCE CONFLICT: `types/Prop.ts` spells these lowercase —
- * `"open" | "passed" | "failed" | "expired"` — and demo stores `"open"` as its
- * default `status`, mapping it into `conclusion` on the way out. infra has no
- * conclusion field: a prop is never concluded on chain. PascalCase here follows
- * the enum convention, so adopting it changes demo's stored values and the SPA's
- * comparisons (`p.conclusion === "open"`).
- */
-export interface PropConclusion {
-}
-
-export enum PropConclusion_Value {
-  Unspecified = "Unspecified",
-  Open = "Open",
-  Passed = "Passed",
-  Failed = "Failed",
-  Expired = "Expired",
-}
-
-/**
  * Vote is one member's position on one prop.
  *
  * Votes are overwritten, not appended: demo has a `(propId, userId)` unique
  * index and upserts, and infra's chaincode merges the new vote into the stored
- * one with `OverwriteWith`. There is no vote history in either backend, which
- * is why `last_cast` is named for the most recent cast rather than a creation
- * time.
+ * one with `OverwriteWith`. Neither retains history, which is why the timestamp
+ * is named for the most recent cast rather than for a creation.
+ *
+ * REMOVED IN THE FIRST PASS
+ *   id — a vote is identified by the pair `(propId, userId)`, which is exactly
+ *        what infra's `NewVoteId` builds and what demo's unique index
+ *        enforces. demo additionally exposes its table serial, and infra
+ *        returns a *composite object* (`{prefix, id1, id2}`) that could not be
+ *        a string id anyway. A surrogate id on a record with a natural key
+ *        gives clients two ways to name the same vote.
  */
 export interface Vote {
-  /**
-   * SOURCE CONFLICT: demo emits an `id` (its serial, stringified);
-   * `types/vote.ts` declares no id; infra's `VoteSetResponse` returns a
-   * *composite* `DuoId` — `{prefix: "vote", id1: <propId>, id2: <userId>}` — an
-   * object, not a string. Ids are strings on the wire, so infra's composite has
-   * to be flattened before it reaches a client.
-   */
-  id: string;
   propId: string;
   userId: string;
   position: Vote_Position;
   /**
    * Free-text rationale. Marked `// TODO, is this temp?` in infra, and required
-   * by nothing.
+   * by nothing — but it is the substance of a dissent, and both backends carry
+   * it.
    */
   explanation: string;
   /**
@@ -178,10 +161,10 @@ export interface Vote {
  *
  * SOURCE CONFLICT: demo stores `"agree" | "disagree" | "abstain"` in its
  * `vote.value` column and translates at the edge — its route file carries
- * `POSITION_TO_VALUE` and `VALUE_TO_POSITION` maps for exactly this. Its
+ * `POSITION_TO_VALUE` and `VALUE_TO_POSITION` maps for exactly this — and its
  * create handler accepts either vocabulary in the request body. The contract
- * is the `For`/`Against`/`Abstain` vocabulary, matching two sources of three
- * and the values the SPA sends.
+ * is `For`/`Against`/`Abstain`: infra's spelling, the SPA's spelling, and the
+ * one that reads as a position rather than an opinion.
  *
  * SOURCE CONFLICT: infra's zero value is named `Undefined`.
  */
@@ -208,7 +191,7 @@ export interface PropListRequest {
  *
  * SOURCE CONFLICT: both backends return a bare JSON array — infra goes out of
  * its way to, with an explicit "Ensure we always return a JSON array (`[]`)
- * instead of `null`". Wrapping is a wire break for both.
+ * instead of `null`". Wrapping is a break for both.
  */
 export interface PropList {
   items: Prop[];
@@ -256,8 +239,10 @@ export interface VoteListRequest {
  *
  * SOURCE CONFLICT: demo returns a bare JSON array. infra does not route this
  * method at all — it declares `VoteGet`/`VoteGetAll` on its `DataSource`
- * interface and leaves both commented out — so a vote list is reachable only
- * via the `votes` embedded in a prop. Both paths should exist.
+ * interface and leaves both commented out — so under infra a prop's votes are
+ * reachable only through the `votes` this contract just removed from `Prop`.
+ * Removing that field therefore makes implementing this route load-bearing for
+ * infra rather than optional.
  */
 export interface VoteList {
   items: Vote[];

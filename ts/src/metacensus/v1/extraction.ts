@@ -9,68 +9,86 @@ import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
-/** Data extraction: one reviewer's pass over one paper against one protocol. */
+/**
+ * Data extraction: one reviewer's pass over one paper against one protocol.
+ *
+ * DEMO-ONLY RESOURCE — lower-concern bucket, with one high-concern exception
+ * noted on `DataExtractionReview`.
+ *
+ * infra routes `/topic/{topicId}/paper/{paperId}/protocol` for this concept and
+ * leaves it `handleUnimplemented` (HTTP 501). Everything here is demo's.
+ */
 
 /**
  * DataExtractionReview is one reviewer's complete pass over a paper.
  *
  * It is the container: a review groups the individual `DataExtraction` values,
- * one per protocol element. A topic requires `Topic.minimum_extraction_reviews`
- * of these per paper before the paper counts as extracted, which is what the
- * topic dashboard's "n / m" counter renders.
+ * one per protocol element. A topic requires several of these per paper before
+ * the paper counts as extracted, which is what the topic dashboard's "n / m"
+ * counter renders.
  *
- * demo only. infra routes `/topic/{topicId}/paper/{paperId}/protocol` for the
- * same concept and leaves it `handleUnimplemented` (HTTP 501).
+ * REMOVED IN THE FIRST PASS
+ *
+ *   userId — and this one is worth reading twice. demo's table has the column
+ *           and its create handler never sets it, so every review is
+ *           anonymous. That is not a cosmetic gap: the entire point of
+ *           requiring several independent reviews is that they come from
+ *           different people, and nothing today stops one user satisfying the
+ *           threshold alone. Publishing a `userId` that is always empty would
+ *           let a client build a reviewer-attribution UI on a field that
+ *           cannot support one — the high-concern case, on the field that
+ *           matters most in this resource. Question: who owns a review, and
+ *           what enforces independence between the reviews of one paper?
+ *
+ *   updatedAt — as elsewhere. `created` is kept because a review's ordering
+ *           matters (demo sorts by it) and creation time cannot go stale.
  */
 export interface DataExtractionReview {
   id: string;
+  topicId: string;
   paperId: string;
   protocolId: string;
-  topicId: string;
-  /**
-   * SOURCE CONFLICT: demo's table has a `user_id` column but its create handler
-   * never sets it, so every review is anonymous. Since the whole point of
-   * requiring several reviews is that they come from different people, this is
-   * a functional gap, not a cosmetic one — nothing today stops one user
-   * satisfying the minimum alone.
-   */
-  userId: string;
-  createdAt?: string | undefined;
-  updatedAt?: string | undefined;
+  created?: string | undefined;
 }
 
-/** DataExtraction is one answered protocol element within a review. */
+/**
+ * DataExtraction is one answered protocol element within a review.
+ *
+ * REMOVED IN THE FIRST PASS
+ *   userId — same column, same omission, same reasoning as on the review. It
+ *           is doubly redundant here, since an extraction belongs to a review
+ *           that already names its reviewer.
+ *   updatedAt — as elsewhere.
+ */
 export interface DataExtraction {
   id: string;
+  dataExtractionReviewId: string;
   paperId: string;
   protocolId: string;
   protocolElementId: string;
-  /**
-   * SOURCE CONFLICT: demo's table has this column and its extraction handlers
-   * never set it, same as on the review.
-   */
-  userId: string;
-  dataExtractionReviewId: string;
   /**
    * The extracted value.
    *
    * SOURCE CONFLICT, and under-determined. `types/DataExtraction.ts` declares
    * `data: string`; demo's column is `jsonb` typed `any`. A string is right for
    * `text`, `number`, `date`, `textarea` and `radio` elements, which is what
-   * the SPA's form produces today. It is not obviously right for `checkbox`
-   * elements, where several options can be selected — the SPA's checkbox
-   * handling would have to be read closely, or the shape decided deliberately,
-   * before this can be called settled. Declared as a string because that is
-   * what the client declares; flagged because `jsonb` was chosen for a reason.
+   * the SPA's form produces today. It is not obviously right for `checkbox`,
+   * where several options can be selected — and `jsonb` was presumably chosen
+   * for a reason.
+   *
+   * Kept as a string despite the uncertainty, because unlike the removals
+   * elsewhere in this file there is no version of this resource without it:
+   * an extraction with no extracted value is nothing. Flagged rather than
+   * dropped. Question: what is the value of a multi-select extraction, and
+   * does `data` need to be typed per element kind?
    */
   data: string;
   /**
    * Where in the PDF the value was read from, so a later reviewer can jump to
-   * it. Absent when the reviewer typed the value instead of selecting it.
+   * it. Absent when the reviewer typed the value rather than selecting it.
    */
   sourceLocation: SourceLocationPage[];
-  createdAt?: string | undefined;
-  updatedAt?: string | undefined;
+  created?: string | undefined;
 }
 
 /** SourceLocationPage is the highlighted rectangles on one page of the PDF. */
@@ -96,7 +114,7 @@ export interface SourceRect {
  * DataExtractionInput is one element's value as submitted.
  *
  * Distinct from `DataExtraction` because a submission has no id, no review id
- * and no timestamps — the server assigns those.
+ * and no timestamp — the server assigns those.
  */
 export interface DataExtractionInput {
   protocolElementId: string;
@@ -112,7 +130,7 @@ export interface DataExtractionInput {
  * SOURCE CONFLICT: another read over POST. And a quirk demo's own comment calls
  * out — when either field is missing it returns *HTTP 200* with
  * `{"error": "Missing required fields"}` in the body, so a client checking
- * `response.ok` sails past the failure. That is a 400.
+ * `response.ok` sails straight past the failure. That is a 400.
  */
 export interface DataExtractionListRequest {
   paperId: string;
@@ -132,23 +150,22 @@ export interface DataExtractionList {
 /**
  * DataExtractionReviewListRequest is the body of `POST /extraction-review`.
  *
- * All three of `topic_id`, `paper_id` and `protocol_id` are required; demo
- * rejects a request missing any of them. It also `decodeURIComponent()`s
- * `topic_id` — see `PaperListRequest`.
+ * All three ids are required; demo rejects a request missing any of them. It
+ * also `decodeURIComponent()`s `topic_id` — see `PaperListRequest`. `page` and
+ * `limit` are removed with the pagination question.
  */
 export interface DataExtractionReviewListRequest {
   topicId: string;
   paperId: string;
   protocolId: string;
-  page: number;
-  limit: number;
 }
 
 /**
  * DataExtractionReviewList is the response to `POST /extraction-review`.
  *
  * SOURCE CONFLICT: demo returns a bare JSON array. The SPA reads only its
- * `.length`, to render the "reviews so far" counter.
+ * `.length`, to render the "reviews so far" counter — which is a hint that what
+ * this caller wants is a count on the paper rather than a list here.
  */
 export interface DataExtractionReviewList {
   items: DataExtractionReview[];
@@ -171,9 +188,9 @@ export interface DataExtractionCreateRequest {
  * DataExtractionEditRequest is the body of `POST /extraction/edit`.
  *
  * Same as create but against an existing review. demo upserts element by
- * element: it looks each one up by
- * `(protocolElementId, protocolId, paperId, reviewId)` and inserts when there is
- * no match, so an edit can add answers the original submission omitted.
+ * element, looking each one up by
+ * `(protocolElementId, protocolId, paperId, reviewId)` and inserting when there
+ * is no match, so an edit can add answers the original submission omitted.
  */
 export interface DataExtractionEditRequest {
   topicId: string;

@@ -14,7 +14,6 @@
           "label": "Study design",
           "placeholder": "",
           "required": true,
-          "conditionallyShown": false,
           "options": [
             {
               "name": "Randomised controlled trial",
@@ -29,7 +28,5 @@
         }
       ]
     }
-  ],
-  "createdAt": "2024-10-20T08:00:00Z",
-  "updatedAt": "2024-11-01T16:30:00Z"
+  ]
 }

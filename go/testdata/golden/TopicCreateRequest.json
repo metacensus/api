@@ -1,23 +1,4 @@
 {
-  "id": "",
   "name": "DPYD Genotype and Fluoropyrimidine Toxicity",
-  "description": "Association of DPYD genotype to fluoropyrimidine toxicity.",
-  "question": "Does DPYD genotype-guided dosing reduce severe toxicity?",
-  "minimumExtractionReviews": 2,
-  "domain": {
-    "id": "2",
-    "name": "Oncology"
-  },
-  "categories": [
-    {
-      "id": "6",
-      "name": "Pharmacogenomics"
-    }
-  ],
-  "admins": [
-    {
-      "id": "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-      "name": "Ada Okonkwo"
-    }
-  ]
+  "description": "Association of DPYD genotype to fluoropyrimidine toxicity."
 }

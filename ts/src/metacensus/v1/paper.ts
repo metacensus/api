@@ -6,25 +6,88 @@
 
 /* eslint-disable */
 import type { ListMetadata } from "./common.js";
-import type { UserReference } from "./user.js";
 
 export const protobufPackage = "metacensus.v1";
 
-/** Papers: the literature under review in a topic. */
+/**
+ * Papers: the literature under review in a topic.
+ *
+ * DEMO-ONLY RESOURCE — lower-concern bucket.
+ *
+ * Every message in this file comes from demo alone. infra routes
+ * `/topic/{topicId}/paper` and `/topic/{topicId}/paper/{paperId}` but every
+ * handler is `handleUnimplemented` (HTTP 501), and its chaincode `Paper` type is
+ * two fields, `{id, doi}`. That makes this the kind of gap that gets designed
+ * when the route is implemented, and reviewed properly at that point — so the
+ * first pass keeps the endpoints and cuts the fields to what a paper is
+ * regardless of who stores it.
+ *
+ * SOURCE CONFLICT, structural: infra nests papers under their topic
+ * (`/topic/{topicId}/paper`) while demo and the SPA use a flat `/paper` with the
+ * topic as a body filter. The flat path is kept because it is the one that is
+ * served and called, but infra's nesting is the better URL — a paper does not
+ * exist outside a topic — and that should be settled when infra implements it.
+ */
 
 /**
  * Paper is one piece of literature attached to a topic.
  *
- * demo and `types/Paper.ts` are the sources. infra routes
- * `/topic/{topicId}/paper` and `/topic/{topicId}/paper/{paperId}` but every
- * handler is `handleUnimplemented` (HTTP 501), and its chaincode `Paper` type is
- * two fields, `{id, doi}`.
+ * What survives is bibliographic: what the paper is and how to find it. What
+ * came out is either storage plumbing or workflow state that nothing drives.
  *
- * SOURCE CONFLICT, structural: infra nests papers under their topic
- * (`/topic/{topicId}/paper`) while demo and the SPA use a flat `/paper` with the
- * topic as a body filter. The contract keeps the flat path because it is the one
- * that is served and called; infra's nesting is the better URL and is listed as
- * an open question.
+ * REMOVED IN THE FIRST PASS
+ *
+ *   status — a five-value enum of which exactly one value can ever occur.
+ *           Both create branches hardcode `"Pending Review"` and no handler
+ *           anywhere transitions it, so `BeingReviewed`, `PendingApproval`,
+ *           `Rejected` and `Accepted` are unreachable. This is the
+ *           high-concern kind of field: it looks like workflow state, a client
+ *           would branch on it, and it is a constant. Publishing it would also
+ *           have frozen a vocabulary spelled with spaces (`"Pending Review"`)
+ *           into PascalCase and broken the SPA's `statusMap` for no gain.
+ *           Question: what advances a paper through screening — is status
+ *           stored, or derived from the approvals that nothing currently
+ *           writes?
+ *
+ *   paperApprovalsRejections, paperContributors — never written by any route.
+ *           The `paper_approvals_rejections` table has no insert path outside
+ *           the seed, and neither does `paper_contributors`, so both lists are
+ *           always empty through the API. Screening decisions are a real
+ *           feature and this is not an implementation of one. Question: how is
+ *           a paper screened, by whom, and does a decision belong on the paper
+ *           or as its own resource?
+ *
+ *   url — a presigned S3 GET URL cached in a column. It is a time-limited
+ *           credential written once at upload, so the stored value is expired
+ *           for most of its life; `GET /paper/{paperId}/presigned-url` exists
+ *           precisely to mint a fresh one and is what the extraction view
+ *           actually uses. A field that is wrong after fifteen minutes is the
+ *           archetype of one that lies.
+ *
+ *   s3Key — the object key the PDF lives under. Durable, unlike `url`, but it
+ *           is storage plumbing: a client that has the presigned-URL endpoint
+ *           never needs it, and putting a bucket key on the wire binds the
+ *           contract to how one deployment stores files. Question: none —
+ *           this is internal.
+ *
+ *   domain — declared by `types/Paper.ts` as a string, stored by demo as a
+ *           `domain_id` foreign key, and projected by no handler. Populated by
+ *           nobody at either end. Removed alongside the rest of the taxonomy
+ *           (see common.proto).
+ *
+ *   fullTextUrl — a link to the paper somewhere else, set by both create paths.
+ *           Removed as derivable: the SPA's bulk import literally computes it
+ *           as `https://pubmed.ncbi.nlm.nih.gov/{pmid}/`, and a DOI resolves
+ *           to a publisher page. Question: is a stored canonical link needed
+ *           beyond `doi` and `pmid`, e.g. for a paper with neither?
+ *
+ *   description — demo-only free text sitting beside `abstract`, with no
+ *           stated distinction between the two. The bulk import fills it with
+ *           a URL. Question: what is this for, and is it distinct from
+ *           `abstract`?
+ *
+ *   updatedAt — as on `User`: demo-only, and unverifiable for any backend that
+ *           does not maintain it.
  */
 export interface Paper {
   /**
@@ -32,140 +95,54 @@ export interface Paper {
    * `id: number`. String on the wire.
    */
   id: string;
+  topicId: string;
   title: string;
   /**
-   * SOURCE CONFLICT: strings here, objects in `PaperCreateRequest`. demo stores
-   * a `jsonb` array of plain strings and returns it as such, but its JSON create
-   * branch does `authors.map(author => author.name)`, so a create must send
-   * objects and a read returns strings. The asymmetry is real and is preserved
-   * rather than silently reconciled; see `PaperAuthor`.
+   * Author names, in order.
+   *
+   * SOURCE CONFLICT: demo stores a `jsonb` array of plain strings and returns
+   * it as such, but its JSON create branch does `authors.map(a => a.name)`, so
+   * a create must send objects while a read returns strings — and its multipart
+   * branch takes a JSON-encoded array of plain strings, a third shape. The
+   * earlier draft preserved that asymmetry with a `PaperAuthor` message. It is
+   * not a domain distinction, it is a demo inconsistency: `PaperCreateRequest`
+   * now takes plain strings too, and demo's JSON branch has a bug to fix.
    */
   authors: string[];
   abstract: string;
-  status: Paper_Status;
-  topicId: string;
   /**
-   * SOURCE CONFLICT: `types/Paper.ts` declares `domain: string`. demo's table
-   * has a `domain_id` foreign key and no handler ever joins or projects it, so
-   * this field is declared by the client and populated by nobody. Kept as
-   * declared; a `Reference` would be the shape if it were ever served.
+   * Bibliographic identifiers. Either may be empty — not every paper has both,
+   * and a paper uploaded as a PDF may have neither.
    */
-  domain: string;
   doi: string;
   pmid: string;
-  createdAt?: string | undefined;
-  updatedAt?:
-    | string
-    | undefined;
-  /**
-   * A presigned S3 GET URL, written at upload time.
-   *
-   * It is a time-limited credential baked into a stored column, so it expires
-   * and the stored value goes stale. `GET /paper/{paperId}/presigned-url` is
-   * the endpoint that mints a fresh one, and is what the extraction view
-   * actually uses. Kept because demo stores and returns it; using it is a bug.
-   */
-  url: string;
-  /**
-   * The object key the PDF was uploaded under, `papers/{paperId}/{filename}`.
-   * This is the durable handle; `url` is not.
-   */
-  s3Key: string;
-  /**
-   * A link to the full text somewhere else — a publisher page or a PubMed
-   * record. Unrelated to the uploaded PDF.
-   */
-  fullTextUrl: string;
-  description: string;
-  paperContributors: PaperContributor[];
-  paperApprovalsRejections: PaperApprovalRejection[];
-}
-
-/**
- * Status is the paper's position in the screening workflow.
- *
- * SOURCE CONFLICT: `types/Paper.ts` declares these with spaces —
- * `"Pending Review" | "Being Reviewed" | "Pending Approval" | "Rejected" |
- * "Accepted"` — and demo stores the spaced strings verbatim, hardcoding
- * `"Pending Review"` on create. PascalCase here follows the enum convention,
- * so adoption changes the stored values *and* the keys of the SPA's
- * `statusMap` in `types/enums.ts`, which is keyed on the spaced spelling to
- * pick a badge colour. This is the most disruptive of the enum renames.
- *
- * Nothing in either backend ever advances a paper past `PendingReview`: the
- * approvals table exists and the SPA renders approvals, but no handler
- * recomputes `status` from them.
- */
-export enum Paper_Status {
-  Unspecified = "Unspecified",
-  PendingReview = "PendingReview",
-  BeingReviewed = "BeingReviewed",
-  PendingApproval = "PendingApproval",
-  Rejected = "Rejected",
-  Accepted = "Accepted",
-}
-
-/**
- * PaperAuthor is an author as supplied when creating a paper.
- *
- * A message rather than a bare string because demo's JSON create branch reads
- * `author.name`, and because the SPA's bulk import passes PubMed's author
- * objects straight through (`{name, authtype, clusterid}` — only `name` is
- * read). The multipart branch, by contrast, takes a JSON-encoded array of plain
- * strings. Two request encodings, two author shapes, one stored shape.
- */
-export interface PaperAuthor {
-  name: string;
-}
-
-/**
- * PaperContributor is one row of `Paper.paper_contributors`: a user who has
- * worked on this paper.
- */
-export interface PaperContributor {
-  contributor?: UserReference | undefined;
-}
-
-/**
- * PaperApprovalRejection is one screening decision on a paper.
- *
- * demo soft-deletes these and filters `deleted = false` when projecting, so the
- * flag never reaches the wire.
- */
-export interface PaperApprovalRejection {
-  /**
-   * True for an approval, false for a rejection. A two-valued enum would read
-   * better but `types/Paper.ts` and demo both use a boolean.
-   */
-  approval: boolean;
-  createdAt?: string | undefined;
-  user?: UserReference | undefined;
+  created?: string | undefined;
 }
 
 /**
  * PaperListRequest is the body of `POST /paper`.
  *
- * SOURCE CONFLICT: this is a read served over POST with a JSON body, which is
- * why it has a body message at all. It doubles as the single-paper read: the
+ * SOURCE CONFLICT: a read served over POST with a JSON body, which is why it
+ * has a body message at all. It also doubles as the single-paper read — the
  * SPA's paper detail page posts `{topicId, paperId}` and takes `data[0]`. A
  * `GET /paper/{paperId}` would be the right endpoint for that and does not
- * exist.
+ * exist. Question: should this be `GET /topic/{topicId}/paper` plus
+ * `GET /paper/{paperId}`, per infra's routing?
  *
- * demo requires at least one of `topic_id` or `paper_id` and rejects a request
- * with neither.
+ * demo requires at least one of the two fields and rejects a request with
+ * neither.
+ *
+ * SOURCE CONFLICT, behavioural: demo runs `decodeURIComponent()` on `topicId`
+ * even though it arrives in a JSON body and was never URL-encoded, so a topic
+ * id containing a `%` would be corrupted. The same bug is in
+ * `POST /extraction-review` and `POST /extraction/create`. The contract's
+ * `topic_id` is a plain string.
+ *
+ * `page` and `limit` are removed with the rest of the pagination question.
  */
 export interface PaperListRequest {
-  /**
-   * SOURCE CONFLICT, behavioural: demo runs `decodeURIComponent()` on this
-   * field even though it arrives in a JSON body and was never URL-encoded. A
-   * topic id containing a `%` would be corrupted. The same bug is in
-   * `POST /extraction-review` and `POST /extraction/create`. The contract's
-   * `topic_id` is a plain string.
-   */
   topicId: string;
   paperId: string;
-  page: number;
-  limit: number;
 }
 
 /**
@@ -182,47 +159,38 @@ export interface PaperList {
  * PaperCreateRequest is the JSON body of `POST /paper/create`.
  *
  * EXCLUDED VARIANT: the same endpoint also accepts `multipart/form-data` with a
- * PDF part, which is how the SPA's own create form submits — it builds a
- * `FormData` and posts it with `Content-Type: multipart/form-data`. That variant
- * is deliberately not in this contract. A multipart body is not a JSON document
+ * PDF part, which is how the SPA's own create form submits. That variant is
+ * deliberately not in this contract. A multipart body is not a JSON document
  * and protojson cannot describe one; forcing it in would mean either base64ing
  * a PDF into a string field or pretending the file part does not exist. The
- * honest split is that the metadata fields below are contract and the file
- * upload is a separate, byte-oriented concern that should get its own endpoint
- * (mint an upload URL, PUT to it, then create the paper) rather than being
- * bolted onto a JSON create. The SPA's bulk-import path already uses the JSON
- * branch described here.
+ * honest split is that the metadata below is contract and the upload is a
+ * separate, byte-oriented concern that wants its own flow — mint an upload URL,
+ * PUT to it, then create the paper — rather than being bolted onto a JSON
+ * create. The SPA's bulk-import path already uses the JSON branch described
+ * here.
  *
- * `status` is not a field: both branches hardcode the new paper to
- * `PendingReview`. The SPA's bulk import sends `status: "Pending Review"`
- * anyway and demo ignores it.
+ * `status` is not a field: both branches hardcode the new paper's status, and
+ * the field is removed from `Paper` anyway. The SPA's bulk import sends
+ * `status: "Pending Review"` and demo ignores it. `publishedDate` is likewise
+ * absent — the SPA sends it and neither branch has a column to put it in.
  */
 export interface PaperCreateRequest {
   topicId: string;
   title: string;
-  authors: PaperAuthor[];
+  authors: string[];
   abstract: string;
   doi: string;
   pmid: string;
-  fullTextUrl: string;
-  description: string;
-  /**
-   * SOURCE CONFLICT: the SPA's bulk import sends `url` in the JSON body but
-   * demo's JSON branch never reads it, and the multipart branch reads `url` and
-   * stores it as `fullTextUrl`. Two request fields, one column, and the JSON
-   * branch drops one of them. Declared here because the client sends it and the
-   * multipart branch honours it; a backend implementing this contract should
-   * store it as `Paper.full_text_url` when `full_text_url` is absent.
-   */
-  url: string;
 }
 
 /**
  * PaperLookupRequest is the query string of `GET /paper/lookup`.
  *
  * A metadata prefill for the create form: given a PMID, demo fetches the record
- * from NCBI E-utilities and parses it. Only the parsed subset below crosses the
- * wire, so unlike `POST /lit-search` this one is contractable.
+ * from NCBI E-utilities and parses it. Unlike `POST /lit-search` this endpoint
+ * is contractable, because demo already projects NCBI's XML into a small fixed
+ * set of fields rather than passing a foreign document through — which is
+ * exactly what `POST /lit-search` would need to do to join it.
  */
 export interface PaperLookupRequest {
   pmid: string;
@@ -231,17 +199,27 @@ export interface PaperLookupRequest {
 /**
  * PaperLookupResponse is the response to `GET /paper/lookup`.
  *
- * Deliberately not a `Paper`: nothing has been created, the field set is what
- * PubMed happened to supply, and the SPA copies field by field into its form
+ * Deliberately not a `Paper`: nothing has been created, and the field set is
+ * what PubMed happened to supply. The SPA copies field by field into its form
  * state, skipping anything absent.
+ *
+ * REMOVED IN THE FIRST PASS
+ *   publishedDate — an ISO calendar date (`YYYY-MM-DD`, not RFC 3339, so it
+ *           could never be a `Timestamp`). Write-only in practice: the SPA
+ *           puts it in the create form and posts it, and no create branch has
+ *           anywhere to store it. Question: should a paper record its
+ *           publication date? Almost certainly yes — but then it belongs on
+ *           `Paper` first, and needs a date type this contract does not yet
+ *           have.
+ *   url — demo synthesises `https://doi.org/{doi}` when a DOI was found.
+ *           Derivable by the caller from `doi`.
  */
 export interface PaperLookupResponse {
   pmid: string;
   title: string;
   /**
-   * Plain strings here, `PaperAuthor` objects in `PaperCreateRequest` — so the
-   * create form cannot pass this through unchanged. demo builds each entry as
-   * `"ForeName LastName"`, falling back to a `CollectiveName` for group authors.
+   * demo builds each entry as `"ForeName LastName"`, falling back to a
+   * `CollectiveName` for group authors.
    */
   authors: string[];
   /**
@@ -250,18 +228,6 @@ export interface PaperLookupResponse {
    */
   abstract: string;
   doi: string;
-  /**
-   * An ISO 8601 calendar date, `YYYY-MM-DD` — deliberately a string and not a
-   * `Timestamp`, which serialises as RFC 3339 and would not accept this. demo
-   * synthesises it from PubMed's `PubDate`, defaulting a missing month or day
-   * to `01`, and gives up entirely on seasonal dates like "Spring".
-   *
-   * The value is also write-only in practice: the SPA puts it in the create
-   * form and posts it, and neither create branch has a column to store it in.
-   */
-  publishedDate: string;
-  /** `https://doi.org/{doi}` when a DOI was found, absent otherwise. */
-  url: string;
 }
 
 /**
@@ -274,18 +240,19 @@ export interface PaperPresignedUrlRequest {
 
 /**
  * PaperPresignedUrlResponse is the response to
- * `GET /paper/{paperId}/presigned-url`: a short-lived S3 GET URL for the
- * paper's PDF, which the extraction view loads into its PDF viewer.
+ * `GET /paper/{paperId}/presigned-url`: a short-lived URL for the paper's PDF,
+ * which the extraction view loads into its PDF viewer.
  *
- * This is an object-storage handoff, and the contract deliberately says nothing
- * about the URL beyond it being a string: not its expiry, not its scheme, not
- * which bucket. It is an opaque credential minted by whatever storage the
- * deployment uses (S3 or MinIO in demo's case), and modelling it further would
- * bind the contract to one of them.
+ * An object-storage handoff, and the contract deliberately says nothing about
+ * the URL beyond its being a string: not its scheme, not the bucket, not the
+ * signing method. It is an opaque credential minted by whatever storage the
+ * deployment uses (S3 or MinIO for demo), and describing it further would bind
+ * the contract to one of them.
  *
  * What is missing is the expiry. A client cannot tell how long the URL is good
- * for and must retry blindly on a 403. An `expiresAt` here would fix that;
- * demo's `generateGetUrl` knows the value and drops it.
+ * for and must retry blindly on a 403. demo's `generateGetUrl` knows the value
+ * and drops it. Not added here because inventing a field no backend emits is
+ * the thing this pass is avoiding. Question: should this carry `expiresAt`?
  */
 export interface PaperPresignedUrlResponse {
   url: string;

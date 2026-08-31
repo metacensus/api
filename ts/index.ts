@@ -12,15 +12,13 @@
 
 export * from "./src/metacensus/v1/common.js";
 export * from "./src/metacensus/v1/extraction.js";
-export * from "./src/metacensus/v1/lit_search.js";
 export * from "./src/metacensus/v1/paper.js";
 export * from "./src/metacensus/v1/prop.js";
 export * from "./src/metacensus/v1/protocol.js";
-export * from "./src/metacensus/v1/taxonomy.js";
 export * from "./src/metacensus/v1/topic.js";
 export * from "./src/metacensus/v1/user.js";
 
 // ts-proto puts a `protobufPackage` constant in every file, so `export *` sees
-// nine of them and refuses to pick one. Naming it explicitly resolves the
-// ambiguity; the value is identical in all nine.
+// one per module and refuses to pick one. Naming it explicitly resolves the
+// ambiguity; the value is identical in all of them.
 export { protobufPackage } from "./src/metacensus/v1/common.js";

@@ -3,6 +3,16 @@
 The shape of every request and response under `/metacensus/api/v1`, defined
 once in `.proto` and generated into Go and TypeScript.
 
+**This is a first pass, and it is deliberately small.** The bar for a field is
+"we are confident we want it", not "some implementation emits it". A field is
+easy to add later and very hard to remove once something depends on it, so
+uncertainty resolves to leaving it out — and arriving at a field in a small
+later change is what attaches a reason to it. Roughly half of what the sources
+describe is therefore *not* here; every omission is recorded in a
+`REMOVED IN THE FIRST PASS` block in the file it would have belonged to, with
+the question it becomes. `grep -rn 'REMOVED IN THE FIRST PASS' proto/` reads
+them.
+
 **Nothing consumes this yet.** The SPA in `src/` still uses `types/*.ts`, demo's
 Bun API still hand-writes its handlers, infra's Go API still uses
 `core/shared/types`. This directory is the definition and its proof; adopting it
@@ -66,9 +76,10 @@ reading a `.proto` file will otherwise get wrong:
 - **Enums are nested inside the message that owns them.** Protobuf scopes enum
   value names to the enclosing message, C++ style, not to the enum, so two
   enums under one parent cannot both have an `Unspecified`. Nesting per resource
-  makes collisions structurally impossible. The single exception is
-  `PropConclusion`, a wrapper message that exists because `Prop` needs two
-  enums; the .proto says so at the point it happens.
+  makes collisions structurally impossible. The first draft needed one wrapper
+  message to work around it, for a second enum on `Prop`; that enum was removed
+  in the second pass and the workaround went with it, so every enum here is now
+  simply nested in its resource.
 - **All ids are strings.** demo mints integer serials, infra mints prefixed
   UUIDs (`user:0192a642-…`). The contract cannot ratify either, so it requires
   the one representation that carries both.
@@ -108,9 +119,10 @@ A consequence: **presence is expressed only through message-typed fields.**
 There are no proto3 `optional` scalars anywhere in the contract. They would be a
 third case — omitted by the encoder, but not marked optional by ts-proto under
 `useOptionals=messages` — so the two sides would disagree about whether the key
-exists. Where a scalar genuinely needs to be absent, the contract uses a wrapper
-message: `ListMetadata.total` is a `google.protobuf.Int32Value`, because "no
-total was computed" and "the total is zero" are different answers.
+exists. Every optional field the contract currently has is a
+`google.protobuf.Timestamp`. Where a scalar one day needs to be absent, the
+wrapper types (`google.protobuf.Int32Value` and friends) express optionality
+through a message field, which both sides already agree on.
 `TestPresenceIsExpressedOnlyByMessageFields` enforces this.
 
 ## What the tests prove
@@ -153,16 +165,37 @@ the entry point that gets this right.
 There are no BSR dependencies and no `buf.lock`. The only imports are well-known
 types, which ship inside buf, so generation needs no network.
 
-## Source disagreements
+## Source disagreements, and how the sources are weighted
 
-The .proto files were derived from three sources that disagree with each other:
-`types/*.ts` (what the client declares), demo's Bun API (what currently works),
-and infra's Go API and chaincode (the truest account of intended behaviour).
+The .proto files were derived from three sources that disagree with each other,
+and they are not weighted equally:
+
+- **infra** (Go API + chaincode) is the design authority. It was written
+  deliberately and largely by hand. It implements less.
+- **demo** (Bun + Elysia) was written rapidly with AI assistance. It is
+  authoritative about *what features exist* — papers, protocols and extraction
+  exist nowhere else — and not about how they should be shaped.
+- **`types/*.ts`** says what the client currently declares, which is sometimes
+  neither of the above and occasionally describes a field no backend sends.
+
+So where demo deviates from infra the question asked is not "which is deployed?"
+but "what is the right representation?". Two failure modes drove most of the
+removals:
+
+1. **A field nothing maintains is worse than a missing field, because it lies.**
+   An `updatedAt` no writer updates, a five-value `status` enum of which one
+   value can occur, a presigned URL cached in a column until it expires. These
+   go regardless of source — including infra's own `lastActive`/`lastCredits`,
+   set once at creation and never touched again.
+2. **A field that is an artifact of one implementation rather than of the
+   domain.** ORM junction wrappers, denormalised convenience lists, a surrogate
+   id on a record whose natural key is a pair.
+
 Every material disagreement is recorded as a `SOURCE CONFLICT:` comment at the
-field or message it affects, with the resolution and why. Those comments are the
-most useful thing in this directory; `grep -rn 'SOURCE CONFLICT' proto/` is a
-reasonable way to read them.
+field it affects, with the resolution and why. Those comments and the
+`REMOVED IN THE FIRST PASS` blocks are the most useful thing in this directory.
 
-Endpoints deliberately left out — `POST /lit-search`, the multipart branch of
-`POST /paper/create`, sign-up's JWK, infra's Fabric debug routes — are recorded
-the same way, at the place they would otherwise have gone.
+Endpoints deliberately left out — both `/lit-search` routes, `POST /domain` and
+`POST /category`, `POST /protocol`, `GET /topic/{id}/my-votes`, the multipart
+branch of `POST /paper/create`, sign-up's JWK, infra's Fabric debug routes — are
+listed with their reasons at the top of `common.proto`.

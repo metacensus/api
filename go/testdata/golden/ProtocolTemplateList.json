@@ -16,7 +16,6 @@
               "label": "Study design",
               "placeholder": "",
               "required": true,
-              "conditionallyShown": false,
               "options": [
                 {
                   "name": "Randomised controlled trial",
@@ -34,8 +33,5 @@
       ]
     }
   ],
-  "metadata": {
-    "page": 1,
-    "limit": 30
-  }
+  "metadata": {}
 }

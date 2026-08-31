@@ -3,26 +3,5 @@
   "name": "Ada Okonkwo",
   "email": "ada@example.org",
   "country": "Nigeria",
-  "role": "Contributor",
-  "jobTitle": "Clinical pharmacologist",
-  "bio": "Works on pharmacogenomics of fluoropyrimidine toxicity.",
-  "createdAt": "2024-09-01T10:00:00Z",
-  "updatedAt": "2024-11-12T11:45:00Z",
-  "lastActive": "2024-11-12T11:45:00Z",
-  "lastCredits": "18446744073709551615",
-  "groups": [
-    {
-      "id": "5",
-      "name": "Oncology working group",
-      "role": "group admin"
-    }
-  ],
-  "topicContributors": [
-    {
-      "topic": {
-        "id": "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-        "name": "DPYD Genotype and Fluoropyrimidine Toxicity"
-      }
-    }
-  ]
+  "created": "2024-09-01T10:00:00Z"
 }

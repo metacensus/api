@@ -13,35 +13,16 @@
 // That is the check working.
 
 /* eslint-disable */
-import type { Error, HealthcheckResponse, ListMetadata, Reference } from "../src/metacensus/v1/common.js";
+import type { Error, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
 import type { DataExtraction, DataExtractionCreateRequest, DataExtractionEditRequest, DataExtractionInput, DataExtractionList, DataExtractionListRequest, DataExtractionReview, DataExtractionReviewList, DataExtractionReviewListRequest, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
-import type { LitSearchAbstract, LitSearchAbstractRequest } from "../src/metacensus/v1/lit_search.js";
-import type { Paper, PaperApprovalRejection, PaperAuthor, PaperContributor, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse, PaperPresignedUrlRequest, PaperPresignedUrlResponse } from "../src/metacensus/v1/paper.js";
-import type { Prop, PropCitation, PropConclusion, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
-import type { Protocol, ProtocolCreateRequest, ProtocolCreateRequest_Draft, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolListRequest, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
-import type { Category, CategoryList, CategoryListRequest, Domain, DomainList, DomainListRequest } from "../src/metacensus/v1/taxonomy.js";
-import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicAdmin, TopicCategory, TopicContributor, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicMyVoteList, TopicMyVoteListRequest, TopicProtocolList, TopicProtocolListRequest, TopicReviewer } from "../src/metacensus/v1/topic.js";
-import type { GroupMembership, LoginRequest, LogoutResponse, Session, SignUpRequest, User, UserGetRequest, UserList, UserListRequest, UserReference, UserTopicMembership } from "../src/metacensus/v1/user.js";
-import { Paper_Status } from "../src/metacensus/v1/paper.js";
-import { PropConclusion_Value, Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
-import { Topic_Status } from "../src/metacensus/v1/topic.js";
-import { User_Role } from "../src/metacensus/v1/user.js";
+import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse, PaperPresignedUrlRequest, PaperPresignedUrlResponse } from "../src/metacensus/v1/paper.js";
+import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
+import type { Protocol, ProtocolCreateRequest, ProtocolCreateRequest_Draft, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
+import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "../src/metacensus/v1/topic.js";
+import type { LoginRequest, LogoutResponse, Session, SignUpRequest, User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
+import { Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
 
-export const goldenListMetadata: ListMetadata = {
-  page: 1,
-  limit: 30,
-  total: 1,
-};
-
-export const goldenListMetadataWithoutTotal: ListMetadata = {
-  page: 1,
-  limit: 30,
-};
-
-export const goldenReference: Reference = {
-  id: "2",
-  name: "Oncology",
-};
+export const goldenListMetadata: ListMetadata = {};
 
 export const goldenError: Error = {
   error: "Invalid credentials",
@@ -56,47 +37,7 @@ export const goldenUser: User = {
   name: "Ada Okonkwo",
   email: "ada@example.org",
   country: "Nigeria",
-  role: User_Role.Contributor,
-  jobTitle: "Clinical pharmacologist",
-  bio: "Works on pharmacogenomics of fluoropyrimidine toxicity.",
-  createdAt: "2024-09-01T10:00:00Z",
-  updatedAt: "2024-11-12T11:45:00Z",
-  lastActive: "2024-11-12T11:45:00Z",
-  lastCredits: "18446744073709551615",
-  groups: [
-    {
-      id: "5",
-      name: "Oncology working group",
-      role: "group admin",
-    },
-  ],
-  topicContributors: [
-    {
-      topic: {
-        id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-        name: "DPYD Genotype and Fluoropyrimidine Toxicity",
-      },
-    },
-  ],
-};
-
-export const goldenGroupMembership: GroupMembership = {
-  id: "5",
-  name: "Oncology working group",
-  role: "group admin",
-};
-
-export const goldenUserTopicMembership: UserTopicMembership = {
-  topic: {
-    id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-    name: "DPYD Genotype and Fluoropyrimidine Toxicity",
-  },
-};
-
-export const goldenUserReference: UserReference = {
-  id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-  name: "Ada Okonkwo",
-  role: User_Role.Contributor,
+  created: "2024-09-01T10:00:00Z",
 };
 
 export const goldenLoginRequest: LoginRequest = {
@@ -113,43 +54,11 @@ export const goldenSignUpRequest: SignUpRequest = {
 
 export const goldenSession: Session = {
   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.signature",
-  user: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-    name: "Ada Okonkwo",
-    email: "ada@example.org",
-    country: "Nigeria",
-    role: User_Role.Contributor,
-    jobTitle: "Clinical pharmacologist",
-    bio: "Works on pharmacogenomics of fluoropyrimidine toxicity.",
-    createdAt: "2024-09-01T10:00:00Z",
-    updatedAt: "2024-11-12T11:45:00Z",
-    lastActive: "2024-11-12T11:45:00Z",
-    lastCredits: "18446744073709551615",
-    groups: [
-      {
-        id: "5",
-        name: "Oncology working group",
-        role: "group admin",
-      },
-    ],
-    topicContributors: [
-      {
-        topic: {
-          id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-          name: "DPYD Genotype and Fluoropyrimidine Toxicity",
-        },
-      },
-    ],
-  },
 };
 
 export const goldenLogoutResponse: LogoutResponse = {};
 
-export const goldenUserListRequest: UserListRequest = {
-  role: User_Role.Admin,
-  page: 1,
-  limit: 100,
-};
+export const goldenUserListRequest: UserListRequest = {};
 
 export const goldenUserList: UserList = {
   items: [
@@ -158,79 +67,14 @@ export const goldenUserList: UserList = {
       name: "Ada Okonkwo",
       email: "ada@example.org",
       country: "Nigeria",
-      role: User_Role.Contributor,
-      jobTitle: "Clinical pharmacologist",
-      bio: "Works on pharmacogenomics of fluoropyrimidine toxicity.",
-      createdAt: "2024-09-01T10:00:00Z",
-      updatedAt: "2024-11-12T11:45:00Z",
-      lastActive: "2024-11-12T11:45:00Z",
-      lastCredits: "18446744073709551615",
-      groups: [
-        {
-          id: "5",
-          name: "Oncology working group",
-          role: "group admin",
-        },
-      ],
-      topicContributors: [
-        {
-          topic: {
-            id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-            name: "DPYD Genotype and Fluoropyrimidine Toxicity",
-          },
-        },
-      ],
+      created: "2024-09-01T10:00:00Z",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-    total: 1,
-  },
+  metadata: {},
 };
 
 export const goldenUserGetRequest: UserGetRequest = {
   userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-};
-
-export const goldenDomain: Domain = {
-  id: "2",
-  name: "Oncology",
-};
-
-export const goldenCategory: Category = {
-  id: "6",
-  name: "Pharmacogenomics",
-};
-
-export const goldenDomainListRequest: DomainListRequest = {};
-
-export const goldenDomainList: DomainList = {
-  items: [
-    {
-      id: "2",
-      name: "Oncology",
-    },
-  ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
-};
-
-export const goldenCategoryListRequest: CategoryListRequest = {};
-
-export const goldenCategoryList: CategoryList = {
-  items: [
-    {
-      id: "6",
-      name: "Pharmacogenomics",
-    },
-  ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
 };
 
 export const goldenTopic: Topic = {
@@ -238,121 +82,9 @@ export const goldenTopic: Topic = {
   created: "2024-10-19T13:56:05Z",
   name: "DPYD Genotype and Fluoropyrimidine Toxicity",
   description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
-  question: "Does DPYD genotype-guided dosing reduce severe toxicity?",
-  status: Topic_Status.ReviewingPapers,
-  statusDescription: "Screening the 2019-2024 window.",
-  minimumExtractionReviews: 2,
-  domain: {
-    id: "2",
-    name: "Oncology",
-  },
-  topicCategories: [
-    {
-      category: {
-        id: "6",
-        name: "Pharmacogenomics",
-      },
-    },
-  ],
-  topicReviewers: [
-    {
-      reviewer: {
-        id: "user:0192a642-817d-7a3e-a282-d7a282ebd484",
-        name: "Bo Lindqvist",
-        role: User_Role.Unspecified,
-      },
-    },
-  ],
-  topicAdmins: [
-    {
-      admin: {
-        id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-        name: "Ada Okonkwo",
-        role: User_Role.Admin,
-      },
-    },
-  ],
-  topicContributors: [
-    {
-      contributor: {
-        id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-        name: "Ada Okonkwo",
-        role: User_Role.Contributor,
-      },
-    },
-  ],
-  protocol: {
-    id: "4",
-    title: "DPYD extraction protocol",
-    protocolSections: [
-      {
-        id: "9",
-        title: "Study characteristics",
-        sortOrder: 0,
-        protocolElements: [
-          {
-            id: "31",
-            name: "studyDesign",
-            type: "radio",
-            label: "Study design",
-            placeholder: "",
-            required: true,
-            conditionallyShown: false,
-            options: [
-              {
-                name: "Randomised controlled trial",
-                value: "rct",
-              },
-              {
-                name: "Cohort",
-                value: "cohort",
-              },
-            ],
-            sortOrder: 1,
-          },
-        ],
-      },
-    ],
-    createdAt: "2024-10-20T08:00:00Z",
-    updatedAt: "2024-11-01T16:30:00Z",
-  },
 };
 
-export const goldenTopicCategory: TopicCategory = {
-  category: {
-    id: "6",
-    name: "Pharmacogenomics",
-  },
-};
-
-export const goldenTopicReviewer: TopicReviewer = {
-  reviewer: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd484",
-    name: "Bo Lindqvist",
-    role: User_Role.Unspecified,
-  },
-};
-
-export const goldenTopicAdmin: TopicAdmin = {
-  admin: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-    name: "Ada Okonkwo",
-    role: User_Role.Admin,
-  },
-};
-
-export const goldenTopicContributor: TopicContributor = {
-  contributor: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-    name: "Ada Okonkwo",
-    role: User_Role.Contributor,
-  },
-};
-
-export const goldenTopicListRequest: TopicListRequest = {
-  page: 1,
-  limit: 50,
-};
+export const goldenTopicListRequest: TopicListRequest = {};
 
 export const goldenTopicList: TopicList = {
   items: [
@@ -361,91 +93,9 @@ export const goldenTopicList: TopicList = {
       created: "2024-10-19T13:56:05Z",
       name: "DPYD Genotype and Fluoropyrimidine Toxicity",
       description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
-      question: "Does DPYD genotype-guided dosing reduce severe toxicity?",
-      status: Topic_Status.ReviewingPapers,
-      statusDescription: "Screening the 2019-2024 window.",
-      minimumExtractionReviews: 2,
-      domain: {
-        id: "2",
-        name: "Oncology",
-      },
-      topicCategories: [
-        {
-          category: {
-            id: "6",
-            name: "Pharmacogenomics",
-          },
-        },
-      ],
-      topicReviewers: [
-        {
-          reviewer: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd484",
-            name: "Bo Lindqvist",
-            role: User_Role.Unspecified,
-          },
-        },
-      ],
-      topicAdmins: [
-        {
-          admin: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Admin,
-          },
-        },
-      ],
-      topicContributors: [
-        {
-          contributor: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Contributor,
-          },
-        },
-      ],
-      protocol: {
-        id: "4",
-        title: "DPYD extraction protocol",
-        protocolSections: [
-          {
-            id: "9",
-            title: "Study characteristics",
-            sortOrder: 0,
-            protocolElements: [
-              {
-                id: "31",
-                name: "studyDesign",
-                type: "radio",
-                label: "Study design",
-                placeholder: "",
-                required: true,
-                conditionallyShown: false,
-                options: [
-                  {
-                    name: "Randomised controlled trial",
-                    value: "rct",
-                  },
-                  {
-                    name: "Cohort",
-                    value: "cohort",
-                  },
-                ],
-                sortOrder: 1,
-              },
-            ],
-          },
-        ],
-        createdAt: "2024-10-20T08:00:00Z",
-        updatedAt: "2024-11-01T16:30:00Z",
-      },
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-    total: 1,
-  },
+  metadata: {},
 };
 
 export const goldenTopicGetRequest: TopicGetRequest = {
@@ -453,145 +103,17 @@ export const goldenTopicGetRequest: TopicGetRequest = {
 };
 
 export const goldenTopicCreateRequest: TopicCreateRequest = {
-  id: "",
   name: "DPYD Genotype and Fluoropyrimidine Toxicity",
   description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
-  question: "Does DPYD genotype-guided dosing reduce severe toxicity?",
-  minimumExtractionReviews: 2,
-  domain: {
-    id: "2",
-    name: "Oncology",
-  },
-  categories: [
-    {
-      id: "6",
-      name: "Pharmacogenomics",
-    },
-  ],
-  admins: [
-    {
-      id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-      name: "Ada Okonkwo",
-    },
-  ],
 };
 
-export const goldenTopicProtocolListRequest: TopicProtocolListRequest = {
+export const goldenTopicProtocolRequest: TopicProtocolRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-};
-
-export const goldenTopicProtocolList: TopicProtocolList = {
-  items: [
-    {
-      id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-      created: "2024-10-19T13:56:05Z",
-      name: "DPYD Genotype and Fluoropyrimidine Toxicity",
-      description: "Association of DPYD genotype to fluoropyrimidine toxicity.",
-      question: "Does DPYD genotype-guided dosing reduce severe toxicity?",
-      status: Topic_Status.ReviewingPapers,
-      statusDescription: "Screening the 2019-2024 window.",
-      minimumExtractionReviews: 2,
-      domain: {
-        id: "2",
-        name: "Oncology",
-      },
-      topicCategories: [
-        {
-          category: {
-            id: "6",
-            name: "Pharmacogenomics",
-          },
-        },
-      ],
-      topicReviewers: [
-        {
-          reviewer: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd484",
-            name: "Bo Lindqvist",
-            role: User_Role.Unspecified,
-          },
-        },
-      ],
-      topicAdmins: [
-        {
-          admin: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Admin,
-          },
-        },
-      ],
-      topicContributors: [
-        {
-          contributor: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Contributor,
-          },
-        },
-      ],
-      protocol: {
-        id: "4",
-        title: "DPYD extraction protocol",
-        protocolSections: [
-          {
-            id: "9",
-            title: "Study characteristics",
-            sortOrder: 0,
-            protocolElements: [
-              {
-                id: "31",
-                name: "studyDesign",
-                type: "radio",
-                label: "Study design",
-                placeholder: "",
-                required: true,
-                conditionallyShown: false,
-                options: [
-                  {
-                    name: "Randomised controlled trial",
-                    value: "rct",
-                  },
-                  {
-                    name: "Cohort",
-                    value: "cohort",
-                  },
-                ],
-                sortOrder: 1,
-              },
-            ],
-          },
-        ],
-        createdAt: "2024-10-20T08:00:00Z",
-        updatedAt: "2024-11-01T16:30:00Z",
-      },
-    },
-  ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
-};
-
-export const goldenTopicMyVoteListRequest: TopicMyVoteListRequest = {
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-};
-
-export const goldenTopicMyVoteList: TopicMyVoteList = {
-  items: [
-    "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
-  ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
 };
 
 export const goldenMember: Member = {
   id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
   created: "2024-10-19T14:00:00Z",
-  lastActive: "2024-11-12T11:45:00Z",
-  lastCredits: "120",
 };
 
 export const goldenMemberListRequest: MemberListRequest = {
@@ -603,14 +125,9 @@ export const goldenMemberList: MemberList = {
     {
       id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
       created: "2024-10-19T14:00:00Z",
-      lastActive: "2024-11-12T11:45:00Z",
-      lastCredits: "120",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenMemberGetRequest: MemberGetRequest = {
@@ -620,34 +137,13 @@ export const goldenMemberGetRequest: MemberGetRequest = {
 
 export const goldenProp: Prop = {
   id: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   authorId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
   created: "2024-11-05T14:02:00Z",
   type: Prop_Type.Statement,
   description: "DPYD genotype-guided dosing reduces grade 3+ toxicity.",
-  conclusion: PropConclusion_Value.Open,
-  votes: [
-    {
-      id: "91",
-      propId: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
-      userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-      position: Vote_Position.Against,
-      explanation: "The cited cohort excludes DPYD*2A heterozygotes.",
-      citations: [
-        {
-          start: 12,
-          end: 48,
-        },
-      ],
-      lastCast: "2024-11-10T07:22:31Z",
-    },
-  ],
 };
 
-export const goldenPropConclusion: PropConclusion = {};
-
 export const goldenVote: Vote = {
-  id: "91",
   propId: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
   userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
   position: Vote_Position.Against,
@@ -674,34 +170,13 @@ export const goldenPropList: PropList = {
   items: [
     {
       id: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
-      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
       authorId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
       created: "2024-11-05T14:02:00Z",
       type: Prop_Type.Statement,
       description: "DPYD genotype-guided dosing reduces grade 3+ toxicity.",
-      conclusion: PropConclusion_Value.Open,
-      votes: [
-        {
-          id: "91",
-          propId: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
-          userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-          position: Vote_Position.Against,
-          explanation: "The cited cohort excludes DPYD*2A heterozygotes.",
-          citations: [
-            {
-              start: 12,
-              end: 48,
-            },
-          ],
-          lastCast: "2024-11-10T07:22:31Z",
-        },
-      ],
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenPropGetRequest: PropGetRequest = {
@@ -722,7 +197,6 @@ export const goldenVoteListRequest: VoteListRequest = {
 export const goldenVoteList: VoteList = {
   items: [
     {
-      id: "91",
       propId: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
       userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
       position: Vote_Position.Against,
@@ -736,10 +210,7 @@ export const goldenVoteList: VoteList = {
       lastCast: "2024-11-10T07:22:31Z",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenVoteSetRequest: VoteSetRequest = {
@@ -755,141 +226,52 @@ export const goldenVoteSetRequest: VoteSetRequest = {
 
 export const goldenPaper: Paper = {
   id: "17",
+  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   title: "DPYD genotype-guided dose individualisation of fluoropyrimidine therapy",
   authors: [
     "Linda M. Henricks",
     "Carin A. T. C. Lunenburg",
   ],
   abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
-  status: Paper_Status.PendingReview,
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  domain: "Oncology",
   doi: "10.1016/S1470-2045(18)30686-7",
   pmid: "30348537",
-  createdAt: "2024-10-22T12:00:00Z",
-  updatedAt: "2024-10-22T12:00:00Z",
-  url: "https://s3.example.org/papers/17/henricks-2018.pdf?X-Amz-Expires=900",
-  s3Key: "papers/17/henricks-2018.pdf",
-  fullTextUrl: "https://pubmed.ncbi.nlm.nih.gov/30348537/",
-  description: "Prospective multicentre safety analysis.",
-  paperContributors: [
-    {
-      contributor: {
-        id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-        name: "Ada Okonkwo",
-        role: User_Role.Contributor,
-      },
-    },
-  ],
-  paperApprovalsRejections: [
-    {
-      approval: true,
-      createdAt: "2024-11-02T09:14:00Z",
-      user: {
-        id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-        name: "Ada Okonkwo",
-        role: User_Role.Contributor,
-      },
-    },
-  ],
-};
-
-export const goldenPaperAuthor: PaperAuthor = {
-  name: "Linda M. Henricks",
-};
-
-export const goldenPaperContributor: PaperContributor = {
-  contributor: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-    name: "Ada Okonkwo",
-    role: User_Role.Contributor,
-  },
-};
-
-export const goldenPaperApprovalRejection: PaperApprovalRejection = {
-  approval: false,
-  createdAt: "2024-11-02T09:14:00Z",
-  user: {
-    id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-    name: "Ada Okonkwo",
-    role: User_Role.Contributor,
-  },
+  created: "2024-10-22T12:00:00Z",
 };
 
 export const goldenPaperListRequest: PaperListRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   paperId: "",
-  page: 1,
-  limit: 30,
 };
 
 export const goldenPaperList: PaperList = {
   items: [
     {
       id: "17",
+      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
       title: "DPYD genotype-guided dose individualisation of fluoropyrimidine therapy",
       authors: [
         "Linda M. Henricks",
         "Carin A. T. C. Lunenburg",
       ],
       abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
-      status: Paper_Status.PendingReview,
-      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-      domain: "Oncology",
       doi: "10.1016/S1470-2045(18)30686-7",
       pmid: "30348537",
-      createdAt: "2024-10-22T12:00:00Z",
-      updatedAt: "2024-10-22T12:00:00Z",
-      url: "https://s3.example.org/papers/17/henricks-2018.pdf?X-Amz-Expires=900",
-      s3Key: "papers/17/henricks-2018.pdf",
-      fullTextUrl: "https://pubmed.ncbi.nlm.nih.gov/30348537/",
-      description: "Prospective multicentre safety analysis.",
-      paperContributors: [
-        {
-          contributor: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Contributor,
-          },
-        },
-      ],
-      paperApprovalsRejections: [
-        {
-          approval: true,
-          createdAt: "2024-11-02T09:14:00Z",
-          user: {
-            id: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
-            name: "Ada Okonkwo",
-            role: User_Role.Contributor,
-          },
-        },
-      ],
+      created: "2024-10-22T12:00:00Z",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-    total: 1,
-  },
+  metadata: {},
 };
 
 export const goldenPaperCreateRequest: PaperCreateRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   title: "DPYD genotype-guided dose individualisation of fluoropyrimidine therapy",
   authors: [
-    {
-      name: "Linda M. Henricks",
-    },
-    {
-      name: "Carin A. T. C. Lunenburg",
-    },
+    "Linda M. Henricks",
+    "Carin A. T. C. Lunenburg",
   ],
   abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
   doi: "10.1016/S1470-2045(18)30686-7",
   pmid: "30348537",
-  fullTextUrl: "https://pubmed.ncbi.nlm.nih.gov/30348537/",
-  description: "Prospective multicentre safety analysis.",
-  url: "",
 };
 
 export const goldenPaperLookupRequest: PaperLookupRequest = {
@@ -905,8 +287,6 @@ export const goldenPaperLookupResponse: PaperLookupResponse = {
   ],
   abstract: "BACKGROUND: Fluoropyrimidines are widely used...",
   doi: "10.1016/S1470-2045(18)30686-7",
-  publishedDate: "2018-11-01",
-  url: "https://doi.org/10.1016/S1470-2045(18)30686-7",
 };
 
 export const goldenPaperPresignedUrlRequest: PaperPresignedUrlRequest = {
@@ -933,7 +313,6 @@ export const goldenProtocol: Protocol = {
           label: "Study design",
           placeholder: "",
           required: true,
-          conditionallyShown: false,
           options: [
             {
               name: "Randomised controlled trial",
@@ -949,8 +328,6 @@ export const goldenProtocol: Protocol = {
       ],
     },
   ],
-  createdAt: "2024-10-20T08:00:00Z",
-  updatedAt: "2024-11-01T16:30:00Z",
 };
 
 export const goldenProtocolSection: ProtocolSection = {
@@ -965,7 +342,6 @@ export const goldenProtocolSection: ProtocolSection = {
       label: "Study design",
       placeholder: "",
       required: true,
-      conditionallyShown: false,
       options: [
         {
           name: "Randomised controlled trial",
@@ -988,7 +364,6 @@ export const goldenProtocolElement: ProtocolElement = {
   label: "Study design",
   placeholder: "",
   required: true,
-  conditionallyShown: false,
   options: [
     {
       name: "Randomised controlled trial",
@@ -1023,7 +398,6 @@ export const goldenProtocolTemplate: ProtocolTemplate = {
           label: "Study design",
           placeholder: "",
           required: true,
-          conditionallyShown: false,
           options: [
             {
               name: "Randomised controlled trial",
@@ -1058,7 +432,6 @@ export const goldenProtocolCreateRequest: ProtocolCreateRequest = {
             label: "Study design",
             placeholder: "",
             required: true,
-            conditionallyShown: false,
             options: [
               {
                 name: "Randomised controlled trial",
@@ -1093,7 +466,6 @@ export const goldenProtocolCreateRequest_Draft: ProtocolCreateRequest_Draft = {
           label: "Study design",
           placeholder: "",
           required: true,
-          conditionallyShown: false,
           options: [
             {
               name: "Randomised controlled trial",
@@ -1126,7 +498,6 @@ export const goldenProtocolEditRequest: ProtocolEditRequest = {
           label: "Study design",
           placeholder: "",
           required: true,
-          conditionallyShown: false,
           options: [
             {
               name: "Randomised controlled trial",
@@ -1144,17 +515,7 @@ export const goldenProtocolEditRequest: ProtocolEditRequest = {
   ],
 };
 
-export const goldenProtocolListRequest: ProtocolListRequest = {
-  id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  page: 1,
-  limit: 10,
-};
-
-export const goldenProtocolTemplateListRequest: ProtocolTemplateListRequest = {
-  id: "",
-  page: 1,
-  limit: 10,
-};
+export const goldenProtocolTemplateListRequest: ProtocolTemplateListRequest = {};
 
 export const goldenProtocolTemplateList: ProtocolTemplateList = {
   items: [
@@ -1174,7 +535,6 @@ export const goldenProtocolTemplateList: ProtocolTemplateList = {
               label: "Study design",
               placeholder: "",
               required: true,
-              conditionallyShown: false,
               options: [
                 {
                   name: "Randomised controlled trial",
@@ -1192,10 +552,7 @@ export const goldenProtocolTemplateList: ProtocolTemplateList = {
       ],
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenProtocolElementListRequest: ProtocolElementListRequest = {};
@@ -1209,7 +566,6 @@ export const goldenProtocolElementList: ProtocolElementList = {
       label: "Study design",
       placeholder: "",
       required: true,
-      conditionallyShown: false,
       options: [
         {
           name: "Randomised controlled trial",
@@ -1223,29 +579,23 @@ export const goldenProtocolElementList: ProtocolElementList = {
       sortOrder: 1,
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenDataExtractionReview: DataExtractionReview = {
   id: "58",
+  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   paperId: "17",
   protocolId: "4",
-  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-  userId: "",
-  createdAt: "2024-11-08T09:00:00Z",
-  updatedAt: "2024-11-08T09:41:00Z",
+  created: "2024-11-08T09:00:00Z",
 };
 
 export const goldenDataExtraction: DataExtraction = {
   id: "204",
+  dataExtractionReviewId: "58",
   paperId: "17",
   protocolId: "4",
   protocolElementId: "31",
-  userId: "",
-  dataExtractionReviewId: "58",
   data: "rct",
   sourceLocation: [
     {
@@ -1260,8 +610,7 @@ export const goldenDataExtraction: DataExtraction = {
       ],
     },
   ],
-  createdAt: "2024-11-08T09:12:00Z",
-  updatedAt: "2024-11-08T09:12:00Z",
+  created: "2024-11-08T09:12:00Z",
 };
 
 export const goldenSourceLocationPage: SourceLocationPage = {
@@ -1312,11 +661,10 @@ export const goldenDataExtractionList: DataExtractionList = {
   items: [
     {
       id: "204",
+      dataExtractionReviewId: "58",
       paperId: "17",
       protocolId: "4",
       protocolElementId: "31",
-      userId: "",
-      dataExtractionReviewId: "58",
       data: "rct",
       sourceLocation: [
         {
@@ -1331,40 +679,29 @@ export const goldenDataExtractionList: DataExtractionList = {
           ],
         },
       ],
-      createdAt: "2024-11-08T09:12:00Z",
-      updatedAt: "2024-11-08T09:12:00Z",
+      created: "2024-11-08T09:12:00Z",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenDataExtractionReviewListRequest: DataExtractionReviewListRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   paperId: "17",
   protocolId: "4",
-  page: 1,
-  limit: 10,
 };
 
 export const goldenDataExtractionReviewList: DataExtractionReviewList = {
   items: [
     {
       id: "58",
+      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
       paperId: "17",
       protocolId: "4",
-      topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
-      userId: "",
-      createdAt: "2024-11-08T09:00:00Z",
-      updatedAt: "2024-11-08T09:41:00Z",
+      created: "2024-11-08T09:00:00Z",
     },
   ],
-  metadata: {
-    page: 1,
-    limit: 30,
-  },
+  metadata: {},
 };
 
 export const goldenDataExtractionCreateRequest: DataExtractionCreateRequest = {
@@ -1422,39 +759,15 @@ export const goldenDataExtractionEditRequest: DataExtractionEditRequest = {
   ],
 };
 
-export const goldenLitSearchAbstractRequest: LitSearchAbstractRequest = {
-  id: "30348537",
-  db: "pubmed",
-};
-
-export const goldenLitSearchAbstract: LitSearchAbstract = {
-  paragraphs: [
-    "BACKGROUND: Fluoropyrimidines are widely used...",
-    "METHODS: Patients were prospectively genotyped...",
-  ],
-};
-
 // Every enum member used in the literals above, pinned to the exact characters
 // protojson emitted for it. This is what proves the two languages share one
 // enum vocabulary and not merely one set of field names.
 export const enumWireValues: {
-  "Paper_Status.PendingReview": `${Paper_Status.PendingReview}`;
-  "PropConclusion_Value.Open": `${PropConclusion_Value.Open}`;
   "Prop_Type.Statement": `${Prop_Type.Statement}`;
   "Prop_Type.TopicQuestion": `${Prop_Type.TopicQuestion}`;
-  "Topic_Status.ReviewingPapers": `${Topic_Status.ReviewingPapers}`;
-  "User_Role.Admin": `${User_Role.Admin}`;
-  "User_Role.Contributor": `${User_Role.Contributor}`;
-  "User_Role.Unspecified": `${User_Role.Unspecified}`;
   "Vote_Position.Against": `${Vote_Position.Against}`;
 } = {
-  "Paper_Status.PendingReview": "PendingReview",
-  "PropConclusion_Value.Open": "Open",
   "Prop_Type.Statement": "Statement",
   "Prop_Type.TopicQuestion": "TopicQuestion",
-  "Topic_Status.ReviewingPapers": "ReviewingPapers",
-  "User_Role.Admin": "Admin",
-  "User_Role.Contributor": "Contributor",
-  "User_Role.Unspecified": "Unspecified",
   "Vote_Position.Against": "Against",
 };

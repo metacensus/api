@@ -24,129 +24,105 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Role is demo's `user.role` column. infra has no notion of a role.
-//
-// SOURCE CONFLICT: demo stores and filters these lowercase — the SPA calls
-// `GET /user?role=admin&limit=100`. The contract's PascalCase spelling is
-// required by the enum convention, so adopting it changes both the query
-// string and the stored values.
-type User_Role int32
-
-const (
-	User_Unspecified User_Role = 0
-	User_Admin       User_Role = 1
-	User_Customer    User_Role = 2
-	User_Contributor User_Role = 3
-)
-
-// Enum value maps for User_Role.
-var (
-	User_Role_name = map[int32]string{
-		0: "Unspecified",
-		1: "Admin",
-		2: "Customer",
-		3: "Contributor",
-	}
-	User_Role_value = map[string]int32{
-		"Unspecified": 0,
-		"Admin":       1,
-		"Customer":    2,
-		"Contributor": 3,
-	}
-)
-
-func (x User_Role) Enum() *User_Role {
-	p := new(User_Role)
-	*p = x
-	return p
-}
-
-func (x User_Role) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (User_Role) Descriptor() protoreflect.EnumDescriptor {
-	return file_metacensus_v1_user_proto_enumTypes[0].Descriptor()
-}
-
-func (User_Role) Type() protoreflect.EnumType {
-	return &file_metacensus_v1_user_proto_enumTypes[0]
-}
-
-func (x User_Role) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use User_Role.Descriptor instead.
-func (User_Role) EnumDescriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{0, 0}
-}
-
 // User is a MetaCensus account.
 //
-// This is the widest three-way disagreement in the whole surface. The three
-// sources describe three different records:
+// The first pass carries five fields, and arriving at five was the point of the
+// pass. The three sources describe three different records and agree on almost
+// nothing:
 //
 //   - `types/Contributor.ts` declares `{id, name, email, bio, jobTitle,
 //     joinedAt, groups[], topics[]}`.
-//   - demo returns the `user` table row minus `passwordHash`:
-//     `{id, name, email, role, createdAt, updatedAt, jobTitle, bio}`, plus
-//     `topicContributors` when the list is filtered to `role=contributor`.
+//   - demo returns its `user` row minus `passwordHash`: `{id, name, email,
+//     role, createdAt, updatedAt, jobTitle, bio}`, plus `topicContributors`
+//     when filtered to `role=contributor`.
 //   - infra returns its ledger `User`: `{id, created, lastActive, lastCredits,
 //     name, email, country}`.
 //
-// Not one field beyond `id`, `name` and `email` is agreed by all three. The
-// contract takes the union and records per field which source supplies it,
-// because narrowing to the intersection would delete `role` (which `GET /user`
-// filters on), `country` (which sign-up collects) and `bio`/`jobTitle` (which
-// the contributors table renders).
+// What survives is infra's ledger `User` minus its two dead accounting fields.
+// That convergence was not planned; it is what applying "keep only what we are
+// sure of, and drop anything nothing maintains" produces. It is also a good
+// sign, since infra is the source that was designed rather than assembled.
+//
+// REMOVED IN THE FIRST PASS
+//
+//	role  — vestigial. The only consumer anywhere in the SPA is
+//	        `GET /user?role=admin&limit=100` in `CreateTopic.tsx`, populating
+//	        an admin picker; every other `role` in `src/` is an HTML ARIA
+//	        attribute. The one place the UI would have *displayed* a role —
+//	        the role column in `topic-contributors/page.tsx` — is commented
+//	        out. infra has no role concept at all, and demo enforces nothing
+//	        with it (its own README: "Authentication is not authorization…
+//	        the `user.role` column is stored and filterable but never
+//	        enforced"). Note that `types/Contributor.ts`'s `role` is a
+//	        different thing entirely — it sits on `Group`, over demo's
+//	        `user_groups.role` vocabulary of `"group admin"`/`"contributor"`.
+//	        Question: does MetaCensus want global user roles, or only
+//	        per-topic standing? If the latter, this belongs on topic
+//	        membership, not on the account.
+//
+//	groups — dead at both ends. demo's `group` and `user_groups` tables are
+//	        referenced by exactly one file, `db/seed.ts`. No route handler
+//	        touches them and `relations.ts` does not define a relation for
+//	        them, so nothing is reachable through the API; the SPA's declared
+//	        `groups` field can never be populated, and nothing reads it
+//	        either. It also competes directly with infra's `Org`, which is a
+//	        real chaincode type with working Create and Get transactions and
+//	        no HTTP route. Two half-built grouping concepts is one too many.
+//	        Question: is the grouping concept `Org` (infra) or `Group`
+//	        (demo's seed-only tables)? Settle that before either gets a
+//	        surface; see the `/org` note in common.proto.
+//
+//	topicContributors — demo-only, and never written: no handler inserts into
+//	        `topic_contributors`, so the list is always empty through the API
+//	        even though the seed populates it. It is also the wrong home for
+//	        the information. "Which topics is this user on" is one direction
+//	        of a membership relation whose other direction infra already
+//	        routes as `/topic/{topicId}/member`. Question: when membership is
+//	        implemented, is it readable from the user side at all?
+//
+//	jobTitle, bio — demo-only profile fields with no infra counterpart and no
+//	        infra route pending. Rendered by the contributors table today.
+//	        Question: what is a MetaCensus user profile, and is it part of
+//	        this resource or its own?
+//
+//	lastActive, lastCredits — infra's own, and removed under the same rule
+//	        that removes demo's `updatedAt`. `types.NewUser` sets
+//	        `LastActive: created, LastCredits: 0` and nothing in the
+//	        repository ever updates either. A credit balance that is always
+//	        zero and a last-seen that is always the join date are worse than
+//	        absent fields, because a client would reasonably believe them.
+//	        Question: what is the reputation/credit model, and what keeps
+//	        these current?
+//
+//	updatedAt — demo-only. Its ORM does maintain it, but infra has no such
+//	        concept, so an infra-backed deployment would silently omit it and
+//	        a client could not tell the difference between "never modified"
+//	        and "this backend does not track modification". The archetype of
+//	        a field that becomes untrustworthy the moment one implementation
+//	        stops maintaining it.
 type User struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// SOURCE CONFLICT: demo mints an integer serial, infra mints
-	// `"user:0192a642-817d-7a3e-a282-d7a282ebd482"`. String on the wire either
+	// `"user:0192a642-817d-7a3e-a282-d7a282ebd483"`. String on the wire either
 	// way — the contract cannot ratify one backend's format over the other.
 	Id    string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name  string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Email string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
-	// Collected by the sign-up form and by infra's `POST /user`, stored on
-	// infra's ledger `User`. demo accepts it in the sign-up body and then drops
-	// it: there is no `country` column on demo's `user` table.
-	Country string    `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
-	Role    User_Role `protobuf:"varint,5,opt,name=role,proto3,enum=metacensus.v1.User_Role" json:"role,omitempty"`
-	// demo only. `types/Contributor.ts` declares both.
-	JobTitle string `protobuf:"bytes,6,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
-	Bio      string `protobuf:"bytes,7,opt,name=bio,proto3" json:"bio,omitempty"`
-	// SOURCE CONFLICT: three names for one timestamp. demo emits `createdAt`,
-	// infra emits `created`, `types/Contributor.ts` declares `joinedAt`. The
-	// contract uses `createdAt`, matching the resource that is actually served
-	// to the SPA today.
-	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// demo only.
-	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// infra's ledger accounting. demo has no equivalent columns and never emits
-	// these; they arrive only from an infra-backed deployment.
-	LastActive  *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=last_active,json=lastActive,proto3" json:"last_active,omitempty"`
-	LastCredits uint64                 `protobuf:"varint,11,opt,name=last_credits,json=lastCredits,proto3" json:"last_credits,omitempty"`
-	// SOURCE CONFLICT: `types/Contributor.ts` declares `groups: {id, name,
-	// role}[]`. demo has `group` and `user_groups` tables that model exactly
-	// this, but no handler ever joins them into a response, so the SPA's declared
-	// field is never populated. Kept because the client declares it and the
-	// schema supports it; flagged because nothing serves it.
-	Groups []*GroupMembership `protobuf:"bytes,12,rep,name=groups,proto3" json:"groups,omitempty"`
-	// demo returns this on `GET /user?role=contributor` only, as
-	// `[{topic: <full topic row>}]`.
+	// Collected by the sign-up form and by both backends' `POST /user`, and
+	// stored on infra's ledger `User`.
 	//
-	// SOURCE CONFLICT: `types/Contributor.ts` declares `topics: string[]` and the
-	// contributors table derives it with
-	// `item.topicContributors.map(el => el.topic.name)` — i.e. the client's
-	// declared type does not match what it actually reads. The contract keeps
-	// demo's junction shape (what is served) and narrows the nested topic to a
-	// `Reference`, both because the client only reads `topic.name` and because
-	// embedding the full `Topic` here would make `user.proto` and `topic.proto`
-	// import each other.
-	TopicContributors []*UserTopicMembership `protobuf:"bytes,13,rep,name=topic_contributors,json=topicContributors,proto3" json:"topic_contributors,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// SOURCE CONFLICT: demo accepts it in the sign-up body and then drops it —
+	// there is no `country` column on its `user` table. Kept because infra
+	// models it deliberately and it is set once at sign-up, so it cannot drift.
+	Country string `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
+	// SOURCE CONFLICT: three names for one timestamp. infra emits `created`,
+	// demo emits `createdAt`, `types/Contributor.ts` declares `joinedAt`. The
+	// contract uses `created`, matching infra and matching `Prop.created` and
+	// `Topic.created`, where all three sources already agree on that spelling.
+	// The first pass uses `created` on every resource that has one.
+	Created       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created,proto3" json:"created,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *User) Reset() {
@@ -207,243 +183,11 @@ func (x *User) GetCountry() string {
 	return ""
 }
 
-func (x *User) GetRole() User_Role {
+func (x *User) GetCreated() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Role
-	}
-	return User_Unspecified
-}
-
-func (x *User) GetJobTitle() string {
-	if x != nil {
-		return x.JobTitle
-	}
-	return ""
-}
-
-func (x *User) GetBio() string {
-	if x != nil {
-		return x.Bio
-	}
-	return ""
-}
-
-func (x *User) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
+		return x.Created
 	}
 	return nil
-}
-
-func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-func (x *User) GetLastActive() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastActive
-	}
-	return nil
-}
-
-func (x *User) GetLastCredits() uint64 {
-	if x != nil {
-		return x.LastCredits
-	}
-	return 0
-}
-
-func (x *User) GetGroups() []*GroupMembership {
-	if x != nil {
-		return x.Groups
-	}
-	return nil
-}
-
-func (x *User) GetTopicContributors() []*UserTopicMembership {
-	if x != nil {
-		return x.TopicContributors
-	}
-	return nil
-}
-
-// GroupMembership is one row of `User.groups`.
-type GroupMembership struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// demo's `user_groups.role` is its own vocabulary — `"group admin"` or
-	// `"contributor"` — and is distinct from `User.Role`. Left as a string
-	// because the values contain a space and nothing enumerates them anywhere.
-	Role          string `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GroupMembership) Reset() {
-	*x = GroupMembership{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GroupMembership) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GroupMembership) ProtoMessage() {}
-
-func (x *GroupMembership) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GroupMembership.ProtoReflect.Descriptor instead.
-func (*GroupMembership) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *GroupMembership) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *GroupMembership) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *GroupMembership) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-// UserTopicMembership is one row of `User.topic_contributors`.
-type UserTopicMembership struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Topic         *Reference             `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UserTopicMembership) Reset() {
-	*x = UserTopicMembership{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UserTopicMembership) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UserTopicMembership) ProtoMessage() {}
-
-func (x *UserTopicMembership) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UserTopicMembership.ProtoReflect.Descriptor instead.
-func (*UserTopicMembership) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *UserTopicMembership) GetTopic() *Reference {
-	if x != nil {
-		return x.Topic
-	}
-	return nil
-}
-
-// UserReference is a `{id, name, role}` pointer to a user, used where a
-// response embeds a person to render their name.
-//
-// demo's `topicQuery.ts` projects `role` for admins and contributors but not
-// for reviewers, and `types/Topic.ts` declares `role` only on contributors. The
-// contract carries one shape for all three; `role` is `Unspecified` where the
-// backend did not project it.
-type UserReference struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Role          User_Role              `protobuf:"varint,3,opt,name=role,proto3,enum=metacensus.v1.User_Role" json:"role,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UserReference) Reset() {
-	*x = UserReference{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UserReference) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UserReference) ProtoMessage() {}
-
-func (x *UserReference) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UserReference.ProtoReflect.Descriptor instead.
-func (*UserReference) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *UserReference) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *UserReference) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *UserReference) GetRole() User_Role {
-	if x != nil {
-		return x.Role
-	}
-	return User_Unspecified
 }
 
 // LoginRequest is the body of `POST /login` (unauthenticated).
@@ -457,7 +201,7 @@ type LoginRequest struct {
 
 func (x *LoginRequest) Reset() {
 	*x = LoginRequest{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[4]
+	mi := &file_metacensus_v1_user_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +213,7 @@ func (x *LoginRequest) String() string {
 func (*LoginRequest) ProtoMessage() {}
 
 func (x *LoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[4]
+	mi := &file_metacensus_v1_user_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +226,7 @@ func (x *LoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
 func (*LoginRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{4}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *LoginRequest) GetEmail() string {
@@ -508,8 +252,9 @@ func (x *LoginRequest) GetPassword() string {
 // `keyOps`, and the contract does not override field naming. Second, nothing
 // consumes it: demo's `SignUpSchema` accepts it, stores it nowhere (there is no
 // column), and never verifies the `X-Signature` header the SPA derives from the
-// private half. infra has a `// TODO public keys`. Request signing needs a
-// design decision before it needs a wire shape.
+// private half — demo's README lists this as a known gap. infra has a
+// `// TODO public keys`. Request signing needs a design before it needs a wire
+// shape.
 type SignUpRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -522,7 +267,7 @@ type SignUpRequest struct {
 
 func (x *SignUpRequest) Reset() {
 	*x = SignUpRequest{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[5]
+	mi := &file_metacensus_v1_user_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -534,7 +279,7 @@ func (x *SignUpRequest) String() string {
 func (*SignUpRequest) ProtoMessage() {}
 
 func (x *SignUpRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[5]
+	mi := &file_metacensus_v1_user_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -547,7 +292,7 @@ func (x *SignUpRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignUpRequest.ProtoReflect.Descriptor instead.
 func (*SignUpRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{5}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SignUpRequest) GetName() string {
@@ -580,23 +325,34 @@ func (x *SignUpRequest) GetPassword() string {
 
 // Session is the response to `POST /login` and to `POST /user` (sign-up).
 //
-// SOURCE CONFLICT: demo returns `{token, user}`; infra returns `{token}` only,
-// because its login handler has the id but not a materialised user. The SPA
-// reads `response.token` and nothing else in both cases. The contract keeps
-// `user` — a client that has just authenticated should not have to make a
-// second call to `/self` to learn who it is — which means infra must populate
-// it on adoption.
+// SOURCE CONFLICT: demo returns `{token, user}`; infra returns `{token}`. The
+// SPA reads `response.token` and ignores the rest in both cases.
+//
+// The first pass follows infra and carries only the token. This is a case where
+// the earlier draft resolved toward demo on the grounds that it was what got
+// served, and the reasoning does not survive the question "is this the most
+// elegant API we can offer this information via?" — `GET /self` exists for
+// exactly this, and a login response that also happens to be a user read gives
+// the client two ways to learn the same thing that can disagree. One extra
+// round trip immediately after authenticating is not a cost worth a duplicated
+// representation.
+//
+// REMOVED IN THE FIRST PASS
+//
+//	user — duplicates `GET /self`. Question: is the extra round trip after
+//	       login worth avoiding? If it is, the answer is probably to say so on
+//	       `/self` (a cache header, say) rather than to embed a second copy of
+//	       the user here.
 type Session struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	User          *User                  `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[6]
+	mi := &file_metacensus_v1_user_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +364,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[6]
+	mi := &file_metacensus_v1_user_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +377,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{6}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Session) GetToken() string {
@@ -631,23 +387,17 @@ func (x *Session) GetToken() string {
 	return ""
 }
 
-func (x *Session) GetUser() *User {
-	if x != nil {
-		return x.User
-	}
-	return nil
-}
-
 // LogoutResponse is the response to `POST /logout`.
 //
-// SOURCE CONFLICT: demo returns HTTP 204 with no body at all; infra returns the
-// bare JSON string `"logout successful"`, which is not an object. Neither
-// satisfies the rule that every response is a JSON object at the root, so the
-// contract specifies an empty object, `{}`. This message is deliberately empty
-// and is expected to stay that way.
+// SOURCE CONFLICT: demo returns HTTP 204 with no body; infra returns the bare
+// JSON string `"logout successful"`, which is not an object. Neither satisfies
+// the rule that every response is a JSON object at the root, so the contract
+// specifies an empty object, `{}`. Deliberately empty and expected to stay so.
 //
-// Note that logout is not a session-ending operation in demo: the token stays
-// cryptographically valid until it expires. infra genuinely revokes it.
+// Logout means different things in the two backends and the difference is not
+// cosmetic: infra revokes the token, demo does not — its README records that a
+// logged-out token stays valid until it expires. That is a behavioural gap for
+// demo to close, not a shape for the contract to express.
 type LogoutResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -656,7 +406,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[7]
+	mi := &file_metacensus_v1_user_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +418,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[7]
+	mi := &file_metacensus_v1_user_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,31 +431,29 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{7}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{4}
 }
 
 // UserListRequest is the query string of `GET /user`.
 //
-// Not a JSON body — the SPA calls `GET /user?role=admin&limit=100`. It is
-// modelled as a message so the parameter set is part of the contract rather
-// than folklore.
+// Empty in the first pass. The SPA calls `GET /user?role=admin&limit=100`, and
+// both of those parameters are removed: `role` is vestigial (see `User`) and
+// `limit` is part of the unsettled pagination model (see `ListMetadata`). The
+// message is kept, rather than the endpoint being made parameterless in
+// silence, so that the question has somewhere to land.
+//
+// Question: what does a caller need to filter or page users by? The one real
+// use today is "find the admins to put on a new topic", which may not be a user
+// query at all.
 type UserListRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// `Unspecified` means "no filter", which is how demo treats a missing
-	// `?role=`. The enum is `User.Role` rather than a copy nested here: enum
-	// value names are scoped to their parent message, C++ style, so a second
-	// `Unspecified` inside `UserListRequest` would be legal but pointlessly
-	// duplicative.
-	Role          User_Role `protobuf:"varint,1,opt,name=role,proto3,enum=metacensus.v1.User_Role" json:"role,omitempty"`
-	Page          int32     `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	Limit         int32     `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UserListRequest) Reset() {
 	*x = UserListRequest{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[8]
+	mi := &file_metacensus_v1_user_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -717,7 +465,7 @@ func (x *UserListRequest) String() string {
 func (*UserListRequest) ProtoMessage() {}
 
 func (x *UserListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[8]
+	mi := &file_metacensus_v1_user_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -730,35 +478,13 @@ func (x *UserListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserListRequest.ProtoReflect.Descriptor instead.
 func (*UserListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *UserListRequest) GetRole() User_Role {
-	if x != nil {
-		return x.Role
-	}
-	return User_Unspecified
-}
-
-func (x *UserListRequest) GetPage() int32 {
-	if x != nil {
-		return x.Page
-	}
-	return 0
-}
-
-func (x *UserListRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{5}
 }
 
 // UserList is the response to `GET /user`.
 //
-// SOURCE CONFLICT: demo returns a bare JSON array. Wrapping it in
-// `{items, metadata}` is required by the contract and is a wire break for every
-// current caller.
+// SOURCE CONFLICT: both backends return a bare JSON array — infra returns
+// `resp.Users` directly. Wrapping is a break for both.
 type UserList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*User                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -769,7 +495,7 @@ type UserList struct {
 
 func (x *UserList) Reset() {
 	*x = UserList{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[9]
+	mi := &file_metacensus_v1_user_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -781,7 +507,7 @@ func (x *UserList) String() string {
 func (*UserList) ProtoMessage() {}
 
 func (x *UserList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[9]
+	mi := &file_metacensus_v1_user_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -794,7 +520,7 @@ func (x *UserList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserList.ProtoReflect.Descriptor instead.
 func (*UserList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{9}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UserList) GetItems() []*User {
@@ -811,9 +537,14 @@ func (x *UserList) GetMetadata() *ListMetadata {
 	return nil
 }
 
-// UserGetRequest is the path parameter of `GET /user/{userId}`.
+// UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a
+// `User` bare.
 //
 // infra only; demo has no per-user read. The SPA does not call it.
+//
+// SOURCE CONFLICT: infra wraps the result in `{"user": {...}}` (its
+// `UserGetResponse`), as it does for `GET /self`. Single-resource reads return
+// the resource bare.
 type UserGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -823,7 +554,7 @@ type UserGetRequest struct {
 
 func (x *UserGetRequest) Reset() {
 	*x = UserGetRequest{}
-	mi := &file_metacensus_v1_user_proto_msgTypes[10]
+	mi := &file_metacensus_v1_user_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +566,7 @@ func (x *UserGetRequest) String() string {
 func (*UserGetRequest) ProtoMessage() {}
 
 func (x *UserGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_user_proto_msgTypes[10]
+	mi := &file_metacensus_v1_user_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -848,7 +579,7 @@ func (x *UserGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserGetRequest.ProtoReflect.Descriptor instead.
 func (*UserGetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{10}
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UserGetRequest) GetUserId() string {
@@ -862,40 +593,13 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xdb\x04\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\x90\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x18\n" +
-	"\acountry\x18\x04 \x01(\tR\acountry\x12,\n" +
-	"\x04role\x18\x05 \x01(\x0e2\x18.metacensus.v1.User.RoleR\x04role\x12\x1b\n" +
-	"\tjob_title\x18\x06 \x01(\tR\bjobTitle\x12\x10\n" +
-	"\x03bio\x18\a \x01(\tR\x03bio\x129\n" +
-	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12;\n" +
-	"\vlast_active\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"lastActive\x12!\n" +
-	"\flast_credits\x18\v \x01(\x04R\vlastCredits\x126\n" +
-	"\x06groups\x18\f \x03(\v2\x1e.metacensus.v1.GroupMembershipR\x06groups\x12Q\n" +
-	"\x12topic_contributors\x18\r \x03(\v2\".metacensus.v1.UserTopicMembershipR\x11topicContributors\"A\n" +
-	"\x04Role\x12\x0f\n" +
-	"\vUnspecified\x10\x00\x12\t\n" +
-	"\x05Admin\x10\x01\x12\f\n" +
-	"\bCustomer\x10\x02\x12\x0f\n" +
-	"\vContributor\x10\x03\"I\n" +
-	"\x0fGroupMembership\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\"E\n" +
-	"\x13UserTopicMembership\x12.\n" +
-	"\x05topic\x18\x01 \x01(\v2\x18.metacensus.v1.ReferenceR\x05topic\"a\n" +
-	"\rUserReference\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12,\n" +
-	"\x04role\x18\x03 \x01(\x0e2\x18.metacensus.v1.User.RoleR\x04role\"@\n" +
+	"\acountry\x18\x04 \x01(\tR\acountry\x124\n" +
+	"\acreated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"o\n" +
@@ -903,15 +607,11 @@ const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x18\n" +
 	"\acountry\x18\x03 \x01(\tR\acountry\x12\x1a\n" +
-	"\bpassword\x18\x04 \x01(\tR\bpassword\"H\n" +
+	"\bpassword\x18\x04 \x01(\tR\bpassword\"\x1f\n" +
 	"\aSession\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\x12'\n" +
-	"\x04user\x18\x02 \x01(\v2\x13.metacensus.v1.UserR\x04user\"\x10\n" +
-	"\x0eLogoutResponse\"i\n" +
-	"\x0fUserListRequest\x12,\n" +
-	"\x04role\x18\x01 \x01(\x0e2\x18.metacensus.v1.User.RoleR\x04role\x12\x12\n" +
-	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"n\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x10\n" +
+	"\x0eLogoutResponse\"\x11\n" +
+	"\x0fUserListRequest\"n\n" +
 	"\bUserList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\x127\n" +
 	"\bmetadata\x18\x02 \x01(\v2\x1b.metacensus.v1.ListMetadataR\bmetadata\")\n" +
@@ -930,43 +630,28 @@ func file_metacensus_v1_user_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_user_proto_rawDescData
 }
 
-var file_metacensus_v1_user_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_metacensus_v1_user_proto_goTypes = []any{
-	(User_Role)(0),                // 0: metacensus.v1.User.Role
-	(*User)(nil),                  // 1: metacensus.v1.User
-	(*GroupMembership)(nil),       // 2: metacensus.v1.GroupMembership
-	(*UserTopicMembership)(nil),   // 3: metacensus.v1.UserTopicMembership
-	(*UserReference)(nil),         // 4: metacensus.v1.UserReference
-	(*LoginRequest)(nil),          // 5: metacensus.v1.LoginRequest
-	(*SignUpRequest)(nil),         // 6: metacensus.v1.SignUpRequest
-	(*Session)(nil),               // 7: metacensus.v1.Session
-	(*LogoutResponse)(nil),        // 8: metacensus.v1.LogoutResponse
-	(*UserListRequest)(nil),       // 9: metacensus.v1.UserListRequest
-	(*UserList)(nil),              // 10: metacensus.v1.UserList
-	(*UserGetRequest)(nil),        // 11: metacensus.v1.UserGetRequest
-	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
-	(*Reference)(nil),             // 13: metacensus.v1.Reference
-	(*ListMetadata)(nil),          // 14: metacensus.v1.ListMetadata
+	(*User)(nil),                  // 0: metacensus.v1.User
+	(*LoginRequest)(nil),          // 1: metacensus.v1.LoginRequest
+	(*SignUpRequest)(nil),         // 2: metacensus.v1.SignUpRequest
+	(*Session)(nil),               // 3: metacensus.v1.Session
+	(*LogoutResponse)(nil),        // 4: metacensus.v1.LogoutResponse
+	(*UserListRequest)(nil),       // 5: metacensus.v1.UserListRequest
+	(*UserList)(nil),              // 6: metacensus.v1.UserList
+	(*UserGetRequest)(nil),        // 7: metacensus.v1.UserGetRequest
+	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(*ListMetadata)(nil),          // 9: metacensus.v1.ListMetadata
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
-	0,  // 0: metacensus.v1.User.role:type_name -> metacensus.v1.User.Role
-	12, // 1: metacensus.v1.User.created_at:type_name -> google.protobuf.Timestamp
-	12, // 2: metacensus.v1.User.updated_at:type_name -> google.protobuf.Timestamp
-	12, // 3: metacensus.v1.User.last_active:type_name -> google.protobuf.Timestamp
-	2,  // 4: metacensus.v1.User.groups:type_name -> metacensus.v1.GroupMembership
-	3,  // 5: metacensus.v1.User.topic_contributors:type_name -> metacensus.v1.UserTopicMembership
-	13, // 6: metacensus.v1.UserTopicMembership.topic:type_name -> metacensus.v1.Reference
-	0,  // 7: metacensus.v1.UserReference.role:type_name -> metacensus.v1.User.Role
-	1,  // 8: metacensus.v1.Session.user:type_name -> metacensus.v1.User
-	0,  // 9: metacensus.v1.UserListRequest.role:type_name -> metacensus.v1.User.Role
-	1,  // 10: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
-	14, // 11: metacensus.v1.UserList.metadata:type_name -> metacensus.v1.ListMetadata
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	8, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
+	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
+	9, // 2: metacensus.v1.UserList.metadata:type_name -> metacensus.v1.ListMetadata
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_user_proto_init() }
@@ -980,14 +665,13 @@ func file_metacensus_v1_user_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_user_proto_rawDesc), len(file_metacensus_v1_user_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   11,
+			NumEnums:      0,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_metacensus_v1_user_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_user_proto_depIdxs,
-		EnumInfos:         file_metacensus_v1_user_proto_enumTypes,
 		MessageInfos:      file_metacensus_v1_user_proto_msgTypes,
 	}.Build()
 	File_metacensus_v1_user_proto = out.File

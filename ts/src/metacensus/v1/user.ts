@@ -5,7 +5,7 @@
 // source: metacensus/v1/user.proto
 
 /* eslint-disable */
-import type { ListMetadata, Reference } from "./common.js";
+import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -14,130 +14,107 @@ export const protobufPackage = "metacensus.v1";
 /**
  * User is a MetaCensus account.
  *
- * This is the widest three-way disagreement in the whole surface. The three
- * sources describe three different records:
+ * The first pass carries five fields, and arriving at five was the point of the
+ * pass. The three sources describe three different records and agree on almost
+ * nothing:
  *
  *   * `types/Contributor.ts` declares `{id, name, email, bio, jobTitle,
  *     joinedAt, groups[], topics[]}`.
- *   * demo returns the `user` table row minus `passwordHash`:
- *     `{id, name, email, role, createdAt, updatedAt, jobTitle, bio}`, plus
- *     `topicContributors` when the list is filtered to `role=contributor`.
+ *   * demo returns its `user` row minus `passwordHash`: `{id, name, email,
+ *     role, createdAt, updatedAt, jobTitle, bio}`, plus `topicContributors`
+ *     when filtered to `role=contributor`.
  *   * infra returns its ledger `User`: `{id, created, lastActive, lastCredits,
  *     name, email, country}`.
  *
- * Not one field beyond `id`, `name` and `email` is agreed by all three. The
- * contract takes the union and records per field which source supplies it,
- * because narrowing to the intersection would delete `role` (which `GET /user`
- * filters on), `country` (which sign-up collects) and `bio`/`jobTitle` (which
- * the contributors table renders).
+ * What survives is infra's ledger `User` minus its two dead accounting fields.
+ * That convergence was not planned; it is what applying "keep only what we are
+ * sure of, and drop anything nothing maintains" produces. It is also a good
+ * sign, since infra is the source that was designed rather than assembled.
+ *
+ * REMOVED IN THE FIRST PASS
+ *
+ *   role  — vestigial. The only consumer anywhere in the SPA is
+ *           `GET /user?role=admin&limit=100` in `CreateTopic.tsx`, populating
+ *           an admin picker; every other `role` in `src/` is an HTML ARIA
+ *           attribute. The one place the UI would have *displayed* a role —
+ *           the role column in `topic-contributors/page.tsx` — is commented
+ *           out. infra has no role concept at all, and demo enforces nothing
+ *           with it (its own README: "Authentication is not authorization…
+ *           the `user.role` column is stored and filterable but never
+ *           enforced"). Note that `types/Contributor.ts`'s `role` is a
+ *           different thing entirely — it sits on `Group`, over demo's
+ *           `user_groups.role` vocabulary of `"group admin"`/`"contributor"`.
+ *           Question: does MetaCensus want global user roles, or only
+ *           per-topic standing? If the latter, this belongs on topic
+ *           membership, not on the account.
+ *
+ *   groups — dead at both ends. demo's `group` and `user_groups` tables are
+ *           referenced by exactly one file, `db/seed.ts`. No route handler
+ *           touches them and `relations.ts` does not define a relation for
+ *           them, so nothing is reachable through the API; the SPA's declared
+ *           `groups` field can never be populated, and nothing reads it
+ *           either. It also competes directly with infra's `Org`, which is a
+ *           real chaincode type with working Create and Get transactions and
+ *           no HTTP route. Two half-built grouping concepts is one too many.
+ *           Question: is the grouping concept `Org` (infra) or `Group`
+ *           (demo's seed-only tables)? Settle that before either gets a
+ *           surface; see the `/org` note in common.proto.
+ *
+ *   topicContributors — demo-only, and never written: no handler inserts into
+ *           `topic_contributors`, so the list is always empty through the API
+ *           even though the seed populates it. It is also the wrong home for
+ *           the information. "Which topics is this user on" is one direction
+ *           of a membership relation whose other direction infra already
+ *           routes as `/topic/{topicId}/member`. Question: when membership is
+ *           implemented, is it readable from the user side at all?
+ *
+ *   jobTitle, bio — demo-only profile fields with no infra counterpart and no
+ *           infra route pending. Rendered by the contributors table today.
+ *           Question: what is a MetaCensus user profile, and is it part of
+ *           this resource or its own?
+ *
+ *   lastActive, lastCredits — infra's own, and removed under the same rule
+ *           that removes demo's `updatedAt`. `types.NewUser` sets
+ *           `LastActive: created, LastCredits: 0` and nothing in the
+ *           repository ever updates either. A credit balance that is always
+ *           zero and a last-seen that is always the join date are worse than
+ *           absent fields, because a client would reasonably believe them.
+ *           Question: what is the reputation/credit model, and what keeps
+ *           these current?
+ *
+ *   updatedAt — demo-only. Its ORM does maintain it, but infra has no such
+ *           concept, so an infra-backed deployment would silently omit it and
+ *           a client could not tell the difference between "never modified"
+ *           and "this backend does not track modification". The archetype of
+ *           a field that becomes untrustworthy the moment one implementation
+ *           stops maintaining it.
  */
 export interface User {
   /**
    * SOURCE CONFLICT: demo mints an integer serial, infra mints
-   * `"user:0192a642-817d-7a3e-a282-d7a282ebd482"`. String on the wire either
+   * `"user:0192a642-817d-7a3e-a282-d7a282ebd483"`. String on the wire either
    * way — the contract cannot ratify one backend's format over the other.
    */
   id: string;
   name: string;
   email: string;
   /**
-   * Collected by the sign-up form and by infra's `POST /user`, stored on
-   * infra's ledger `User`. demo accepts it in the sign-up body and then drops
-   * it: there is no `country` column on demo's `user` table.
+   * Collected by the sign-up form and by both backends' `POST /user`, and
+   * stored on infra's ledger `User`.
+   *
+   * SOURCE CONFLICT: demo accepts it in the sign-up body and then drops it —
+   * there is no `country` column on its `user` table. Kept because infra
+   * models it deliberately and it is set once at sign-up, so it cannot drift.
    */
   country: string;
-  role: User_Role;
-  /** demo only. `types/Contributor.ts` declares both. */
-  jobTitle: string;
-  bio: string;
   /**
-   * SOURCE CONFLICT: three names for one timestamp. demo emits `createdAt`,
-   * infra emits `created`, `types/Contributor.ts` declares `joinedAt`. The
-   * contract uses `createdAt`, matching the resource that is actually served
-   * to the SPA today.
+   * SOURCE CONFLICT: three names for one timestamp. infra emits `created`,
+   * demo emits `createdAt`, `types/Contributor.ts` declares `joinedAt`. The
+   * contract uses `created`, matching infra and matching `Prop.created` and
+   * `Topic.created`, where all three sources already agree on that spelling.
+   * The first pass uses `created` on every resource that has one.
    */
-  createdAt?:
-    | string
-    | undefined;
-  /** demo only. */
-  updatedAt?:
-    | string
-    | undefined;
-  /**
-   * infra's ledger accounting. demo has no equivalent columns and never emits
-   * these; they arrive only from an infra-backed deployment.
-   */
-  lastActive?: string | undefined;
-  lastCredits: string;
-  /**
-   * SOURCE CONFLICT: `types/Contributor.ts` declares `groups: {id, name,
-   * role}[]`. demo has `group` and `user_groups` tables that model exactly
-   * this, but no handler ever joins them into a response, so the SPA's declared
-   * field is never populated. Kept because the client declares it and the
-   * schema supports it; flagged because nothing serves it.
-   */
-  groups: GroupMembership[];
-  /**
-   * demo returns this on `GET /user?role=contributor` only, as
-   * `[{topic: <full topic row>}]`.
-   *
-   * SOURCE CONFLICT: `types/Contributor.ts` declares `topics: string[]` and the
-   * contributors table derives it with
-   * `item.topicContributors.map(el => el.topic.name)` — i.e. the client's
-   * declared type does not match what it actually reads. The contract keeps
-   * demo's junction shape (what is served) and narrows the nested topic to a
-   * `Reference`, both because the client only reads `topic.name` and because
-   * embedding the full `Topic` here would make `user.proto` and `topic.proto`
-   * import each other.
-   */
-  topicContributors: UserTopicMembership[];
-}
-
-/**
- * Role is demo's `user.role` column. infra has no notion of a role.
- *
- * SOURCE CONFLICT: demo stores and filters these lowercase — the SPA calls
- * `GET /user?role=admin&limit=100`. The contract's PascalCase spelling is
- * required by the enum convention, so adopting it changes both the query
- * string and the stored values.
- */
-export enum User_Role {
-  Unspecified = "Unspecified",
-  Admin = "Admin",
-  Customer = "Customer",
-  Contributor = "Contributor",
-}
-
-/** GroupMembership is one row of `User.groups`. */
-export interface GroupMembership {
-  id: string;
-  name: string;
-  /**
-   * demo's `user_groups.role` is its own vocabulary — `"group admin"` or
-   * `"contributor"` — and is distinct from `User.Role`. Left as a string
-   * because the values contain a space and nothing enumerates them anywhere.
-   */
-  role: string;
-}
-
-/** UserTopicMembership is one row of `User.topic_contributors`. */
-export interface UserTopicMembership {
-  topic?: Reference | undefined;
-}
-
-/**
- * UserReference is a `{id, name, role}` pointer to a user, used where a
- * response embeds a person to render their name.
- *
- * demo's `topicQuery.ts` projects `role` for admins and contributors but not
- * for reviewers, and `types/Topic.ts` declares `role` only on contributors. The
- * contract carries one shape for all three; `role` is `Unspecified` where the
- * backend did not project it.
- */
-export interface UserReference {
-  id: string;
-  name: string;
-  role: User_Role;
+  created?: string | undefined;
 }
 
 /** LoginRequest is the body of `POST /login` (unauthenticated). */
@@ -156,8 +133,9 @@ export interface LoginRequest {
  * `keyOps`, and the contract does not override field naming. Second, nothing
  * consumes it: demo's `SignUpSchema` accepts it, stores it nowhere (there is no
  * column), and never verifies the `X-Signature` header the SPA derives from the
- * private half. infra has a `// TODO public keys`. Request signing needs a
- * design decision before it needs a wire shape.
+ * private half — demo's README lists this as a known gap. infra has a
+ * `// TODO public keys`. Request signing needs a design before it needs a wire
+ * shape.
  */
 export interface SignUpRequest {
   name: string;
@@ -169,29 +147,40 @@ export interface SignUpRequest {
 /**
  * Session is the response to `POST /login` and to `POST /user` (sign-up).
  *
- * SOURCE CONFLICT: demo returns `{token, user}`; infra returns `{token}` only,
- * because its login handler has the id but not a materialised user. The SPA
- * reads `response.token` and nothing else in both cases. The contract keeps
- * `user` — a client that has just authenticated should not have to make a
- * second call to `/self` to learn who it is — which means infra must populate
- * it on adoption.
+ * SOURCE CONFLICT: demo returns `{token, user}`; infra returns `{token}`. The
+ * SPA reads `response.token` and ignores the rest in both cases.
+ *
+ * The first pass follows infra and carries only the token. This is a case where
+ * the earlier draft resolved toward demo on the grounds that it was what got
+ * served, and the reasoning does not survive the question "is this the most
+ * elegant API we can offer this information via?" — `GET /self` exists for
+ * exactly this, and a login response that also happens to be a user read gives
+ * the client two ways to learn the same thing that can disagree. One extra
+ * round trip immediately after authenticating is not a cost worth a duplicated
+ * representation.
+ *
+ * REMOVED IN THE FIRST PASS
+ *   user — duplicates `GET /self`. Question: is the extra round trip after
+ *          login worth avoiding? If it is, the answer is probably to say so on
+ *          `/self` (a cache header, say) rather than to embed a second copy of
+ *          the user here.
  */
 export interface Session {
   token: string;
-  user?: User | undefined;
 }
 
 /**
  * LogoutResponse is the response to `POST /logout`.
  *
- * SOURCE CONFLICT: demo returns HTTP 204 with no body at all; infra returns the
- * bare JSON string `"logout successful"`, which is not an object. Neither
- * satisfies the rule that every response is a JSON object at the root, so the
- * contract specifies an empty object, `{}`. This message is deliberately empty
- * and is expected to stay that way.
+ * SOURCE CONFLICT: demo returns HTTP 204 with no body; infra returns the bare
+ * JSON string `"logout successful"`, which is not an object. Neither satisfies
+ * the rule that every response is a JSON object at the root, so the contract
+ * specifies an empty object, `{}`. Deliberately empty and expected to stay so.
  *
- * Note that logout is not a session-ending operation in demo: the token stays
- * cryptographically valid until it expires. infra genuinely revokes it.
+ * Logout means different things in the two backends and the difference is not
+ * cosmetic: infra revokes the token, demo does not — its README records that a
+ * logged-out token stays valid until it expires. That is a behavioural gap for
+ * demo to close, not a shape for the contract to express.
  */
 export interface LogoutResponse {
 }
@@ -199,29 +188,24 @@ export interface LogoutResponse {
 /**
  * UserListRequest is the query string of `GET /user`.
  *
- * Not a JSON body — the SPA calls `GET /user?role=admin&limit=100`. It is
- * modelled as a message so the parameter set is part of the contract rather
- * than folklore.
+ * Empty in the first pass. The SPA calls `GET /user?role=admin&limit=100`, and
+ * both of those parameters are removed: `role` is vestigial (see `User`) and
+ * `limit` is part of the unsettled pagination model (see `ListMetadata`). The
+ * message is kept, rather than the endpoint being made parameterless in
+ * silence, so that the question has somewhere to land.
+ *
+ * Question: what does a caller need to filter or page users by? The one real
+ * use today is "find the admins to put on a new topic", which may not be a user
+ * query at all.
  */
 export interface UserListRequest {
-  /**
-   * `Unspecified` means "no filter", which is how demo treats a missing
-   * `?role=`. The enum is `User.Role` rather than a copy nested here: enum
-   * value names are scoped to their parent message, C++ style, so a second
-   * `Unspecified` inside `UserListRequest` would be legal but pointlessly
-   * duplicative.
-   */
-  role: User_Role;
-  page: number;
-  limit: number;
 }
 
 /**
  * UserList is the response to `GET /user`.
  *
- * SOURCE CONFLICT: demo returns a bare JSON array. Wrapping it in
- * `{items, metadata}` is required by the contract and is a wire break for every
- * current caller.
+ * SOURCE CONFLICT: both backends return a bare JSON array — infra returns
+ * `resp.Users` directly. Wrapping is a break for both.
  */
 export interface UserList {
   items: User[];
@@ -229,9 +213,14 @@ export interface UserList {
 }
 
 /**
- * UserGetRequest is the path parameter of `GET /user/{userId}`.
+ * UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a
+ * `User` bare.
  *
  * infra only; demo has no per-user read. The SPA does not call it.
+ *
+ * SOURCE CONFLICT: infra wraps the result in `{"user": {...}}` (its
+ * `UserGetResponse`), as it does for `GET /self`. Single-resource reads return
+ * the resource bare.
  */
 export interface UserGetRequest {
   userId: string;

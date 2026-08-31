@@ -5,9 +5,7 @@
 // source: metacensus/v1/topic.proto
 
 /* eslint-disable */
-import type { ListMetadata, Reference } from "./common.js";
-import type { Protocol } from "./protocol.js";
-import type { UserReference } from "./user.js";
+import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -16,15 +14,70 @@ export const protobufPackage = "metacensus.v1";
 /**
  * Topic is a systematic review in progress.
  *
- * SOURCE CONFLICT, structural: infra's HTTP-facing `apiTopic` is four fields —
- * `{id, created, name, description}` — and its chaincode `Topic` is the same
- * four. demo and `types/Topic.ts` agree on a much richer record. The contract
- * takes the rich shape: two sources agree on it, the SPA renders every field of
- * it, and infra's four are a strict subset it can grow into.
+ * Four fields, which is both infra's HTTP-facing `apiTopic` and its chaincode
+ * `Topic` exactly. demo and `types/Topic.ts` describe a record roughly four
+ * times the size; almost all of the difference is removed here.
+ *
+ * The earlier draft took demo's rich shape on the grounds that two sources
+ * agreed on it. That reasoning does not hold once demo is understood as a
+ * rapidly-built superset rather than a design: "the client and demo agree" is
+ * mostly the client having been written against demo's ORM output. What
+ * remains is what a topic is regardless of implementation — an identified,
+ * named, described thing that was created at a time.
+ *
+ * REMOVED IN THE FIRST PASS
+ *
+ *   topicCategories, topicReviewers, topicAdmins, topicContributors —
+ *           ORM artifacts, and mostly empty ones. These arrive as
+ *           `[{category: {…}}]` rather than `[{…}]` purely because demo's
+ *           query projects junction rows that way; `types/Topic.ts` was
+ *           written against that output. Worse, only two of the four are ever
+ *           written: `POST /topic` inserts `topic_categories` and
+ *           `topic_admins`, and no handler anywhere inserts into
+ *           `topic_reviewers` or `topic_contributors`, so those two always
+ *           come back empty through the API however full the seed data is.
+ *           The people on a topic are a membership relation that infra already
+ *           routes as `/topic/{topicId}/member`, and modelling the same
+ *           information a second way — inline, wrapper-objects, four parallel
+ *           lists — is the opposite of elegant. Question: is topic membership
+ *           one relation with a role, or four lists? If one, `Member` is where
+ *           it belongs and this is the wrong object for it.
+ *
+ *   domain — demo-only, and removed together with `POST /domain` and
+ *           `POST /category`, which have no infra counterpart at all. A
+ *           taxonomy is one design question; splitting it across a topic field
+ *           and two endpoints answers it three times. Question: how is a topic
+ *           classified, and is that a fixed vocabulary or free tagging?
+ *
+ *   status, statusDescription — demo-only free text that neither backend
+ *           validates. The five-value enum in the earlier draft was inferred
+ *           from the badge-colour map in `types/enums.ts`, which is a styling
+ *           table that mixes topic statuses, paper statuses and a prop
+ *           conclusion into one flat record. That is not a specification, and
+ *           publishing a vocabulary derived from a CSS lookup would freeze a
+ *           guess. Question: what is a topic's lifecycle, and is its state
+ *           stored or derived from the work done in it?
+ *
+ *   question — demo reads and stores it, and the SPA's create form has no
+ *           input that sends it, so it is set by nothing. `description`
+ *           carries the same information today. Question: does a topic need a
+ *           formal research question distinct from its description?
+ *
+ *   minimumExtractionReviews — real workflow configuration (how many
+ *           independent extractions a paper needs) but it belongs to the
+ *           extraction feature, which infra has not built. Removed with the
+ *           rest of that feature's uncertainty rather than landing its config
+ *           knob first. Question: is the review threshold per topic, per
+ *           protocol, or global?
+ *
+ *   protocol — demo embeds the whole protocol in every topic, on both the list
+ *           and the detail read. `GET /topic/{topicId}/protocol` already
+ *           serves it. Embedding it makes every topic list carry every form
+ *           definition. Question: none, really — this one is just duplication.
  */
 export interface Topic {
   /**
-   * SOURCE CONFLICT: demo's topic id is a text UUID it mints with
+   * SOURCE CONFLICT: demo's topic id is a text UUID from
    * `crypto.randomUUID()` — the one id demo does not serialise as an integer.
    * infra mints `"topc:0192a642-…"`. String either way.
    */
@@ -33,100 +86,21 @@ export interface Topic {
    * SOURCE CONFLICT: `types/Topic.ts` declares `created` and infra emits
    * `created`, but demo's column is `createdAt` and its handlers return the row
    * unmapped — so demo serves `createdAt` and the SPA's `Topic.created` is
-   * never populated by the backend it actually runs against. Two sources out of
-   * three say `created`, so `created` it is, and demo has a rename to do.
-   *
-   * Note that every *other* resource in this contract uses `createdAt`. That
-   * inconsistency is inherited, not introduced; normalising it is a separate
-   * decision from defining the contract.
+   * never populated by the backend it actually runs against. `created` matches
+   * infra and the client's own declaration; demo has a rename to do.
    */
   created?: string | undefined;
   name: string;
   description: string;
-  /**
-   * The review question. demo reads it on create and stores it; the SPA's
-   * create form has no input for it, so it is set by nothing today.
-   */
-  question: string;
-  status: Topic_Status;
-  /** Free-text elaboration on `status`, rendered beside it. */
-  statusDescription: string;
-  /**
-   * How many independent extraction reviews a paper needs before it counts as
-   * extracted. demo defaults it to 2.
-   */
-  minimumExtractionReviews: number;
-  domain?:
-    | Reference
-    | undefined;
-  /**
-   * SOURCE CONFLICT: these four are junction-table rows leaking to the wire —
-   * `[{category: {...}}]` rather than `[{...}]` — because demo's ORM projects
-   * them that way and `types/Topic.ts` was written against that output. It is
-   * an ORM artifact, not a domain shape, and `categories`/`admins` would be the
-   * better field. Kept because client and backend agree on it and changing it
-   * is a wire break with no functional gain; listed as an open question.
-   */
-  topicCategories: TopicCategory[];
-  topicReviewers: TopicReviewer[];
-  topicAdmins: TopicAdmin[];
-  topicContributors: TopicContributor[];
-  /**
-   * The topic's protocol, embedded. demo's `topicWith` join returns it inline
-   * on both the list and the detail read, so the SPA can render a topic card
-   * without a second call. Absent until a protocol is created.
-   */
-  protocol?: Protocol | undefined;
 }
 
 /**
- * Status is the topic's position in the review lifecycle.
+ * TopicListRequest is the query string of `GET /topic`.
  *
- * SOURCE CONFLICT, and the weakest enum here. Both backends store it as free
- * text and neither validates it. The only enumeration anywhere in the three
- * sources is the colour map in `types/enums.ts`, which mixes topic statuses,
- * paper statuses and a prop conclusion into one flat `Record<string, string>`
- * for styling purposes. These five values are the ones in that map that are
- * not paper statuses. That is thin evidence and the vocabulary should be
- * confirmed by someone who knows the workflow.
- *
- * The map's keys are spelled with spaces — `"Pending Protocol"` — so adopting
- * these PascalCase names changes both the stored values and the SPA's
- * `statusMap` keys.
+ * Empty for the same reason as `UserListRequest`: the only parameters either
+ * backend takes are `page` and `limit`, and the pagination model is unsettled.
  */
-export enum Topic_Status {
-  Unspecified = "Unspecified",
-  PendingProtocol = "PendingProtocol",
-  ProtocolInProcess = "ProtocolInProcess",
-  ProtocolCompleted = "ProtocolCompleted",
-  ReviewingPapers = "ReviewingPapers",
-  Finished = "Finished",
-}
-
-/** TopicCategory is one row of `Topic.topic_categories`. */
-export interface TopicCategory {
-  category?: Reference | undefined;
-}
-
-/** TopicReviewer is one row of `Topic.topic_reviewers`. */
-export interface TopicReviewer {
-  reviewer?: UserReference | undefined;
-}
-
-/** TopicAdmin is one row of `Topic.topic_admins`. */
-export interface TopicAdmin {
-  admin?: UserReference | undefined;
-}
-
-/** TopicContributor is one row of `Topic.topic_contributors`. */
-export interface TopicContributor {
-  contributor?: UserReference | undefined;
-}
-
-/** TopicListRequest is the query string of `GET /topic`. */
 export interface TopicListRequest {
-  page: number;
-  limit: number;
 }
 
 /**
@@ -141,12 +115,12 @@ export interface TopicList {
 }
 
 /**
- * TopicGetRequest is the path parameter of `GET /topic/{topicId}`.
+ * TopicGetRequest is the path parameter of `GET /topic/{topicId}`, which
+ * returns a `Topic` bare.
  *
- * infra maps the literal id `"default"` to a hardcoded topic id
- * (`topc:0192a642-817d-7a3e-a282-d7a282ebd482`, seeded by its chaincode
- * `InitLedger`) behind a `// TODO remove me after demo`. That alias is not part
- * of the contract.
+ * infra maps the literal id `"default"` to a hardcoded topic id seeded by its
+ * chaincode `InitLedger`, behind a `// TODO remove me after demo`. That alias
+ * is not part of the contract.
  */
 export interface TopicGetRequest {
   topicId: string;
@@ -155,28 +129,20 @@ export interface TopicGetRequest {
 /**
  * TopicCreateRequest is the body of `POST /topic`.
  *
- * SOURCE CONFLICT: infra reads only `{name, description}` and mints the id
- * itself. demo reads all of the below and lets the client supply an id.
- * `domain`, `categories` and `admins` are sent as `{id, name}` objects by the
- * SPA but only their `id` is read, which is why they are `Reference`s here.
+ * Exactly what infra reads. demo additionally reads `id`, `question`,
+ * `minimumExtractionReviews`, `domain`, `categories` and `admins`; all six are
+ * removed for the reasons given on `Topic`, plus `id` — demo lets a client
+ * supply the topic's id and infra always mints its own. Letting a caller choose
+ * a primary key is a decision that needs a reason, and there is no evidence of
+ * one; the SPA sends no id.
  */
 export interface TopicCreateRequest {
-  /**
-   * Optional client-supplied id. demo mints a UUID when this is blank; infra
-   * always mints its own and ignores anything sent.
-   */
-  id: string;
   name: string;
   description: string;
-  question: string;
-  minimumExtractionReviews: number;
-  domain?: Reference | undefined;
-  categories: Reference[];
-  admins: Reference[];
 }
 
 /**
- * TopicProtocolListRequest is the path parameter of
+ * TopicProtocolRequest is the path parameter of
  * `GET /topic/{topicId}/protocol`, which returns the topic's `Protocol` bare.
  *
  * SOURCE CONFLICT, behavioural: demo's handler binds the path parameter to
@@ -185,67 +151,30 @@ export interface TopicCreateRequest {
  * That is a bug; the contract's semantics are the ones the route name states.
  * infra routes the same path to `handleUnimplemented` (HTTP 501).
  */
-export interface TopicProtocolListRequest {
+export interface TopicProtocolRequest {
   topicId: string;
 }
 
 /**
- * TopicProtocolList is the response to `POST /protocol`.
+ * Member is a user's membership of a topic.
  *
- * It lives in topic.proto, and its items are `Topic`s, because that is what the
- * endpoint returns: demo's `POST /protocol` handler queries the *topic* table
- * with the protocol join, so "list protocols" is really "list topics, with
- * their protocols". The endpoint is misnamed and the SPA never calls it.
- * Putting the message here also avoids protocol.proto and topic.proto importing
- * each other.
- */
-export interface TopicProtocolList {
-  items: Topic[];
-  metadata?: ListMetadata | undefined;
-}
-
-/**
- * TopicMyVoteListRequest is the path parameter of
- * `GET /topic/{topicId}/my-votes`.
- */
-export interface TopicMyVoteListRequest {
-  topicId: string;
-}
-
-/**
- * TopicMyVoteList is the response to `GET /topic/{topicId}/my-votes`: the ids
- * of the props the authenticated user has already voted on in this topic.
+ * UNIMPLEMENTED EVERYWHERE, and kept on purpose. infra routes
+ * `GET /topic/{topicId}/member` and `GET /topic/{topicId}/member/{userId}` to
+ * `handleUnimplemented` (HTTP 501); demo has neither route. This is the
+ * lower-concern kind of gap — the route is declared, it will be designed when
+ * it is implemented, and the review happens then. It is also the place the four
+ * removed `Topic` junction lists should end up, so leaving a named home for
+ * them keeps that connection visible.
  *
- * It exists to save the SPA a request per votable prop. `items` is a list of
- * prop ids rather than a list of votes because that is all the caller needs and
- * all demo returns.
- *
- * SOURCE CONFLICT: demo returns a bare JSON array of strings. infra has no such
- * endpoint. Unpaginated in practice — `metadata` is present for consistency.
- */
-export interface TopicMyVoteList {
-  items: string[];
-  metadata?: ListMetadata | undefined;
-}
-
-/**
- * Member is a user's membership of a topic, with the ledger accounting that
- * governs their voting weight.
- *
- * UNIMPLEMENTED EVERYWHERE. infra routes `GET /topic/{topicId}/member` and
- * `GET /topic/{topicId}/member/{userId}` to `handleUnimplemented` (HTTP 501);
- * demo has neither route. The shape is infra's chaincode `types.Member`, which
- * is real and complete. The SPA lists a topic's people from `GET /user` today
- * and carries a `// TODO change this to "members" after the demo`.
- *
- * Declared because infra routes it and the domain type exists; flagged because
- * nothing serves it.
+ * The shape is infra's chaincode `types.Member` minus its two accounting
+ * fields, removed for the same reason as on `User`: `lastActive` and
+ * `lastCredits` are set once and never updated by anything.
  */
 export interface Member {
+  /** The member's user id. */
   id: string;
+  /** When they joined the topic. */
   created?: string | undefined;
-  lastActive?: string | undefined;
-  lastCredits: string;
 }
 
 /** MemberListRequest is the path parameter of `GET /topic/{topicId}/member`. */
