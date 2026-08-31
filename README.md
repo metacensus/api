@@ -139,6 +139,10 @@ through a message field, which both sides already agree on.
   strings that are real values of their enum, RFC 3339 timestamps, string ids,
   no top-level arrays, `{items, metadata}` on every list, no package-scope
   enums, no `optional` scalars.
+- **`TestNoPaginationFields`** — no request or response anywhere carries `page`,
+  `limit`, `offset`, a cursor or a total. See the ruling below; it is a test
+  rather than a one-time audit because the failure mode is one endpoint at a
+  time.
 - **`ts/test/golden.ts`** — the same documents as TypeScript literals, generated
   from the same bytes in the same run, type-checked by `tsc` against the
   generated interfaces. Its `enumWireValues` pins each enum member to the exact
@@ -149,6 +153,50 @@ through a message field, which both sides already agree on.
 empty `dependencies`, and no value imports in `src/`. ts-proto's default
 `forceLong` would pull in the `long` package, which is exactly the kind of
 regression that would otherwise pass every other check.
+
+## No pagination, anywhere
+
+Every route serves everything, all together. No request message carries `page`,
+`limit`, `offset` or a cursor; no response reports a total. `ListMetadata` is
+empty, and exists so that the `{items, metadata}` envelope is already the right
+shape when a specific route does grow pagination.
+
+This drops behaviour that demo serves today: `GET /topic` and `GET /user` take
+`page`/`limit` in the query string, and `POST /paper`,
+`POST /extraction-review` and `POST /protocol-template` take them as body
+fields. infra paginates nothing and carries a `// TODO Paginate this` on every
+`GetAll` handler. Rather than describe a model that one backend half-implements
+and the other does not implement at all, the contract describes none and leaves
+the question open — offset or cursor, query string or body, per-route or
+uniform.
+
+`ListMetadata` is the pressure point, and its comment says so: it is shared by
+the infra-derived lists (`UserList`, `TopicList`, `PropList`, `VoteList`) and
+the demo-only ones (`PaperList`, the protocol and extraction lists) alike, so
+the first field added to it is added to all of them on behalf of whichever route
+asked for it. If one route needs paging, page that route.
+
+## Keeping infra-derived messages clean
+
+Three resources here exist only because demo implements them — papers,
+protocols, extraction — against infra routes that are stubbed. The risk that
+creates is subtle: a demo-only endpoint can reference a message that was derived
+with confidence from infra, and quietly push demo's shape back into it.
+
+It happened in the first draft. `UserReference` (`{id, name, role}`) lived in
+`user.proto` and existed to carry demo's ORM junction projections; `paper.proto`
+imported `user.proto` to use it for `paperContributors`, and its `role` field
+existed *only* because demo's topic and paper joins projected a role column. A
+demo-only resource was shaping a type in an infra-derived file.
+
+It is clean now, and structurally so rather than by vigilance: `Reference` and
+`UserReference` are gone, and the import graph shows why the problem cannot
+recur silently — every file imports only `common.proto` and
+`google/protobuf/timestamp.proto`. `topic.proto` no longer imports
+`protocol.proto`; `paper.proto` no longer imports `user.proto`. The only shared
+file left is `common.proto`, which holds `ListMetadata` (empty), `Error` (both
+backends emit it) and `HealthcheckResponse` (infra's). None of them can carry a
+demo-only field today, which leaves `ListMetadata` as the one thing to watch.
 
 ## Tooling and pinning
 

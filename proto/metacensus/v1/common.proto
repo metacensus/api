@@ -124,24 +124,42 @@ option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacens
 //
 // It is empty, and that is deliberate rather than unfinished.
 //
-// Every list response is `{items, metadata}` — never a bare array — so that a
-// list can grow a sibling field without breaking every consumer. `metadata` is
-// where that growth goes, and pagination is what it is expected to carry. But
-// the pagination model is not settled: demo takes `page`/`limit` three
-// different ways (query string on `GET /topic` and `GET /user`, a JSON body
-// field on `POST /paper`, `POST /extraction-review`, `POST /protocol-template`),
-// echoes neither back, and computes no total; infra paginates nothing at all
-// and carries a `// TODO Paginate this` on every one of its `GetAll` handlers.
+// THERE IS NO PAGINATION ANYWHERE IN THIS CONTRACT. Every route serves
+// everything, all together. That is a ruling about the whole surface, not a gap
+// in this one message: no request message carries `page`, `limit`, `offset` or
+// a cursor, and no response reports a total. When a specific route needs to
+// page, it grows pagination then, and the `{items, metadata}` envelope means it
+// can do so without breaking every consumer — which is the only reason this
+// message exists today.
 //
-// Declaring `page` and `limit` here would put two fields on the wire that no
-// backend populates and that a cursor-based design would make wrong. The
-// envelope is the part we are sure about; its contents are not.
+// SOURCE CONFLICT: demo genuinely paginates today and this deliberately drops
+// it. `GET /topic` and `GET /user` take `page`/`limit` in the query string
+// (clamped to 1..100, default 50); `POST /paper`, `POST /extraction-review` and
+// `POST /protocol-template` take them as JSON body fields (default 10). So
+// three of those are currently-served behaviour that a client can use and this
+// contract does not describe. infra paginates nothing at all and carries a
+// `// TODO Paginate this` on every one of its `GetAll` handlers.
+//
+// Declaring `page`/`limit` here anyway would put fields on the wire that no
+// backend echoes back, that infra does not implement, and that a cursor-based
+// design would make wrong. The envelope is the part we are sure about.
+//
+// A WARNING FOR WHOEVER ADDS THE FIRST FIELD HERE. This message is shared by
+// every list response — `UserList`, `TopicList`, `PropList` and `VoteList`,
+// which are derived from infra, alongside `PaperList` and the extraction and
+// protocol lists, which exist only because demo implements those routes. So the
+// first field added here is added to all of them, on behalf of whichever route
+// asked for it. That is precisely how a demo-only requirement gets pushed onto
+// an infra-derived message. If one route needs paging, page that route; only
+// put something here once it is right for every list on the surface.
 //
 // REMOVED IN THE FIRST PASS
-//   page, limit — no backend echoes them; the model may not be offset-based.
+//   page, limit — served by demo today (see above), echoed back by nothing, and
+//                 the model may not be offset-based at all.
 //   total       — no backend computes one.
-// Question: is pagination offset- or cursor-based, and do the parameters
-// travel in the query string or the body?
+// Question: when pagination arrives, is it offset- or cursor-based, do the
+// parameters travel in the query string or the body, and is it per-route or
+// uniform across the surface?
 message ListMetadata {}
 
 // Error is the failure body. Both backends emit `{"error": "..."}`: demo from

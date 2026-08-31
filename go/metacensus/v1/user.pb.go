@@ -85,14 +85,21 @@ const (
 //	        Question: what is a MetaCensus user profile, and is it part of
 //	        this resource or its own?
 //
-//	lastActive, lastCredits — infra's own, and removed under the same rule
-//	        that removes demo's `updatedAt`. `types.NewUser` sets
-//	        `LastActive: created, LastCredits: 0` and nothing in the
-//	        repository ever updates either. A credit balance that is always
-//	        zero and a last-seen that is always the join date are worse than
-//	        absent fields, because a client would reasonably believe them.
-//	        Question: what is the reputation/credit model, and what keeps
-//	        these current?
+//	lastActive, lastCredits — DEFERRED, not rejected. These are infra's own,
+//	        and they are removed under exactly the same rule that removes
+//	        demo's `updatedAt`: `types.NewUser` sets
+//	        `LastActive: created, LastCredits: 0` and nothing in the repository
+//	        ever updates either, so a credit balance that is always zero and a
+//	        last-seen that is always the join date would be believed by a
+//	        client and would be wrong. The bar is "does anything maintain this
+//	        field", and it applies whichever backend authored it — infra is not
+//	        trusted by default.
+//	        The field set itself is wanted. The feature that would make it
+//	        true is tracked as metacensus/infra#54, "Credit-gate user actions
+//	        that affect global or sensitive endpoints": spending credits to
+//	        take actions with global reach, creation endpoints first. The
+//	        ledger already reserves both fields and never writes them. They
+//	        should be added back to this message when that feature lands.
 //
 //	updatedAt — demo-only. Its ORM does maintain it, but infra has no such
 //	        concept, so an infra-backed deployment would silently omit it and

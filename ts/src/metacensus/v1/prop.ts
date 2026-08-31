@@ -237,12 +237,16 @@ export interface VoteListRequest {
 /**
  * VoteList is the response to `GET /topic/{topicId}/prop/{propId}/vote`.
  *
- * SOURCE CONFLICT: demo returns a bare JSON array. infra does not route this
- * method at all — it declares `VoteGet`/`VoteGetAll` on its `DataSource`
- * interface and leaves both commented out — so under infra a prop's votes are
- * reachable only through the `votes` this contract just removed from `Prop`.
- * Removing that field therefore makes implementing this route load-bearing for
- * infra rather than optional.
+ * REQUIRED OF INFRA. infra does not route this method at all: it declares
+ * `VoteGet` and `VoteGetAll` on its `DataSource` interface and leaves both
+ * commented out, because a prop's votes were reachable through the `votes`
+ * field embedded in `Prop` — which this contract removes (see `Prop`). There is
+ * therefore no other way to read a prop's votes under this contract, and
+ * implementing this route is a requirement of adopting it, not an optional
+ * extra. This is the one place the contract asks infra for new work rather than
+ * describing what it already does.
+ *
+ * SOURCE CONFLICT: demo serves this route and returns a bare JSON array.
  */
 export interface VoteList {
   items: Vote[];
