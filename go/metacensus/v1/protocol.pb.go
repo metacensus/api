@@ -371,8 +371,7 @@ func (x *ProtocolTemplate) GetProtocolSections() []*ProtocolSection {
 	return nil
 }
 
-// ProtocolCreateRequest is the body of `POST /protocol`, which returns the
-// created `Protocol`. Ids on the sections and elements are ignored.
+// ProtocolCreateRequest ignores the ids on its sections and elements.
 type ProtocolCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -433,13 +432,12 @@ func (x *ProtocolCreateRequest) GetSections() []*ProtocolSection {
 	return nil
 }
 
-// ProtocolEditRequest is the body of `POST /protocol/{protocolId}`, which
-// returns the updated `Protocol`. A section or element with a positive id is
-// updated in place; any other id inserts a new one. Omitting one does not
-// delete it.
+// ProtocolEditRequest updates a section or element with a positive id in place;
+// any other id inserts a new one. Omitting one does not delete it.
 type ProtocolEditRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sections      []*ProtocolSection     `protobuf:"bytes,1,rep,name=sections,proto3" json:"sections,omitempty"`
+	ProtocolId    string                 `protobuf:"bytes,1,opt,name=protocol_id,json=protocolId,proto3" json:"protocol_id,omitempty"`
+	Sections      []*ProtocolSection     `protobuf:"bytes,2,rep,name=sections,proto3" json:"sections,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -474,6 +472,13 @@ func (*ProtocolEditRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{6}
 }
 
+func (x *ProtocolEditRequest) GetProtocolId() string {
+	if x != nil {
+		return x.ProtocolId
+	}
+	return ""
+}
+
 func (x *ProtocolEditRequest) GetSections() []*ProtocolSection {
 	if x != nil {
 		return x.Sections
@@ -481,8 +486,7 @@ func (x *ProtocolEditRequest) GetSections() []*ProtocolSection {
 	return nil
 }
 
-// ProtocolTemplateListRequest is the body of `POST /protocol-template`. No
-// parameters.
+// ProtocolTemplateListRequest carries no parameters.
 type ProtocolTemplateListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -519,7 +523,6 @@ func (*ProtocolTemplateListRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{7}
 }
 
-// ProtocolTemplateList is the response to `POST /protocol-template`.
 type ProtocolTemplateList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*ProtocolTemplate    `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -564,8 +567,7 @@ func (x *ProtocolTemplateList) GetItems() []*ProtocolTemplate {
 	return nil
 }
 
-// ProtocolElementListRequest is the body of `POST /protocol-element`, which
-// lists the premade elements the protocol editor offers. No parameters.
+// ProtocolElementListRequest carries no parameters.
 type ProtocolElementListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -602,8 +604,8 @@ func (*ProtocolElementListRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{9}
 }
 
-// ProtocolElementList is the response to `POST /protocol-element`. These
-// elements belong to no section, so their `sort_order` is unset.
+// ProtocolElementList carries the premade elements the protocol editor offers.
+// They belong to no section, so their `sort_order` is unset.
 type ProtocolElementList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*ProtocolElement     `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -683,9 +685,11 @@ const file_metacensus_v1_protocol_proto_rawDesc = "" +
 	"\x15ProtocolCreateRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12:\n" +
-	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"Q\n" +
-	"\x13ProtocolEditRequest\x12:\n" +
-	"\bsections\x18\x01 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"\x1d\n" +
+	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"r\n" +
+	"\x13ProtocolEditRequest\x12\x1f\n" +
+	"\vprotocol_id\x18\x01 \x01(\tR\n" +
+	"protocolId\x12:\n" +
+	"\bsections\x18\x02 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"\x1d\n" +
 	"\x1bProtocolTemplateListRequest\"M\n" +
 	"\x14ProtocolTemplateList\x125\n" +
 	"\x05items\x18\x01 \x03(\v2\x1f.metacensus.v1.ProtocolTemplateR\x05items\"\x1c\n" +

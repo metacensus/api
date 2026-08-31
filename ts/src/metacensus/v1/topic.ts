@@ -18,36 +18,23 @@ export interface Topic {
   description: string;
 }
 
-/** TopicListRequest is the query string of `GET /topic`. No parameters. */
+/** TopicListRequest carries no parameters. */
 export interface TopicListRequest {
 }
 
-/** TopicList is the response to `GET /topic`. */
 export interface TopicList {
   items: Topic[];
 }
 
-/**
- * TopicGetRequest is the path parameter of `GET /topic/{topicId}`, which
- * returns a `Topic`.
- */
 export interface TopicGetRequest {
   topicId: string;
 }
 
-/**
- * TopicCreateRequest is the body of `POST /topic`, which returns the created
- * `Topic`.
- */
 export interface TopicCreateRequest {
   name: string;
   description: string;
 }
 
-/**
- * TopicProtocolRequest is the path parameter of
- * `GET /topic/{topicId}/protocol`, which returns the topic's `Protocol`.
- */
 export interface TopicProtocolRequest {
   topicId: string;
 }
@@ -63,20 +50,14 @@ export interface Member {
   joined?: string | undefined;
 }
 
-/** MemberListRequest is the path parameter of `GET /topic/{topicId}/member`. */
 export interface MemberListRequest {
   topicId: string;
 }
 
-/** MemberList is the response to `GET /topic/{topicId}/member`. */
 export interface MemberList {
   items: Member[];
 }
 
-/**
- * MemberGetRequest is the path parameters of
- * `GET /topic/{topicId}/member/{userId}`, which returns a `Member`.
- */
 export interface MemberGetRequest {
   topicId: string;
   userId: string;

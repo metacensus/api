@@ -52,37 +52,32 @@ message ProtocolTemplate {
   repeated ProtocolSection protocol_sections = 3;
 }
 
-// ProtocolCreateRequest is the body of `POST /protocol`, which returns the
-// created `Protocol`. Ids on the sections and elements are ignored.
+// ProtocolCreateRequest ignores the ids on its sections and elements.
 message ProtocolCreateRequest {
   string topic_id = 1;
   string title = 2;
   repeated ProtocolSection sections = 3;
 }
 
-// ProtocolEditRequest is the body of `POST /protocol/{protocolId}`, which
-// returns the updated `Protocol`. A section or element with a positive id is
-// updated in place; any other id inserts a new one. Omitting one does not
-// delete it.
+// ProtocolEditRequest updates a section or element with a positive id in place;
+// any other id inserts a new one. Omitting one does not delete it.
 message ProtocolEditRequest {
-  repeated ProtocolSection sections = 1;
+  string protocol_id = 1;
+  repeated ProtocolSection sections = 2;
 }
 
-// ProtocolTemplateListRequest is the body of `POST /protocol-template`. No
-// parameters.
+// ProtocolTemplateListRequest carries no parameters.
 message ProtocolTemplateListRequest {}
 
-// ProtocolTemplateList is the response to `POST /protocol-template`.
 message ProtocolTemplateList {
   repeated ProtocolTemplate items = 1;
 }
 
-// ProtocolElementListRequest is the body of `POST /protocol-element`, which
-// lists the premade elements the protocol editor offers. No parameters.
+// ProtocolElementListRequest carries no parameters.
 message ProtocolElementListRequest {}
 
-// ProtocolElementList is the response to `POST /protocol-element`. These
-// elements belong to no section, so their `sort_order` is unset.
+// ProtocolElementList carries the premade elements the protocol editor offers.
+// They belong to no section, so their `sort_order` is unset.
 message ProtocolElementList {
   repeated ProtocolElement items = 1;
 }

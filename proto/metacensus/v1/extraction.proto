@@ -6,10 +6,8 @@ package metacensus.v1;
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
 // DataExtraction is the set of values extracted from one paper against one
-// protocol, identified by the three ids together.
-//
-// It is both the body of `POST /extraction`, which upserts it, and what that
-// route and `GET /extraction` return.
+// protocol, identified by the three ids together. It is both what is upserted
+// and what is read back.
 message DataExtraction {
   string topic_id = 1;
   string paper_id = 2;
@@ -44,9 +42,8 @@ message SourceRect {
   double h = 4;
 }
 
-// DataExtractionGetRequest is the query string of `GET /extraction`, which
-// returns a `DataExtraction`. All three fields are required: together they
-// identify it.
+// DataExtractionGetRequest requires all three fields: together they identify
+// one `DataExtraction`.
 message DataExtractionGetRequest {
   string topic_id = 1;
   string paper_id = 2;

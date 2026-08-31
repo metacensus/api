@@ -51,6 +51,106 @@ These are not conflicts and are not recorded per-message anywhere:
   is `Member.joined`, which names the event rather than the record.
 - Enum zero values are `Unspecified`. infra emits `Undefined`.
 
+## Routes: declared in the schema
+
+Every route is an `rpc` in `proto/metacensus/v1/routes.proto` carrying a
+`google.api.http` annotation, and `go/cmd/routegen` turns those annotations into
+a manifest for Go and TypeScript. Before this each route was a sentence in a
+comment above its request message — documentation, not a definition, and a
+fourth unsynchronised copy after `src/lib/routes.ts`, infra's route constants and
+demo's inline literals. [metacensus/ui#41](https://github.com/metacensus/ui/issues/41).
+
+The rpcs are a route declaration and **not** a gRPC commitment. Nothing
+generates or serves gRPC; `protoc-gen-go` emits a service descriptor and no
+interfaces, and ts-proto is given `outputServices=none`. Without that option
+ts-proto emits a types-only `Routes` interface of `Promise`-returning methods —
+checked, not assumed — which is precisely what a reader would mistake for a gRPC
+client.
+
+### The reversal, with its reasons
+
+This contract was built with **no BSR dependencies and no `buf.lock`**, so
+generation needed no network. `google.api.http` gives that up. Recorded here so
+that it does not later read as a regression:
+
+- The property was real. What it was standing in for is reproducibility, and
+  `buf.lock` — one module pinned by digest — delivers that directly.
+- Vendoring `google/api/annotations.proto` and `google/api/http.proto` was the
+  alternative, and was rejected. Buf's guidance is to prefer a registry
+  dependency for a module that is on the registry, and vendored copies would
+  need lint and breaking-change exclusions of their own: friction that does not
+  expire.
+- `infra/temporal/buf.lock` already pins `buf.build/googleapis/googleapis`, so
+  the dependency is not new to the organisation.
+
+What is actually lost is offline generation: `make gen` now needs the module
+cache populated.
+
+This also settles half of a question left open in review. `PaperCreateRequest`
+stayed separate from `Paper` rather than embedding it, because AIP-133's
+embedding pattern depends on `google.api.field_behavior = OUTPUT_ONLY` to mark
+`id` and `created` ignored-on-input, and that annotation lives in googleapis.
+The dependency is now paid for, so the annotation is free to add — and it is
+**not** added, because it is inert without tooling that consumes it
+(`protoc-gen-openapiv2` mapping `OUTPUT_ONLY` to `readOnly` is the archetype).
+Embedding therefore stays undecided, and belongs with the generation-depth
+decision record filed under `api-unification`.
+
+### What it changed in the messages
+
+`google.api.http` binds a path segment to a *field of the request message*, so
+"the body" and "the path parameters" stop being two kinds of message and become
+one: the whole request. Three messages grew the ids their path already carried.
+
+| message | field | route |
+| --- | --- | --- |
+| `PropCreateRequest` | `topic_id` | `POST /topic/{topicId}/prop` |
+| `VoteSetRequest` | `topic_id`, `prop_id` | `POST /topic/{topicId}/prop/{propId}/vote` |
+| `ProtocolEditRequest` | `protocol_id` | `POST /protocol/{protocolId}` |
+
+Those fields are populated from the path and do not travel in the body.
+`routegen` fails on a `{field}` segment that names no field of the request, so
+the binding cannot rot silently. The cost is that a golden file for a request
+message is no longer necessarily a document a client sends.
+
+Three empty request messages were added so every route has one:
+`HealthcheckRequest`, `SelfGetRequest`, `LogoutRequest`.
+
+The route sentences came out of the message comments in the same pass. With
+routes declared, a comment restating one is a second copy inside the one
+directory whose purpose is to hold a single copy.
+
+### Lint rules excepted
+
+`RPC_REQUEST_STANDARD_NAME`, `RPC_RESPONSE_STANDARD_NAME` and
+`RPC_REQUEST_RESPONSE_UNIQUE`. The rpcs bind HTTP routes over the wire messages
+instead of naming a request and a response per method: a bare read returns the
+resource, two routes can return the same one, and `UpsertExtraction` both takes
+and returns `DataExtraction`. `service_suffix` is set to `Routes` rather than
+the default `Service`, which is a positive assertion about what these are rather
+than a hole in the linter. infra's `temporal/buf.yaml` excepts the same three
+rules.
+
+### Non-conforming routes, left non-conforming
+
+Annotating them made them explicit; it deliberately did not fix them, because
+the set is what #41 is for.
+
+| route | rpc | why |
+| --- | --- | --- |
+| `POST /paper` | `ListPapers` | a read served over POST |
+| `POST /protocol-template` | `ListProtocolTemplates` | a read served over POST |
+| `POST /protocol-element` | `ListProtocolElements` | a read served over POST |
+| `POST /paper/create` | `CreatePaper` | a verb in the path |
+| `GET /paper/lookup` | `LookupPaper` | a verb in the path — the weakest of the five, since it proxies a PubMed record rather than addressing a paper |
+
+`TestNonConformingRoutes` pins the set exactly: a sixth violation fails, and so
+does fixing one of these without striking it off.
+
+Two kinds of drift the annotations do **not** yet make checkable: nesting
+(`/topic/{topicId}/prop` against a flat `/paper` carrying `topicId` in the body)
+and compound nouns (`/protocol-element` against `/prop`).
+
 ## Endpoints excluded
 
 | endpoint | why |

@@ -22,6 +22,12 @@ plugins:
       # Message fields optional, scalars required — pairs with
       # EmitDefaultValues in contract/go/wire.go.
       - useOptionals=messages
+      # routes.proto's rpcs declare HTTP routes; a generated client interface
+      # would read as a gRPC commitment.
+      - outputServices=none
+      # Nothing references the imported files' types: Timestamp is a string
+      # here, and google.api.http is read from the descriptor, not the wire.
+      - emitImportedFiles=false
       - esModuleInterop=true
       # NodeNext resolution requires extensions on relative imports.
       - importSuffix=.js

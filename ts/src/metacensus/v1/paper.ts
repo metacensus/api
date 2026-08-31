@@ -28,23 +28,21 @@ export interface Paper {
 }
 
 /**
- * PaperListRequest is the body of `POST /paper`. At least one field must be
- * set; setting `paper_id` narrows the result to a single paper.
+ * PaperListRequest requires at least one field; setting `paper_id` narrows the
+ * result to a single paper.
  */
 export interface PaperListRequest {
   topicId: string;
   paperId: string;
 }
 
-/** PaperList is the response to `POST /paper`. */
 export interface PaperList {
   items: Paper[];
 }
 
 /**
- * PaperCreateRequest is the JSON body of `POST /paper/create`, which returns
- * the created `Paper`. Uploading a PDF is not part of this contract; see
- * contract/DERIVATION.md.
+ * PaperCreateRequest carries no PDF: uploading one is not part of this
+ * contract. See contract/DERIVATION.md.
  */
 export interface PaperCreateRequest {
   topicId: string;
@@ -56,17 +54,14 @@ export interface PaperCreateRequest {
 }
 
 /**
- * PaperLookupRequest is the query string of `GET /paper/lookup`, which fetches
- * a PubMed record so the create form can be prefilled from a PMID.
+ * PaperLookupRequest names the PubMed record the create form is prefilled
+ * from.
  */
 export interface PaperLookupRequest {
   pmid: string;
 }
 
-/**
- * PaperLookupResponse is the response to `GET /paper/lookup`. Every field is
- * whatever PubMed supplied, so any of them may be empty.
- */
+/** PaperLookupResponse is whatever PubMed supplied, so any field may be empty. */
 export interface PaperLookupResponse {
   pmid: string;
   title: string;

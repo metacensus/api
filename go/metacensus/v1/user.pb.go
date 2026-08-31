@@ -101,7 +101,7 @@ func (x *User) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
-// UserListRequest is the query string of `GET /user`. No parameters.
+// UserListRequest carries no parameters.
 type UserListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -138,7 +138,6 @@ func (*UserListRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{1}
 }
 
-// UserList is the response to `GET /user`.
 type UserList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*User                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -183,8 +182,6 @@ func (x *UserList) GetItems() []*User {
 	return nil
 }
 
-// UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a
-// `User`. `GET /self` returns the authenticated `User` and takes no parameters.
 type UserGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -229,6 +226,43 @@ func (x *UserGetRequest) GetUserId() string {
 	return ""
 }
 
+// SelfGetRequest carries no parameters: the user is the authenticated one.
+type SelfGetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SelfGetRequest) Reset() {
+	*x = SelfGetRequest{}
+	mi := &file_metacensus_v1_user_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelfGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelfGetRequest) ProtoMessage() {}
+
+func (x *SelfGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_user_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SelfGetRequest.ProtoReflect.Descriptor instead.
+func (*SelfGetRequest) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{4}
+}
+
 var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
@@ -244,7 +278,8 @@ const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\bUserList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
 	"\x0eUserGetRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userIdBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x10\n" +
+	"\x0eSelfGetRequestBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_user_proto_rawDescOnce sync.Once
@@ -258,16 +293,17 @@ func file_metacensus_v1_user_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_user_proto_rawDescData
 }
 
-var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_user_proto_goTypes = []any{
 	(*User)(nil),                  // 0: metacensus.v1.User
 	(*UserListRequest)(nil),       // 1: metacensus.v1.UserListRequest
 	(*UserList)(nil),              // 2: metacensus.v1.UserList
 	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
-	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(*SelfGetRequest)(nil),        // 4: metacensus.v1.SelfGetRequest
+	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
-	4, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
+	5, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
@@ -287,7 +323,7 @@ func file_metacensus_v1_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_user_proto_rawDesc), len(file_metacensus_v1_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

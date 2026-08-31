@@ -19,7 +19,7 @@ is separate work. `packages/contract` — the npm package that exports
 ```
 contract/
   proto/         .proto sources and buf config — the definition
-  go/            generated Go, the wire encoder, and the tests
+  go/            generated Go, the wire encoder, the manifest generator, tests
   ts/            generated TypeScript interfaces
   DERIVATION.md  how it was derived, what was left out, what is deferred
 ```
@@ -36,7 +36,7 @@ Everything is a make target, run from `contract/`:
 
 ```bash
 make deps      # npm ci in ts/ (Go needs no install step)
-make gen       # regenerate Go and TypeScript from the .proto sources
+make gen       # regenerate Go, TypeScript and the route manifest
 make golden    # regenerate the golden JSON and the TypeScript cross-check
 make check     # everything CI runs bar the freshness diff
 ```
@@ -135,6 +135,11 @@ through a message field, which both sides already agree on.
   strings that are real values of their enum, RFC 3339 timestamps, string ids,
   no top-level arrays, `{items, metadata}` on every list, no package-scope
   enums, no `optional` scalars.
+- **Route tests** — the manifest covers every rpc, no two routes share a method
+  and path, and `TestNonConformingRoutes` pins the known convention violations
+  so a new one fails. `cmd/routegen` refuses a `{field}` segment that names no
+  field of the request message, so a route no implementation could bind cannot
+  be generated.
 - **`TestNoPaginationFields`** — no request or response anywhere carries `page`,
   `limit`, `offset`, a cursor or a total. See the ruling below; it is a test
   rather than a one-time audit because the failure mode is one endpoint at a
@@ -158,6 +163,39 @@ route can grow pagination later without breaking consumers — and it is shared 
 every list, so the first field added to it lands on all of them. If one route
 needs paging, page that route. `TestNoPaginationFields` enforces this.
 
+## Routes are declared, not described
+
+`proto/metacensus/v1/routes.proto` declares all 27 routes as `rpc`s carrying a
+`google.api.http` annotation.
+
+**They are a route declaration, not a gRPC commitment.** Nothing generates or
+serves gRPC: there is no `protoc-gen-go-grpc`, no grpc-gateway and no Connect.
+`protoc-gen-go` emits a service descriptor and no interfaces; ts-proto is given
+`outputServices=none` so it emits no client interface either. Both were checked
+rather than assumed — without that option ts-proto does emit a types-only
+`Routes` interface of `Promise`-returning methods, which is exactly the thing a
+reader would mistake for a gRPC client.
+
+What the annotations produce instead is a manifest: `go/routes` and
+`ts/src/route-manifest.ts`, both written by `go/cmd/routegen`, which reads the
+compiled descriptors rather than adding a third-party plugin. Paths are relative
+to `/metacensus/api/v1`, and the manifest spells parameters `{lowerCamelCase}`
+to match the wire.
+
+A consequence worth knowing: **a request message models the whole request**, not
+only its body. A `{field}` segment binds that field to the path, so
+`PropCreateRequest` carries `topic_id` although `topic_id` never travels in a
+body. A golden file for a request message is therefore not necessarily a
+document any client sends.
+
+Five routes break the conventions in DERIVATION.md. They are left broken
+deliberately and pinned by `TestNonConformingRoutes`, so a sixth fails the
+build; fixing them is
+[#41](https://github.com/metacensus/ui/issues/41).
+
+`google.api.field_behavior` is available from the same module and is **not**
+adopted: nothing here consumes it, so it would be inert.
+
 ## Tooling and pinning
 
 `buf` and `protoc-gen-go` are Go 1.24 `tool` dependencies of `go/go.mod`, run
@@ -170,8 +208,24 @@ module, **buf runs from `go/`, not from `proto/` where its config lives**. Every
 relative path in `buf.gen.yaml` is therefore relative to `go/`. The Makefile is
 the entry point that gets this right.
 
-There are no BSR dependencies and no `buf.lock`. The only imports are well-known
-types, which ship inside buf, so generation needs no network.
+### The BSR dependency, and what it cost
+
+`buf.yaml` declares one dependency — `buf.build/googleapis/googleapis`, pinned
+by digest in `buf.lock`. **This reverses a property this contract was built
+with:** it previously had no BSR dependencies and no `buf.lock`, and generated
+with no network at all. The reversal was a considered trade, not an oversight.
+
+- `google.api.http` is what moves the route table out of prose comments. Nothing
+  that ships inside buf does that job.
+- Vendoring the two files was weighed and rejected. Buf's guidance is to prefer
+  a registry dependency for a module that is on the registry, and vendored
+  copies would need lint and breaking-change exclusions of their own.
+- `infra/temporal/buf.lock` already pins the same module, so the dependency is
+  not new to the organisation.
+
+What is given up is offline generation: `make gen` now needs the module cache
+populated. What replaces it is the lock file — one module at one digest — so
+generation stays reproducible rather than merely offline.
 
 ## Where the reasoning lives
 

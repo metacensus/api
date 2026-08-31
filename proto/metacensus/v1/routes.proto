@@ -1,0 +1,166 @@
+// Every route under /metacensus/api/v1, declared once.
+//
+// `service` and `rpc` here are a route declaration, not a gRPC commitment.
+// Nothing generates or serves gRPC from this: no protoc-gen-go-grpc, no
+// grpc-gateway, no Connect. The `google.api.http` option carries the route; the
+// rpc is what it hangs on.
+//
+// Paths are relative to /metacensus/api/v1. A `{field}` segment binds that
+// field of the request message to the path, so it does not travel in the body.
+// `contract/go/routes` and `contract/ts/src/route-manifest.ts` are generated
+// from these annotations.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/api/annotations.proto";
+import "metacensus/v1/auth.proto";
+import "metacensus/v1/common.proto";
+import "metacensus/v1/extraction.proto";
+import "metacensus/v1/paper.proto";
+import "metacensus/v1/prop.proto";
+import "metacensus/v1/protocol.proto";
+import "metacensus/v1/topic.proto";
+import "metacensus/v1/user.proto";
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+service Routes {
+  rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {
+    option (google.api.http) = {get: "/healthcheck"};
+  }
+
+  rpc Login(LoginRequest) returns (Session) {
+    option (google.api.http) = {
+      post: "/login"
+      body: "*"
+    };
+  }
+
+  rpc SignUp(SignUpRequest) returns (Session) {
+    option (google.api.http) = {
+      post: "/signup"
+      body: "*"
+    };
+  }
+
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {post: "/logout"};
+  }
+
+  rpc ListUsers(UserListRequest) returns (UserList) {
+    option (google.api.http) = {get: "/user"};
+  }
+
+  rpc GetUser(UserGetRequest) returns (User) {
+    option (google.api.http) = {get: "/user/{user_id}"};
+  }
+
+  rpc GetSelf(SelfGetRequest) returns (User) {
+    option (google.api.http) = {get: "/self"};
+  }
+
+  rpc ListTopics(TopicListRequest) returns (TopicList) {
+    option (google.api.http) = {get: "/topic"};
+  }
+
+  rpc GetTopic(TopicGetRequest) returns (Topic) {
+    option (google.api.http) = {get: "/topic/{topic_id}"};
+  }
+
+  rpc CreateTopic(TopicCreateRequest) returns (Topic) {
+    option (google.api.http) = {
+      post: "/topic"
+      body: "*"
+    };
+  }
+
+  rpc GetTopicProtocol(TopicProtocolRequest) returns (Protocol) {
+    option (google.api.http) = {get: "/topic/{topic_id}/protocol"};
+  }
+
+  rpc ListMembers(MemberListRequest) returns (MemberList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/member"};
+  }
+
+  rpc GetMember(MemberGetRequest) returns (Member) {
+    option (google.api.http) = {get: "/topic/{topic_id}/member/{user_id}"};
+  }
+
+  rpc ListProps(PropListRequest) returns (PropList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/prop"};
+  }
+
+  rpc GetProp(PropGetRequest) returns (Prop) {
+    option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}"};
+  }
+
+  rpc CreateProp(PropCreateRequest) returns (Prop) {
+    option (google.api.http) = {
+      post: "/topic/{topic_id}/prop"
+      body: "*"
+    };
+  }
+
+  rpc ListVotes(VoteListRequest) returns (VoteList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}/vote"};
+  }
+
+  rpc SetVote(VoteSetRequest) returns (Vote) {
+    option (google.api.http) = {
+      post: "/topic/{topic_id}/prop/{prop_id}/vote"
+      body: "*"
+    };
+  }
+
+  rpc ListPapers(PaperListRequest) returns (PaperList) {
+    option (google.api.http) = {
+      post: "/paper"
+      body: "*"
+    };
+  }
+
+  rpc CreatePaper(PaperCreateRequest) returns (Paper) {
+    option (google.api.http) = {
+      post: "/paper/create"
+      body: "*"
+    };
+  }
+
+  rpc LookupPaper(PaperLookupRequest) returns (PaperLookupResponse) {
+    option (google.api.http) = {get: "/paper/lookup"};
+  }
+
+  rpc CreateProtocol(ProtocolCreateRequest) returns (Protocol) {
+    option (google.api.http) = {
+      post: "/protocol"
+      body: "*"
+    };
+  }
+
+  rpc EditProtocol(ProtocolEditRequest) returns (Protocol) {
+    option (google.api.http) = {
+      post: "/protocol/{protocol_id}"
+      body: "*"
+    };
+  }
+
+  rpc ListProtocolTemplates(ProtocolTemplateListRequest) returns (ProtocolTemplateList) {
+    option (google.api.http) = {post: "/protocol-template"};
+  }
+
+  rpc ListProtocolElements(ProtocolElementListRequest) returns (ProtocolElementList) {
+    option (google.api.http) = {post: "/protocol-element"};
+  }
+
+  rpc GetExtraction(DataExtractionGetRequest) returns (DataExtraction) {
+    option (google.api.http) = {get: "/extraction"};
+  }
+
+  rpc UpsertExtraction(DataExtraction) returns (DataExtraction) {
+    option (google.api.http) = {
+      post: "/extraction"
+      body: "*"
+    };
+  }
+}

@@ -3,6 +3,10 @@ version: v2
 modules:
   - path: .
 
+# google/api/annotations.proto, for the route declarations in routes.proto.
+deps:
+  - buf.build/googleapis/googleapis
+
 lint:
   use:
     - STANDARD
@@ -11,7 +15,14 @@ lint:
     - ENUM_VALUE_UPPER_SNAKE_CASE
     # Enums are nested in the message that owns them instead.
     - ENUM_VALUE_PREFIX
+    # The rpcs in routes.proto declare HTTP routes over the wire messages, so
+    # they reuse them: a bare read returns the resource, and two routes can
+    # return the same one.
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
   enum_zero_value_suffix: Unspecified
+  service_suffix: Routes
 
 breaking:
   use:

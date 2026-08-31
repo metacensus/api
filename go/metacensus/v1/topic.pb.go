@@ -93,7 +93,7 @@ func (x *Topic) GetDescription() string {
 	return ""
 }
 
-// TopicListRequest is the query string of `GET /topic`. No parameters.
+// TopicListRequest carries no parameters.
 type TopicListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -130,7 +130,6 @@ func (*TopicListRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{1}
 }
 
-// TopicList is the response to `GET /topic`.
 type TopicList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Topic               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -175,8 +174,6 @@ func (x *TopicList) GetItems() []*Topic {
 	return nil
 }
 
-// TopicGetRequest is the path parameter of `GET /topic/{topicId}`, which
-// returns a `Topic`.
 type TopicGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -221,8 +218,6 @@ func (x *TopicGetRequest) GetTopicId() string {
 	return ""
 }
 
-// TopicCreateRequest is the body of `POST /topic`, which returns the created
-// `Topic`.
 type TopicCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -275,8 +270,6 @@ func (x *TopicCreateRequest) GetDescription() string {
 	return ""
 }
 
-// TopicProtocolRequest is the path parameter of
-// `GET /topic/{topicId}/protocol`, which returns the topic's `Protocol`.
 type TopicProtocolRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -377,7 +370,6 @@ func (x *Member) GetJoined() *timestamppb.Timestamp {
 	return nil
 }
 
-// MemberListRequest is the path parameter of `GET /topic/{topicId}/member`.
 type MemberListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -422,7 +414,6 @@ func (x *MemberListRequest) GetTopicId() string {
 	return ""
 }
 
-// MemberList is the response to `GET /topic/{topicId}/member`.
 type MemberList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Member              `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -467,8 +458,6 @@ func (x *MemberList) GetItems() []*Member {
 	return nil
 }
 
-// MemberGetRequest is the path parameters of
-// `GET /topic/{topicId}/member/{userId}`, which returns a `Member`.
 type MemberGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`

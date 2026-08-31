@@ -19,19 +19,18 @@ export interface User {
   created?: string | undefined;
 }
 
-/** UserListRequest is the query string of `GET /user`. No parameters. */
+/** UserListRequest carries no parameters. */
 export interface UserListRequest {
 }
 
-/** UserList is the response to `GET /user`. */
 export interface UserList {
   items: User[];
 }
 
-/**
- * UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a
- * `User`. `GET /self` returns the authenticated `User` and takes no parameters.
- */
 export interface UserGetRequest {
   userId: string;
+}
+
+/** SelfGetRequest carries no parameters: the user is the authenticated one. */
+export interface SelfGetRequest {
 }

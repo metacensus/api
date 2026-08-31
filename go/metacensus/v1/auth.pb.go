@@ -24,7 +24,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// LoginRequest is the body of `POST /login` (unauthenticated).
+// LoginRequest is unauthenticated.
 type LoginRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Email string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -79,7 +79,7 @@ func (x *LoginRequest) GetPassword() string {
 	return ""
 }
 
-// SignUpRequest is the body of `POST /signup` (unauthenticated).
+// SignUpRequest is unauthenticated.
 type SignUpRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -149,7 +149,6 @@ func (x *SignUpRequest) GetPassword() string {
 	return ""
 }
 
-// Session is the response to `POST /login` and to `POST /signup`.
 type Session struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bearer token, sent back as `Authorization: Bearer <token>`.
@@ -195,8 +194,44 @@ func (x *Session) GetToken() string {
 	return ""
 }
 
-// LogoutResponse is the response to `POST /logout`. Empty, and expected to stay
-// that way.
+// LogoutRequest carries no parameters.
+type LogoutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogoutRequest) Reset() {
+	*x = LogoutRequest{}
+	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogoutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogoutRequest) ProtoMessage() {}
+
+func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
+func (*LogoutRequest) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+// LogoutResponse is empty, and expected to stay that way.
 type LogoutResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -205,7 +240,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -217,7 +252,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -230,7 +265,7 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{4}
 }
 
 var File_metacensus_v1_auth_proto protoreflect.FileDescriptor
@@ -247,7 +282,8 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\acountry\x18\x03 \x01(\tR\acountry\x12\x1a\n" +
 	"\bpassword\x18\x04 \x01(\tR\bpassword\"\x1f\n" +
 	"\aSession\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x10\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x0f\n" +
+	"\rLogoutRequest\"\x10\n" +
 	"\x0eLogoutResponseBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
@@ -262,12 +298,13 @@ func file_metacensus_v1_auth_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_auth_proto_rawDescData
 }
 
-var file_metacensus_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_metacensus_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_auth_proto_goTypes = []any{
 	(*LoginRequest)(nil),   // 0: metacensus.v1.LoginRequest
 	(*SignUpRequest)(nil),  // 1: metacensus.v1.SignUpRequest
 	(*Session)(nil),        // 2: metacensus.v1.Session
-	(*LogoutResponse)(nil), // 3: metacensus.v1.LogoutResponse
+	(*LogoutRequest)(nil),  // 3: metacensus.v1.LogoutRequest
+	(*LogoutResponse)(nil), // 4: metacensus.v1.LogoutResponse
 }
 var file_metacensus_v1_auth_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -288,7 +325,7 @@ func file_metacensus_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_auth_proto_rawDesc), len(file_metacensus_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -31,7 +31,10 @@ export interface Error {
   error: string;
 }
 
-/** HealthcheckResponse is the body of `GET /healthcheck`. */
+/** HealthcheckRequest carries no parameters. */
+export interface HealthcheckRequest {
+}
+
 export interface HealthcheckResponse {
   status: string;
 }

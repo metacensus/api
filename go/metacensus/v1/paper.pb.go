@@ -128,8 +128,8 @@ func (x *Paper) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
-// PaperListRequest is the body of `POST /paper`. At least one field must be
-// set; setting `paper_id` narrows the result to a single paper.
+// PaperListRequest requires at least one field; setting `paper_id` narrows the
+// result to a single paper.
 type PaperListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -182,7 +182,6 @@ func (x *PaperListRequest) GetPaperId() string {
 	return ""
 }
 
-// PaperList is the response to `POST /paper`.
 type PaperList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Paper               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -227,9 +226,8 @@ func (x *PaperList) GetItems() []*Paper {
 	return nil
 }
 
-// PaperCreateRequest is the JSON body of `POST /paper/create`, which returns
-// the created `Paper`. Uploading a PDF is not part of this contract; see
-// contract/DERIVATION.md.
+// PaperCreateRequest carries no PDF: uploading one is not part of this
+// contract. See contract/DERIVATION.md.
 type PaperCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -314,8 +312,8 @@ func (x *PaperCreateRequest) GetPmid() string {
 	return ""
 }
 
-// PaperLookupRequest is the query string of `GET /paper/lookup`, which fetches
-// a PubMed record so the create form can be prefilled from a PMID.
+// PaperLookupRequest names the PubMed record the create form is prefilled
+// from.
 type PaperLookupRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pmid          string                 `protobuf:"bytes,1,opt,name=pmid,proto3" json:"pmid,omitempty"`
@@ -360,8 +358,7 @@ func (x *PaperLookupRequest) GetPmid() string {
 	return ""
 }
 
-// PaperLookupResponse is the response to `GET /paper/lookup`. Every field is
-// whatever PubMed supplied, so any of them may be empty.
+// PaperLookupResponse is whatever PubMed supplied, so any field may be empty.
 type PaperLookupResponse struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Pmid    string                 `protobuf:"bytes,1,opt,name=pmid,proto3" json:"pmid,omitempty"`

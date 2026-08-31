@@ -13,14 +13,14 @@
 // That is the check working.
 
 /* eslint-disable */
-import type { LoginRequest, LogoutResponse, Session, SignUpRequest } from "../src/metacensus/v1/auth.js";
-import type { Error, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
+import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "../src/metacensus/v1/auth.js";
+import type { Error, HealthcheckRequest, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
 import type { DataExtraction, DataExtractionGetRequest, DatumExtraction, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
 import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse } from "../src/metacensus/v1/paper.js";
 import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
 import type { Protocol, ProtocolCreateRequest, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "../src/metacensus/v1/topic.js";
-import type { User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
+import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
 import { Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
 
 export const goldenListMetadata: ListMetadata = {
@@ -32,6 +32,8 @@ export const goldenListMetadata: ListMetadata = {
 export const goldenError: Error = {
   error: "Invalid credentials",
 };
+
+export const goldenHealthcheckRequest: HealthcheckRequest = {};
 
 export const goldenHealthcheckResponse: HealthcheckResponse = {
   status: "healthy",
@@ -61,6 +63,8 @@ export const goldenSession: Session = {
   token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.signature",
 };
 
+export const goldenLogoutRequest: LogoutRequest = {};
+
 export const goldenLogoutResponse: LogoutResponse = {};
 
 export const goldenUserListRequest: UserListRequest = {};
@@ -80,6 +84,8 @@ export const goldenUserList: UserList = {
 export const goldenUserGetRequest: UserGetRequest = {
   userId: "user:0192a642-817d-7a3e-a282-d7a282ebd483",
 };
+
+export const goldenSelfGetRequest: SelfGetRequest = {};
 
 export const goldenTopic: Topic = {
   id: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
@@ -186,6 +192,7 @@ export const goldenPropGetRequest: PropGetRequest = {
 };
 
 export const goldenPropCreateRequest: PropCreateRequest = {
+  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   type: Prop_Type.TopicQuestion,
   description: "Does DPYD genotype-guided dosing reduce severe toxicity?",
 };
@@ -214,6 +221,8 @@ export const goldenVoteList: VoteList = {
 };
 
 export const goldenVoteSetRequest: VoteSetRequest = {
+  topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
+  propId: "prop:0192a642-817d-7a3e-a282-d7a282ebd485",
   position: Vote_Position.Against,
   explanation: "The cited cohort excludes DPYD*2A heterozygotes.",
   citations: [
@@ -440,6 +449,7 @@ export const goldenProtocolCreateRequest: ProtocolCreateRequest = {
 };
 
 export const goldenProtocolEditRequest: ProtocolEditRequest = {
+  protocolId: "4",
   sections: [
     {
       id: "9",

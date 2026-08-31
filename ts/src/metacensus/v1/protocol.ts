@@ -55,10 +55,7 @@ export interface ProtocolTemplate {
   protocolSections: ProtocolSection[];
 }
 
-/**
- * ProtocolCreateRequest is the body of `POST /protocol`, which returns the
- * created `Protocol`. Ids on the sections and elements are ignored.
- */
+/** ProtocolCreateRequest ignores the ids on its sections and elements. */
 export interface ProtocolCreateRequest {
   topicId: string;
   title: string;
@@ -66,37 +63,29 @@ export interface ProtocolCreateRequest {
 }
 
 /**
- * ProtocolEditRequest is the body of `POST /protocol/{protocolId}`, which
- * returns the updated `Protocol`. A section or element with a positive id is
- * updated in place; any other id inserts a new one. Omitting one does not
- * delete it.
+ * ProtocolEditRequest updates a section or element with a positive id in place;
+ * any other id inserts a new one. Omitting one does not delete it.
  */
 export interface ProtocolEditRequest {
+  protocolId: string;
   sections: ProtocolSection[];
 }
 
-/**
- * ProtocolTemplateListRequest is the body of `POST /protocol-template`. No
- * parameters.
- */
+/** ProtocolTemplateListRequest carries no parameters. */
 export interface ProtocolTemplateListRequest {
 }
 
-/** ProtocolTemplateList is the response to `POST /protocol-template`. */
 export interface ProtocolTemplateList {
   items: ProtocolTemplate[];
 }
 
-/**
- * ProtocolElementListRequest is the body of `POST /protocol-element`, which
- * lists the premade elements the protocol editor offers. No parameters.
- */
+/** ProtocolElementListRequest carries no parameters. */
 export interface ProtocolElementListRequest {
 }
 
 /**
- * ProtocolElementList is the response to `POST /protocol-element`. These
- * elements belong to no section, so their `sort_order` is unset.
+ * ProtocolElementList carries the premade elements the protocol editor offers.
+ * They belong to no section, so their `sort_order` is unset.
  */
 export interface ProtocolElementList {
   items: ProtocolElement[];

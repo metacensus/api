@@ -67,58 +67,43 @@ export interface PropCitation {
   end: number;
 }
 
-/** PropListRequest is the path parameter of `GET /topic/{topicId}/prop`. */
 export interface PropListRequest {
   topicId: string;
 }
 
-/** PropList is the response to `GET /topic/{topicId}/prop`. */
 export interface PropList {
   items: Prop[];
 }
 
-/**
- * PropGetRequest is the path parameters of
- * `GET /topic/{topicId}/prop/{propId}`, which returns a `Prop`.
- */
 export interface PropGetRequest {
   topicId: string;
   propId: string;
 }
 
-/**
- * PropCreateRequest is the body of `POST /topic/{topicId}/prop`, which returns
- * the created `Prop`. The author is the authenticated user and is not accepted
- * in the body.
- */
+/** PropCreateRequest takes no author: it is the authenticated user. */
 export interface PropCreateRequest {
+  topicId: string;
   type: Prop_Type;
   description: string;
 }
 
-/**
- * VoteListRequest is the path parameters of
- * `GET /topic/{topicId}/prop/{propId}/vote`.
- */
 export interface VoteListRequest {
   topicId: string;
   propId: string;
 }
 
-/**
- * VoteList is the response to `GET /topic/{topicId}/prop/{propId}/vote`. This
- * is the only way to read a prop's votes.
- */
+/** VoteList is the only way to read a prop's votes. */
 export interface VoteList {
   items: Vote[];
 }
 
 /**
- * VoteSetRequest is the body of `POST /topic/{topicId}/prop/{propId}/vote`,
- * which returns the resulting `Vote`. Set, not create: it replaces the caller's
- * previous vote on this prop.
+ * VoteSetRequest sets rather than creates: it replaces the caller's previous
+ * vote on this prop.
  */
 export interface VoteSetRequest {
+  topicId: string;
+  propId: string;
   position: Vote_Position;
   explanation: string;
   citations: PropCitation[];

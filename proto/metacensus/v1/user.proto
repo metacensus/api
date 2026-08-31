@@ -16,16 +16,16 @@ message User {
   google.protobuf.Timestamp created = 5;
 }
 
-// UserListRequest is the query string of `GET /user`. No parameters.
+// UserListRequest carries no parameters.
 message UserListRequest {}
 
-// UserList is the response to `GET /user`.
 message UserList {
   repeated User items = 1;
 }
 
-// UserGetRequest is the path parameter of `GET /user/{userId}`, which returns a
-// `User`. `GET /self` returns the authenticated `User` and takes no parameters.
 message UserGetRequest {
   string user_id = 1;
 }
+
+// SelfGetRequest carries no parameters: the user is the authenticated one.
+message SelfGetRequest {}

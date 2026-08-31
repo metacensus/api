@@ -24,10 +24,8 @@ const (
 )
 
 // DataExtraction is the set of values extracted from one paper against one
-// protocol, identified by the three ids together.
-//
-// It is both the body of `POST /extraction`, which upserts it, and what that
-// route and `GET /extraction` return.
+// protocol, identified by the three ids together. It is both what is upserted
+// and what is read back.
 type DataExtraction struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -283,9 +281,8 @@ func (x *SourceRect) GetH() float64 {
 	return 0
 }
 
-// DataExtractionGetRequest is the query string of `GET /extraction`, which
-// returns a `DataExtraction`. All three fields are required: together they
-// identify it.
+// DataExtractionGetRequest requires all three fields: together they identify
+// one `DataExtraction`.
 type DataExtractionGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`

@@ -6,7 +6,7 @@ package metacensus.v1;
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
-// LoginRequest is the body of `POST /login` (unauthenticated).
+// LoginRequest is unauthenticated.
 message LoginRequest {
   string email = 1;
 
@@ -15,7 +15,7 @@ message LoginRequest {
   string password = 2;
 }
 
-// SignUpRequest is the body of `POST /signup` (unauthenticated).
+// SignUpRequest is unauthenticated.
 message SignUpRequest {
   string name = 1;
   string email = 2;
@@ -25,12 +25,13 @@ message SignUpRequest {
   string password = 4;
 }
 
-// Session is the response to `POST /login` and to `POST /signup`.
 message Session {
   // Bearer token, sent back as `Authorization: Bearer <token>`.
   string token = 1;
 }
 
-// LogoutResponse is the response to `POST /logout`. Empty, and expected to stay
-// that way.
+// LogoutRequest carries no parameters.
+message LogoutRequest {}
+
+// LogoutResponse is empty, and expected to stay that way.
 message LogoutResponse {}

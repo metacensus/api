@@ -18,11 +18,11 @@ const (
 	propID  = "prop:0192a642-817d-7a3e-a282-d7a282ebd485"
 
 	// demo's serials, stringified.
-	paperID      = "17"
-	protocolID   = "4"
-	sectionID    = "9"
-	elementID    = "31"
-	templateID   = "3"
+	paperID    = "17"
+	protocolID = "4"
+	sectionID  = "9"
+	elementID  = "31"
+	templateID = "3"
 )
 
 func ts(s string) *timestamppb.Timestamp {
@@ -149,6 +149,7 @@ func fixtures() []fixture {
 		// common.proto
 		{"ListMetadata", &v1.ListMetadata{Page: 1, Limit: 30, Total: 42}},
 		{"Error", &v1.Error{Error: "Invalid credentials"}},
+		{"HealthcheckRequest", &v1.HealthcheckRequest{}},
 		{"HealthcheckResponse", &v1.HealthcheckResponse{Status: "healthy"}},
 
 		// user.proto
@@ -161,10 +162,12 @@ func fixtures() []fixture {
 			Password: "correct horse battery staple",
 		}},
 		{"Session", &v1.Session{Token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.signature"}},
+		{"LogoutRequest", &v1.LogoutRequest{}},
 		{"LogoutResponse", &v1.LogoutResponse{}},
 		{"UserListRequest", &v1.UserListRequest{}},
 		{"UserList", &v1.UserList{Items: []*v1.User{user()}}},
 		{"UserGetRequest", &v1.UserGetRequest{UserId: userID}},
+		{"SelfGetRequest", &v1.SelfGetRequest{}},
 
 		// topic.proto
 		{"Topic", topic()},
@@ -179,7 +182,7 @@ func fixtures() []fixture {
 		{"Member", &v1.Member{Id: userID, Joined: ts("2024-10-19T14:00:00Z")}},
 		{"MemberListRequest", &v1.MemberListRequest{TopicId: topicID}},
 		{"MemberList", &v1.MemberList{
-			Items:    []*v1.Member{{Id: userID, Joined: ts("2024-10-19T14:00:00Z")}},
+			Items: []*v1.Member{{Id: userID, Joined: ts("2024-10-19T14:00:00Z")}},
 		}},
 		{"MemberGetRequest", &v1.MemberGetRequest{TopicId: topicID, UserId: userID}},
 
@@ -191,12 +194,15 @@ func fixtures() []fixture {
 		{"PropList", &v1.PropList{Items: []*v1.Prop{prop()}}},
 		{"PropGetRequest", &v1.PropGetRequest{TopicId: topicID, PropId: propID}},
 		{"PropCreateRequest", &v1.PropCreateRequest{
+			TopicId:     topicID,
 			Type:        v1.Prop_TopicQuestion,
 			Description: "Does DPYD genotype-guided dosing reduce severe toxicity?",
 		}},
 		{"VoteListRequest", &v1.VoteListRequest{TopicId: topicID, PropId: propID}},
 		{"VoteList", &v1.VoteList{Items: []*v1.Vote{vote()}}},
 		{"VoteSetRequest", &v1.VoteSetRequest{
+			TopicId:     topicID,
+			PropId:      propID,
 			Position:    v1.Vote_Against,
 			Explanation: "The cited cohort excludes DPYD*2A heterozygotes.",
 			Citations:   []*v1.PropCitation{{Start: 12, End: 48}},
@@ -239,7 +245,8 @@ func fixtures() []fixture {
 			Sections: []*v1.ProtocolSection{protocolSection()},
 		}},
 		{"ProtocolEditRequest", &v1.ProtocolEditRequest{
-			Sections: []*v1.ProtocolSection{protocolSection()},
+			ProtocolId: protocolID,
+			Sections:   []*v1.ProtocolSection{protocolSection()},
 		}},
 		{"ProtocolTemplateListRequest", &v1.ProtocolTemplateListRequest{}},
 		{"ProtocolTemplateList", &v1.ProtocolTemplateList{
@@ -251,7 +258,7 @@ func fixtures() []fixture {
 		}},
 		{"ProtocolElementListRequest", &v1.ProtocolElementListRequest{}},
 		{"ProtocolElementList", &v1.ProtocolElementList{
-			Items:    []*v1.ProtocolElement{protocolElement()},
+			Items: []*v1.ProtocolElement{protocolElement()},
 		}},
 
 		// extraction.proto

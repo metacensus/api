@@ -15,29 +15,22 @@ message Topic {
   string description = 4;
 }
 
-// TopicListRequest is the query string of `GET /topic`. No parameters.
+// TopicListRequest carries no parameters.
 message TopicListRequest {}
 
-// TopicList is the response to `GET /topic`.
 message TopicList {
   repeated Topic items = 1;
 }
 
-// TopicGetRequest is the path parameter of `GET /topic/{topicId}`, which
-// returns a `Topic`.
 message TopicGetRequest {
   string topic_id = 1;
 }
 
-// TopicCreateRequest is the body of `POST /topic`, which returns the created
-// `Topic`.
 message TopicCreateRequest {
   string name = 1;
   string description = 2;
 }
 
-// TopicProtocolRequest is the path parameter of
-// `GET /topic/{topicId}/protocol`, which returns the topic's `Protocol`.
 message TopicProtocolRequest {
   string topic_id = 1;
 }
@@ -52,18 +45,14 @@ message Member {
   google.protobuf.Timestamp joined = 2;
 }
 
-// MemberListRequest is the path parameter of `GET /topic/{topicId}/member`.
 message MemberListRequest {
   string topic_id = 1;
 }
 
-// MemberList is the response to `GET /topic/{topicId}/member`.
 message MemberList {
   repeated Member items = 1;
 }
 
-// MemberGetRequest is the path parameters of
-// `GET /topic/{topicId}/member/{userId}`, which returns a `Member`.
 message MemberGetRequest {
   string topic_id = 1;
   string user_id = 2;

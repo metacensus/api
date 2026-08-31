@@ -1,9 +1,9 @@
-// Assert that the generated TypeScript is types, not code: no declared
+// Assert that the generated TypeScript carries no runtime: no declared
 // dependencies, and no value imports under src/. ts-proto's default forceLong
 // would pull in `long`; dropping onlyTypes would pull in protobufjs.
 //
-// `export const protobufPackage` is the one permitted runtime emission — a
-// string literal with no imports.
+// The two permitted value emissions are self-contained data with no imports:
+// `export const protobufPackage`, and the route manifest's `routes` array.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";

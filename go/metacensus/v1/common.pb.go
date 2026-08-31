@@ -134,7 +134,43 @@ func (x *Error) GetError() string {
 	return ""
 }
 
-// HealthcheckResponse is the body of `GET /healthcheck`.
+// HealthcheckRequest carries no parameters.
+type HealthcheckRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HealthcheckRequest) Reset() {
+	*x = HealthcheckRequest{}
+	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HealthcheckRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HealthcheckRequest) ProtoMessage() {}
+
+func (x *HealthcheckRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HealthcheckRequest.ProtoReflect.Descriptor instead.
+func (*HealthcheckRequest) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{2}
+}
+
 type HealthcheckResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
@@ -144,7 +180,7 @@ type HealthcheckResponse struct {
 
 func (x *HealthcheckResponse) Reset() {
 	*x = HealthcheckResponse{}
-	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	mi := &file_metacensus_v1_common_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -156,7 +192,7 @@ func (x *HealthcheckResponse) String() string {
 func (*HealthcheckResponse) ProtoMessage() {}
 
 func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	mi := &file_metacensus_v1_common_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -169,7 +205,7 @@ func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthcheckResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HealthcheckResponse) GetStatus() string {
@@ -189,7 +225,8 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x05R\x05total\"\x1d\n" +
 	"\x05Error\x12\x14\n" +
-	"\x05error\x18\x01 \x01(\tR\x05error\"-\n" +
+	"\x05error\x18\x01 \x01(\tR\x05error\"\x14\n" +
+	"\x12HealthcheckRequest\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06statusBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
@@ -205,11 +242,12 @@ func file_metacensus_v1_common_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_common_proto_rawDescData
 }
 
-var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_metacensus_v1_common_proto_goTypes = []any{
 	(*ListMetadata)(nil),        // 0: metacensus.v1.ListMetadata
 	(*Error)(nil),               // 1: metacensus.v1.Error
-	(*HealthcheckResponse)(nil), // 2: metacensus.v1.HealthcheckResponse
+	(*HealthcheckRequest)(nil),  // 2: metacensus.v1.HealthcheckRequest
+	(*HealthcheckResponse)(nil), // 3: metacensus.v1.HealthcheckResponse
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -230,7 +268,7 @@ func file_metacensus_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_common_proto_rawDesc), len(file_metacensus_v1_common_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

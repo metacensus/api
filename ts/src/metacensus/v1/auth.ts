@@ -13,7 +13,7 @@ export const protobufPackage = "metacensus.v1";
  * they establish.
  */
 
-/** LoginRequest is the body of `POST /login` (unauthenticated). */
+/** LoginRequest is unauthenticated. */
 export interface LoginRequest {
   email: string;
   /**
@@ -23,7 +23,7 @@ export interface LoginRequest {
   password: string;
 }
 
-/** SignUpRequest is the body of `POST /signup` (unauthenticated). */
+/** SignUpRequest is unauthenticated. */
 export interface SignUpRequest {
   name: string;
   email: string;
@@ -32,15 +32,15 @@ export interface SignUpRequest {
   password: string;
 }
 
-/** Session is the response to `POST /login` and to `POST /signup`. */
 export interface Session {
   /** Bearer token, sent back as `Authorization: Bearer <token>`. */
   token: string;
 }
 
-/**
- * LogoutResponse is the response to `POST /logout`. Empty, and expected to stay
- * that way.
- */
+/** LogoutRequest carries no parameters. */
+export interface LogoutRequest {
+}
+
+/** LogoutResponse is empty, and expected to stay that way. */
 export interface LogoutResponse {
 }

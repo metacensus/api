@@ -62,49 +62,42 @@ message PropCitation {
   uint32 end = 2;
 }
 
-// PropListRequest is the path parameter of `GET /topic/{topicId}/prop`.
 message PropListRequest {
   string topic_id = 1;
 }
 
-// PropList is the response to `GET /topic/{topicId}/prop`.
 message PropList {
   repeated Prop items = 1;
 }
 
-// PropGetRequest is the path parameters of
-// `GET /topic/{topicId}/prop/{propId}`, which returns a `Prop`.
 message PropGetRequest {
   string topic_id = 1;
   string prop_id = 2;
 }
 
-// PropCreateRequest is the body of `POST /topic/{topicId}/prop`, which returns
-// the created `Prop`. The author is the authenticated user and is not accepted
-// in the body.
+// PropCreateRequest takes no author: it is the authenticated user.
 message PropCreateRequest {
-  Prop.Type type = 1;
-  string description = 2;
+  string topic_id = 1;
+  Prop.Type type = 2;
+  string description = 3;
 }
 
-// VoteListRequest is the path parameters of
-// `GET /topic/{topicId}/prop/{propId}/vote`.
 message VoteListRequest {
   string topic_id = 1;
   string prop_id = 2;
 }
 
-// VoteList is the response to `GET /topic/{topicId}/prop/{propId}/vote`. This
-// is the only way to read a prop's votes.
+// VoteList is the only way to read a prop's votes.
 message VoteList {
   repeated Vote items = 1;
 }
 
-// VoteSetRequest is the body of `POST /topic/{topicId}/prop/{propId}/vote`,
-// which returns the resulting `Vote`. Set, not create: it replaces the caller's
-// previous vote on this prop.
+// VoteSetRequest sets rather than creates: it replaces the caller's previous
+// vote on this prop.
 message VoteSetRequest {
-  Vote.Position position = 1;
-  string explanation = 2;
-  repeated PropCitation citations = 3;
+  string topic_id = 1;
+  string prop_id = 2;
+  Vote.Position position = 3;
+  string explanation = 4;
+  repeated PropCitation citations = 5;
 }

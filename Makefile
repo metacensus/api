@@ -22,6 +22,7 @@ deps:
 ## gen — regenerate Go and TypeScript from the .proto sources
 gen:
 	cd $(GO_DIR) && $(BUF) generate --template $(PROTO)/buf.gen.yaml
+	cd $(GO_DIR) && go run ./cmd/routegen
 
 ## golden — regenerate the golden JSON and the TypeScript cross-check
 golden: gen
@@ -59,4 +60,4 @@ check: lint format-check test
 
 ## clean — remove generated output; `make gen golden` puts it back
 clean:
-	rm -rf $(GO_DIR)/metacensus $(TS_DIR)/src $(TS_DIR)/test $(GO_DIR)/testdata
+	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(TS_DIR)/test $(GO_DIR)/testdata
