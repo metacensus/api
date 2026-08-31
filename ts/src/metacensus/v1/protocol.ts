@@ -9,34 +9,9 @@ import type { ListMetadata } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
-/**
- * Protocols: the extraction form a topic's reviewers fill in per paper.
- *
- * DEMO-ONLY RESOURCE — lower-concern bucket.
- *
- * infra routes `/topic/{topicId}/protocol` and
- * `/topic/{topicId}/protocol/{schemaId}` and leaves every handler
- * `handleUnimplemented` (HTTP 501); its chaincode `Schema` type is an empty
- * struct. So the whole of this file is demo's, corroborated by
- * `types/Protocol.ts` — and it will be designed properly when infra implements
- * the route.
- *
- * A protocol is a form definition, and the structure below (protocol → ordered
- * sections → ordered elements → options) is inherent to that rather than to
- * demo: without it there is nothing for extraction to fill in. That is why the
- * resource survives the first pass while most of its incidental fields do not.
- */
+/** Protocols: the extraction form a topic's reviewers fill in per paper. */
 
-/**
- * Protocol is an ordered set of sections, each an ordered set of elements.
- *
- * REMOVED IN THE FIRST PASS
- *   createdAt, updatedAt — a protocol's timestamps are not read anywhere in
- *           the SPA, and `updatedAt` carries the usual maintenance problem.
- *           `created` is cheap to add back if a protocol ever needs an audit
- *           trail; a form definition is not obviously a thing whose age
- *           matters.
- */
+/** Protocol is an ordered set of sections, each an ordered set of elements. */
 export interface Protocol {
   id: string;
   title: string;
@@ -51,33 +26,13 @@ export interface ProtocolSection {
   protocolElements: ProtocolElement[];
 }
 
-/**
- * ProtocolElement is one field of the extraction form.
- *
- * REMOVED IN THE FIRST PASS
- *   conditionallyShown — set by the protocol editor and stored by demo, and
- *           read by no renderer: the SPA has no conditional-display logic at
- *           all. A field waiting for a feature, which is precisely the
- *           vestigial accumulation to avoid on a first pass. Question: should
- *           protocol elements support conditional display, and if so what
- *           expresses the condition? A boolean cannot — it says a field is
- *           conditional without saying on what.
- */
+/** ProtocolElement is one field of the extraction form. */
 export interface ProtocolElement {
   id: string;
   name: string;
   /**
-   * The HTML input type: `text`, `number`, `date`, `textarea`, `radio` or
-   * `checkbox` are the values the SPA's editor produces and its renderers
-   * branch on.
-   *
-   * DELIBERATELY NOT AN ENUM. The value is passed straight through to an HTML
-   * `<input type={element.type}>`; PascalCasing it, which the enum convention
-   * would require, would stop the inputs rendering. The set is also open — any
-   * HTML input type would work — and neither backend constrains it. Question
-   * for when this is designed properly: should the contract define a small set
-   * of *semantic* field types and let the client choose the widget, rather than
-   * shipping an HTML attribute?
+   * An HTML input type, used verbatim as `<input type=…>`: `text`, `number`,
+   * `date`, `textarea`, `radio` or `checkbox`.
    */
   type: string;
   label: string;
@@ -94,14 +49,7 @@ export interface ProtocolElementOption {
   value: string;
 }
 
-/**
- * ProtocolTemplate is a reusable protocol a topic can start from.
- *
- * demo stores templates in three tables mirroring the protocol tables exactly,
- * and nests their sections under `protocolSections` — the same field name a
- * real protocol uses — so the SPA can render a template with the protocol
- * renderer.
- */
+/** ProtocolTemplate is a reusable protocol a topic can start from. */
 export interface ProtocolTemplate {
   id: string;
   title: string;
@@ -109,28 +57,16 @@ export interface ProtocolTemplate {
 }
 
 /**
- * ProtocolCreateRequest is the body of `POST /protocol/create`.
- *
- * The body is `{"protocol": {...}}` — one wrapped object, not the fields at the
- * root. That is what demo reads and what the SPA sends.
+ * ProtocolCreateRequest is the body of `POST /protocol/create`, which returns
+ * the created `Protocol`.
  */
 export interface ProtocolCreateRequest {
   protocol?: ProtocolCreateRequest_Draft | undefined;
 }
 
 /**
- * Draft is a protocol that does not exist yet, so it has no id, and it names
- * the topic it is being attached to.
- *
- * SOURCE CONFLICT: the sections carry ids in the request even though nothing
- * is created yet — the SPA fills them with array indices in the create form
- * and with negative timestamps in the edit form, and demo's edit handler
- * treats `id > 0` as "update this row" and anything else as "insert". Keeping
- * `ProtocolSection` as the draft type rather than inventing a parallel
- * id-less one records that ids in a create body are client-side scratch
- * values with no server meaning. Question: this is a sentinel-value protocol
- * hiding in a data model, and an explicit create/update discriminator would
- * be clearer.
+ * Draft is a protocol that does not exist yet. Ids on its sections and
+ * elements are client-side scratch values and are ignored.
  */
 export interface ProtocolCreateRequest_Draft {
   title: string;
@@ -139,11 +75,9 @@ export interface ProtocolCreateRequest_Draft {
 }
 
 /**
- * ProtocolEditRequest is the body of `POST /protocol/edit`.
- *
- * Sections with a positive id are updated in place; anything else is inserted.
- * There is no delete: removing a section from the array leaves its rows behind,
- * so a protocol can only grow. Question: how is a protocol element removed?
+ * ProtocolEditRequest is the body of `POST /protocol/edit`, which returns the
+ * updated `Protocol`. A section or element with a positive id is updated in
+ * place; any other id inserts a new one. Omitting one does not delete it.
  */
 export interface ProtocolEditRequest {
   protocolId: string;
@@ -151,15 +85,8 @@ export interface ProtocolEditRequest {
 }
 
 /**
- * ProtocolTemplateListRequest is the body of `POST /protocol-template`.
- *
- * Empty. demo reads `{id, page, limit}` from the body; `page`/`limit` go with
- * the pagination question and `id` — a filter that reduces a list endpoint to a
- * single-resource read — belongs as `GET /protocol-template/{id}` if it is
- * wanted at all.
- *
- * SOURCE CONFLICT: the SPA sends `{"ids": []}`, which demo ignores entirely.
- * Dead fields do not belong in a definition, so it is not modelled.
+ * ProtocolTemplateListRequest is the body of `POST /protocol-template`. No
+ * parameters.
  */
 export interface ProtocolTemplateListRequest {
 }
@@ -172,21 +99,14 @@ export interface ProtocolTemplateList {
 
 /**
  * ProtocolElementListRequest is the body of `POST /protocol-element`, which
- * lists the premade elements the protocol editor offers.
- *
- * SOURCE CONFLICT: the SPA sends `{"ids": []}`; demo reads no body whatsoever
- * and returns every row of `premade_protocol_element`. Empty here for the same
- * reason as `ProtocolTemplateListRequest` — and this is another read served
- * over POST that should be a GET.
+ * lists the premade elements the protocol editor offers. No parameters.
  */
 export interface ProtocolElementListRequest {
 }
 
 /**
- * ProtocolElementList is the response to `POST /protocol-element`.
- *
- * The items are premade elements: the same shape as a protocol's own elements
- * but not yet belonging to a section, so `sortOrder` is always absent-valued.
+ * ProtocolElementList is the response to `POST /protocol-element`. These
+ * elements belong to no section, so their `sort_order` is unset.
  */
 export interface ProtocolElementList {
   items: ProtocolElement[];

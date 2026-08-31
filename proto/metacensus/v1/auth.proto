@@ -1,0 +1,36 @@
+// Sign-up, login and logout: the two unauthenticated endpoints and the session
+// they establish.
+syntax = "proto3";
+
+package metacensus.v1;
+
+option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// LoginRequest is the body of `POST /login` (unauthenticated).
+message LoginRequest {
+  string email = 1;
+
+  // Plaintext, under TLS. The server hashes on receipt; no hash crosses this
+  // boundary in either direction, and no password is ever returned.
+  string password = 2;
+}
+
+// SignUpRequest is the body of `POST /user` (unauthenticated).
+message SignUpRequest {
+  string name = 1;
+  string email = 2;
+  string country = 3;
+
+  // Plaintext, under TLS. See `LoginRequest.password`.
+  string password = 4;
+}
+
+// Session is the response to `POST /login` and to `POST /user`.
+message Session {
+  // Bearer token, sent back as `Authorization: Bearer <token>`.
+  string token = 1;
+}
+
+// LogoutResponse is the response to `POST /logout`. Empty, and expected to stay
+// that way.
+message LogoutResponse {}

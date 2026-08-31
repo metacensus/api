@@ -4,14 +4,9 @@ The shape of every request and response under `/metacensus/api/v1`, defined
 once in `.proto` and generated into Go and TypeScript.
 
 **This is a first pass, and it is deliberately small.** The bar for a field is
-"we are confident we want it", not "some implementation emits it". A field is
-easy to add later and very hard to remove once something depends on it, so
-uncertainty resolves to leaving it out — and arriving at a field in a small
-later change is what attaches a reason to it. Roughly half of what the sources
-describe is therefore *not* here; every omission is recorded in a
-`REMOVED IN THE FIRST PASS` block in the file it would have belonged to, with
-the question it becomes. `grep -rn 'REMOVED IN THE FIRST PASS' proto/` reads
-them.
+"we are confident we want it", not "some implementation emits it". Roughly half
+of what the sources describe is therefore *not* here; every omission is recorded
+in [DERIVATION.md](DERIVATION.md) with the question it becomes.
 
 **Nothing consumes this yet.** The SPA in `src/` still uses `types/*.ts`, demo's
 Bun API still hand-writes its handlers, infra's Go API still uses
@@ -23,9 +18,10 @@ is separate work. `packages/contract` — the npm package that exports
 
 ```
 contract/
-  proto/   .proto sources and buf config — the definition
-  go/      generated Go, the wire encoder, and the tests
-  ts/      generated TypeScript interfaces
+  proto/         .proto sources and buf config — the definition
+  go/            generated Go, the wire encoder, and the tests
+  ts/            generated TypeScript interfaces
+  DERIVATION.md  how it was derived, what was left out, what is deferred
 ```
 
 The three are meant to survive being moved into a repository of their own as a
@@ -156,47 +152,11 @@ regression that would otherwise pass every other check.
 
 ## No pagination, anywhere
 
-Every route serves everything, all together. No request message carries `page`,
-`limit`, `offset` or a cursor; no response reports a total. `ListMetadata` is
-empty, and exists so that the `{items, metadata}` envelope is already the right
-shape when a specific route does grow pagination.
-
-This drops behaviour that demo serves today: `GET /topic` and `GET /user` take
-`page`/`limit` in the query string, and `POST /paper`,
-`POST /extraction-review` and `POST /protocol-template` take them as body
-fields. infra paginates nothing and carries a `// TODO Paginate this` on every
-`GetAll` handler. Rather than describe a model that one backend half-implements
-and the other does not implement at all, the contract describes none and leaves
-the question open — offset or cursor, query string or body, per-route or
-uniform.
-
-`ListMetadata` is the pressure point, and its comment says so: it is shared by
-the infra-derived lists (`UserList`, `TopicList`, `PropList`, `VoteList`) and
-the demo-only ones (`PaperList`, the protocol and extraction lists) alike, so
-the first field added to it is added to all of them on behalf of whichever route
-asked for it. If one route needs paging, page that route.
-
-## Keeping infra-derived messages clean
-
-Three resources here exist only because demo implements them — papers,
-protocols, extraction — against infra routes that are stubbed. The risk that
-creates is subtle: a demo-only endpoint can reference a message that was derived
-with confidence from infra, and quietly push demo's shape back into it.
-
-It happened in the first draft. `UserReference` (`{id, name, role}`) lived in
-`user.proto` and existed to carry demo's ORM junction projections; `paper.proto`
-imported `user.proto` to use it for `paperContributors`, and its `role` field
-existed *only* because demo's topic and paper joins projected a role column. A
-demo-only resource was shaping a type in an infra-derived file.
-
-It is clean now, and structurally so rather than by vigilance: `Reference` and
-`UserReference` are gone, and the import graph shows why the problem cannot
-recur silently — every file imports only `common.proto` and
-`google/protobuf/timestamp.proto`. `topic.proto` no longer imports
-`protocol.proto`; `paper.proto` no longer imports `user.proto`. The only shared
-file left is `common.proto`, which holds `ListMetadata` (empty), `Error` (both
-backends emit it) and `HealthcheckResponse` (infra's). None of them can carry a
-demo-only field today, which leaves `ListMetadata` as the one thing to watch.
+Nothing on this surface paginates. No request carries `page`, `limit`, `offset`
+or a cursor; no response reports a total. `ListMetadata` is empty so that a
+route can grow pagination later without breaking consumers — and it is shared by
+every list, so the first field added to it lands on all of them. If one route
+needs paging, page that route. `TestNoPaginationFields` enforces this.
 
 ## Tooling and pinning
 
@@ -213,37 +173,13 @@ the entry point that gets this right.
 There are no BSR dependencies and no `buf.lock`. The only imports are well-known
 types, which ship inside buf, so generation needs no network.
 
-## Source disagreements, and how the sources are weighted
+## Where the reasoning lives
 
-The .proto files were derived from three sources that disagree with each other,
-and they are not weighted equally:
+`contract/DERIVATION.md` records how the contract was derived: the three sources
+and how they are weighted, every endpoint and field left out with the question it
+becomes, the deferrals and who owns them, and the behaviour found in the backends
+that this contract does not ratify.
 
-- **infra** (Go API + chaincode) is the design authority. It was written
-  deliberately and largely by hand. It implements less.
-- **demo** (Bun + Elysia) was written rapidly with AI assistance. It is
-  authoritative about *what features exist* — papers, protocols and extraction
-  exist nowhere else — and not about how they should be shaped.
-- **`types/*.ts`** says what the client currently declares, which is sometimes
-  neither of the above and occasionally describes a field no backend sends.
-
-So where demo deviates from infra the question asked is not "which is deployed?"
-but "what is the right representation?". Two failure modes drove most of the
-removals:
-
-1. **A field nothing maintains is worse than a missing field, because it lies.**
-   An `updatedAt` no writer updates, a five-value `status` enum of which one
-   value can occur, a presigned URL cached in a column until it expires. These
-   go regardless of source — including infra's own `lastActive`/`lastCredits`,
-   set once at creation and never touched again.
-2. **A field that is an artifact of one implementation rather than of the
-   domain.** ORM junction wrappers, denormalised convenience lists, a surrogate
-   id on a record whose natural key is a pair.
-
-Every material disagreement is recorded as a `SOURCE CONFLICT:` comment at the
-field it affects, with the resolution and why. Those comments and the
-`REMOVED IN THE FIRST PASS` blocks are the most useful thing in this directory.
-
-Endpoints deliberately left out — both `/lit-search` routes, `POST /domain` and
-`POST /category`, `POST /protocol`, `GET /topic/{id}/my-votes`, the multipart
-branch of `POST /paper/create`, sign-up's JWK, infra's Fabric debug routes — are
-listed with their reasons at the top of `common.proto`.
+It is deliberately not in proto comments. The schema describes the contract as it
+is; the derivation describes how it got there, and only someone *changing* the
+contract needs it.

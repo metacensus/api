@@ -13,13 +13,14 @@
 // That is the check working.
 
 /* eslint-disable */
+import type { LoginRequest, LogoutResponse, Session, SignUpRequest } from "../src/metacensus/v1/auth.js";
 import type { Error, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
 import type { DataExtraction, DataExtractionCreateRequest, DataExtractionEditRequest, DataExtractionInput, DataExtractionList, DataExtractionListRequest, DataExtractionReview, DataExtractionReviewList, DataExtractionReviewListRequest, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
 import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse, PaperPresignedUrlRequest, PaperPresignedUrlResponse } from "../src/metacensus/v1/paper.js";
 import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
 import type { Protocol, ProtocolCreateRequest, ProtocolCreateRequest_Draft, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "../src/metacensus/v1/topic.js";
-import type { LoginRequest, LogoutResponse, Session, SignUpRequest, User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
+import type { User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
 import { Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
 
 export const goldenListMetadata: ListMetadata = {};

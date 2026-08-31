@@ -1,10 +1,4 @@
 // Data extraction: one reviewer's pass over one paper against one protocol.
-//
-// DEMO-ONLY RESOURCE — lower-concern bucket, with one high-concern exception
-// noted on `DataExtractionReview`.
-//
-// infra routes `/topic/{topicId}/paper/{paperId}/protocol` for this concept and
-// leaves it `handleUnimplemented` (HTTP 501). Everything here is demo's.
 syntax = "proto3";
 
 package metacensus.v1;
@@ -14,28 +8,8 @@ import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
-// DataExtractionReview is one reviewer's complete pass over a paper.
-//
-// It is the container: a review groups the individual `DataExtraction` values,
-// one per protocol element. A topic requires several of these per paper before
-// the paper counts as extracted, which is what the topic dashboard's "n / m"
-// counter renders.
-//
-// REMOVED IN THE FIRST PASS
-//
-//   userId — and this one is worth reading twice. demo's table has the column
-//           and its create handler never sets it, so every review is
-//           anonymous. That is not a cosmetic gap: the entire point of
-//           requiring several independent reviews is that they come from
-//           different people, and nothing today stops one user satisfying the
-//           threshold alone. Publishing a `userId` that is always empty would
-//           let a client build a reviewer-attribution UI on a field that
-//           cannot support one — the high-concern case, on the field that
-//           matters most in this resource. Question: who owns a review, and
-//           what enforces independence between the reviews of one paper?
-//
-//   updatedAt — as elsewhere. `created` is kept because a review's ordering
-//           matters (demo sorts by it) and creation time cannot go stale.
+// DataExtractionReview groups the values one reviewer extracted from one paper.
+// A paper needs several before it counts as extracted.
 message DataExtractionReview {
   string id = 1;
   string topic_id = 2;
@@ -45,12 +19,6 @@ message DataExtractionReview {
 }
 
 // DataExtraction is one answered protocol element within a review.
-//
-// REMOVED IN THE FIRST PASS
-//   userId — same column, same omission, same reasoning as on the review. It
-//           is doubly redundant here, since an extraction belongs to a review
-//           that already names its reviewer.
-//   updatedAt — as elsewhere.
 message DataExtraction {
   string id = 1;
   string data_extraction_review_id = 2;
@@ -58,39 +26,24 @@ message DataExtraction {
   string protocol_id = 4;
   string protocol_element_id = 5;
 
-  // The extracted value.
-  //
-  // SOURCE CONFLICT, and under-determined. `types/DataExtraction.ts` declares
-  // `data: string`; demo's column is `jsonb` typed `any`. A string is right for
-  // `text`, `number`, `date`, `textarea` and `radio` elements, which is what
-  // the SPA's form produces today. It is not obviously right for `checkbox`,
-  // where several options can be selected — and `jsonb` was presumably chosen
-  // for a reason.
-  //
-  // Kept as a string despite the uncertainty, because unlike the removals
-  // elsewhere in this file there is no version of this resource without it:
-  // an extraction with no extracted value is nothing. Flagged rather than
-  // dropped. Question: what is the value of a multi-select extraction, and
-  // does `data` need to be typed per element kind?
+  // The extracted value. A string for every element type the contract
+  // describes; multi-select elements have no representation yet.
   string data = 6;
 
-  // Where in the PDF the value was read from, so a later reviewer can jump to
-  // it. Absent when the reviewer typed the value rather than selecting it.
+  // Where in the PDF the value was read from. Empty when the reviewer typed the
+  // value rather than selecting it.
   repeated SourceLocationPage source_location = 7;
 
   google.protobuf.Timestamp created = 8;
 }
 
-// SourceLocationPage is the highlighted rectangles on one page of the PDF.
+// SourceLocationPage is the highlighted rectangles on one page of a PDF.
 message SourceLocationPage {
   int32 page = 1;
   repeated SourceRect rects = 2;
 }
 
 // SourceRect is one highlight rectangle, in the PDF viewer's coordinate space.
-//
-// `w`/`h` rather than `width`/`height`: `types/DataExtraction.ts` and demo's
-// column type both use the short names.
 message SourceRect {
   double x = 1;
   double y = 2;
@@ -98,10 +51,8 @@ message SourceRect {
   double h = 4;
 }
 
-// DataExtractionInput is one element's value as submitted.
-//
-// Distinct from `DataExtraction` because a submission has no id, no review id
-// and no timestamp — the server assigns those.
+// DataExtractionInput is one element's value as submitted. The server assigns
+// the id, review id and timestamp.
 message DataExtractionInput {
   string protocol_element_id = 1;
   string protocol_id = 2;
@@ -110,30 +61,21 @@ message DataExtractionInput {
   repeated SourceLocationPage source_location = 5;
 }
 
-// DataExtractionListRequest is the body of `POST /extraction`.
-//
-// SOURCE CONFLICT: another read over POST. And a quirk demo's own comment calls
-// out — when either field is missing it returns *HTTP 200* with
-// `{"error": "Missing required fields"}` in the body, so a client checking
-// `response.ok` sails straight past the failure. That is a 400.
+// DataExtractionListRequest is the body of `POST /extraction`. Both fields are
+// required.
 message DataExtractionListRequest {
   string paper_id = 1;
   string extraction_review_id = 2;
 }
 
 // DataExtractionList is the response to `POST /extraction`.
-//
-// SOURCE CONFLICT: demo returns a bare JSON array.
 message DataExtractionList {
   repeated DataExtraction items = 1;
   ListMetadata metadata = 2;
 }
 
-// DataExtractionReviewListRequest is the body of `POST /extraction-review`.
-//
-// All three ids are required; demo rejects a request missing any of them. It
-// also `decodeURIComponent()`s `topic_id` — see `PaperListRequest`. `page` and
-// `limit` are removed with the pagination question.
+// DataExtractionReviewListRequest is the body of `POST /extraction-review`. All
+// three fields are required.
 message DataExtractionReviewListRequest {
   string topic_id = 1;
   string paper_id = 2;
@@ -141,18 +83,14 @@ message DataExtractionReviewListRequest {
 }
 
 // DataExtractionReviewList is the response to `POST /extraction-review`.
-//
-// SOURCE CONFLICT: demo returns a bare JSON array. The SPA reads only its
-// `.length`, to render the "reviews so far" counter — which is a hint that what
-// this caller wants is a count on the paper rather than a list here.
 message DataExtractionReviewList {
   repeated DataExtractionReview items = 1;
   ListMetadata metadata = 2;
 }
 
-// DataExtractionCreateRequest is the body of `POST /extraction/create`.
-//
-// Creates the review and all of its extractions in one call.
+// DataExtractionCreateRequest is the body of `POST /extraction/create`, which
+// creates a review with all of its values and returns the
+// `DataExtractionReview`.
 message DataExtractionCreateRequest {
   string topic_id = 1;
   string paper_id = 2;
@@ -160,12 +98,9 @@ message DataExtractionCreateRequest {
   repeated DataExtractionInput data = 4;
 }
 
-// DataExtractionEditRequest is the body of `POST /extraction/edit`.
-//
-// Same as create but against an existing review. demo upserts element by
-// element, looking each one up by
-// `(protocolElementId, protocolId, paperId, reviewId)` and inserting when there
-// is no match, so an edit can add answers the original submission omitted.
+// DataExtractionEditRequest is the body of `POST /extraction/edit`, which
+// returns the updated `DataExtractionReview`. Values are matched per element
+// and inserted when absent, so an edit can add answers the original omitted.
 message DataExtractionEditRequest {
   string topic_id = 1;
   string paper_id = 2;
@@ -173,13 +108,3 @@ message DataExtractionEditRequest {
   string extraction_review_id = 4;
   repeated DataExtractionInput data = 5;
 }
-
-// `POST /extraction/create` and `POST /extraction/edit` both return the
-// affected `DataExtractionReview` bare.
-//
-// SOURCE CONFLICT: demo returns `{"message": "...", "status": 200}` — an HTTP
-// status code duplicated into the response body — and the SPA branches on
-// `response?.status === 200` rather than on the actual HTTP status. Returning
-// the review is consistent with the other writes here and, more usefully, gives
-// the caller the review id: after a create the SPA needs it to build the edit
-// URL, and today it cannot get it from the response.

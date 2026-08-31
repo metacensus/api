@@ -10,6 +10,7 @@
 // asserts it, so importing a type from this package cannot add a byte to a
 // bundle.
 
+export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
 export * from "./src/metacensus/v1/extraction.js";
 export * from "./src/metacensus/v1/paper.js";
