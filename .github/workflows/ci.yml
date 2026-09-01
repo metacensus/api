@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   contract:
-    name: Lint, generate, and verify the API contract
+    name: Verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -39,6 +39,14 @@ jobs:
           cache-dependency-path: |
             go.sum
             internal/tools/go.sum
+
+      - name: Restore the built code generators
+        # Building buf from source is 54s of a ~78s job, and it only changes
+        # when internal/tools does.
+        uses: actions/cache@v4
+        with:
+          path: bin
+          key: gentools-${{ runner.os }}-${{ hashFiles('internal/tools/go.sum', 'internal/tools/go.mod', 'Makefile') }}
 
       - uses: actions/setup-node@v4
         with:
@@ -59,30 +67,25 @@ jobs:
         run: make format-check
 
       - name: Check for breaking changes
-        # A PR's base sha is already the merge base; a push compares to the
-        # previous tip; a tag compares to the previous semver tag. The target
-        # no-ops when the ref predates proto/, which covers "no previous tag".
+        # Compare against the latest release tag, not the merge base.
+        #
+        # The contract is what has been published; unreleased main is not a
+        # promise to anyone. This asks a question about state — "does the
+        # schema as it stands break the released contract?" — rather than
+        # about a diff, so the answer does not depend on which base the PR
+        # happens to have, and it is the question consumers actually care
+        # about. With no tags yet, nothing is released, so there is nothing to
+        # break and the target no-ops. On a tag push, compare against the tag
+        # immediately preceding this one, so the release itself is checked.
         run: |
-          case "${{ github.event_name }}" in
-            pull_request)
-              against="${{ github.event.pull_request.base.sha }}"
-              ;;
-            *)
-              if [ "${{ github.ref_type }}" = "tag" ]; then
-                # The tag immediately preceding this one in version order —
-                # not simply the highest other tag, which would compare a
-                # back-released patch against a newer line. Empty for the
-                # first tag ever, which the target treats as "nothing to
-                # compare against".
-                against="$(git tag -l 'v*' --sort=v:refname \
-                  | awk -v cur="${{ github.ref_name }}" \
-                        '$0 == cur { exit } { last = $0 } END { print last }')"
-              else
-                against="${{ github.event.before }}"
-              fi
-              ;;
-          esac
-          echo "comparing against ${against:-<nothing>}"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            against="$(git tag -l 'v*' --sort=v:refname \
+              | awk -v cur="${{ github.ref_name }}" \
+                    '$0 == cur { exit } { last = $0 } END { print last }')"
+          else
+            against="$(git tag -l 'v*' --sort=v:refname | tail -1)"
+          fi
+          echo "comparing against ${against:-<nothing released yet>}"
           make breaking BREAKING_AGAINST="$against"
 
       - name: Regenerate everything

@@ -6,10 +6,20 @@
 #
 # The release workflow's tag filter is deliberately narrower than `v*` and
 # matches VERSION_REGEX below. Keep the two in step.
+#
+# Prereleases are deliberately NOT supported. bump_version splits on `.`, so
+# `0.2.0-rc.1` would come apart as 0 / 2 / 0-rc / 1 and a patch bump would
+# coerce `0-rc` to 0 and yield 0.2.1, skipping 0.2.0 entirely; and `sort -V`
+# orders v0.1.0-rc.1 after v0.1.0, so get_latest_version would treat an rc as
+# the current version. Supporting them properly is more code than this repo
+# needs while nothing consumes it. To add them back, widen VERSION_REGEX, add
+# the `v[0-9]+.[0-9]+.[0-9]+-*` glob to release.yml, and make both of those
+# behaviours correct first — the npm dist-tag guard in release.yml is already
+# written to cope.
 
 set -euo pipefail
 
-VERSION_REGEX="^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
+VERSION_REGEX="^v?[0-9]+\.[0-9]+\.[0-9]+$"
 
 # Get latest version
 # `|| true` on the grep: with no tags yet it matches nothing and exits 1,

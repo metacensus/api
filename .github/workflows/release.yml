@@ -23,9 +23,12 @@ on:
   push:
     tags:
       # GitHub filter patterns support `+`, so this is a real semver shape:
-      # `v1.2.3` and `v1.2.3-rc.1`, but not `v`, `v1`, `v1.2` or `vnext`.
+      # `v1.2.3`, but not `v`, `v1`, `v1.2` or `vnext`.
+      #
+      # No prerelease glob: scripts/version.sh does not support prereleases
+      # (see the comment there). Adding one back here without fixing that would
+      # give a tag the release path cannot reason about.
       - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 permissions:
   contents: read
@@ -66,7 +69,12 @@ jobs:
         run: ./scripts/version.sh "${GITHUB_REF_NAME}"
 
       - name: Install the TypeScript toolchain
-        run: make deps
+        working-directory: ts
+        # --ignore-scripts, not `make deps`: this is the one job holding
+        # id-token: write, so a compromised transitive dev dependency's install
+        # script would run next to a credential that can publish. tsc and
+        # protoc-gen-ts_proto both work without lifecycle scripts.
+        run: npm ci --ignore-scripts
 
       - name: Set the package version from the tag
         working-directory: ts
@@ -88,7 +96,16 @@ jobs:
           if [ -z "${NODE_AUTH_TOKEN}" ]; then
             echo "No NPM_TOKEN secret set — relying on OIDC trusted publishing."
           fi
-          npm publish --provenance --access public
+          # `npm publish` with no --tag moves `latest`. The trigger above only
+          # accepts release versions today, but this keeps `latest` pinned to
+          # real releases if a prerelease tag is ever allowed back in — the npm
+          # analogue of an unconditional `type=raw,value=latest` on an image.
+          case "${GITHUB_REF_NAME}" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          echo "Publishing to dist-tag: $dist_tag"
+          npm publish --provenance --access public --tag "$dist_tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

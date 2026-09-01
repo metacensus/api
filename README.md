@@ -19,6 +19,8 @@ scripts/         version.sh, which `make release` uses to mint tags
 go.mod           the published Go module, rooted here
 ```
 
+**The Go packages sit under `go/`, so imports read `github.com/metacensus/api/go/metacensus/v1`.** The alternative — hoisting `metacensus/` to the root for `github.com/metacensus/api/metacensus/v1` — reads better at the call site, and `go.mod` at the root already breaks the `proto/ go/ ts/` symmetry. The reason it stays is that the root is shared with `ts/`, `proto/`, `internal/` and `scripts/`, and a generated `metacensus/` tree alongside them would be the only directory whose name says nothing about which language reads it. Both are defensible; this one is a one-way door once a tag exists, because the import path is the module's public surface.
+
 **`go.mod` is at the repository root, not in `go/`, and must stay there.** A module whose `go.mod` sits in a subdirectory `go/` is versioned by tags of the form `go/v1.2.3`. A plain `v1.2.3` tag would then publish nothing and `go get ...@v1.2.3` would fail with "no matching versions", while a `go/v1.2.3` tag would not match the release workflow's tag filter, so nothing would run and no failure would be reported. Rooted here, one plain semver tag does every job.
 
 ## Working on it
@@ -34,7 +36,7 @@ Generated code is committed; CI regenerates and fails on any diff.
 
 `buf` and `protoc-gen-go` are `tool` dependencies of **`internal/tools`, a separate module**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module now requires two things.
 
-`make tools` builds those generators into `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root. `routegen` refuses to run anywhere else: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
+`make tools` builds those generators with `GOWORK=off` and a pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a PR that never touched a `.proto`. It builds them into `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root. `routegen` refuses to run anywhere else: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
 
 ## Consuming it
 
@@ -45,6 +47,17 @@ npm install @metacensus/api               # types only, zero dependencies
 
 Neither is published yet. See "Releasing", below.
 
+## What "breaking" is measured against
+
+`buf breaking` compares the schema against **the latest release tag**, not against the PR's merge base. The published contract is what a breaking change breaks; unreleased `main` is not a promise to anyone. That makes it a question about state — does the schema as it stands break what consumers have — rather than about a diff, so the answer does not depend on which base a PR happens to have.
+
+Two consequences worth knowing:
+
+- Before the first release there are no tags, so nothing is released, nothing can be broken, and the check no-ops.
+- After a release, an *intentional* break stays red until the version carrying it ships. That is accurate rather than annoying — the schema really does break what is published — but it does mean a deliberate break and its release want to be close together.
+
+On a tag push the comparison is against the tag immediately preceding it, so the release itself is checked.
+
 ## Releasing
 
 Tags are minted, never typed:
@@ -54,6 +67,8 @@ make release-patch          # or release-minor, release-major
 make release VERSION=1.4.0  # or an explicit version
 make latest                 # the current version tag
 ```
+
+**This repository has no LICENSE yet, and that blocks the first tag.** npm publishes a package with no `license` field as unlicensed-by-omission and the Go module inherits the same ambiguity — for a contract whose entire purpose is to be consumed by other repositories, that is the thing most likely to actually prevent adoption. `metacensus/infra` is BSD-3-Clause; `metacensus/ui`, where this code was written, has no license at all. Picking one is the owner's call, not this repository's to guess.
 
 `scripts/version.sh` validates semver, the target refuses a tag that already exists, and it prompts before pushing — a release cannot be withdrawn (npm unpublish is limited to 72 hours and the Go module proxy is an immutable cache, so deleting the tag does not unpublish the version). Pass `YES=1` to skip the prompt; without a TTY it refuses unless you do. Pushing the tag is the whole release: `.github/workflows/release.yml` runs the full CI suite first and only then publishes npm, and the Go module needs nothing but the tag for proxy.golang.org to serve it.
 

@@ -6,6 +6,15 @@
 # running buf from there we build the binaries into ./bin and run them from the
 # repository root. Every relative path in buf.gen.yaml is therefore relative to
 # the root, which is also where they read most naturally.
+#
+# GOWORK=off and GOTOOLCHAIN are load-bearing, both lessons from
+# metacensus/infra#52. A go.work anywhere above this checkout would resolve tool
+# versions against the union of its members and quietly lift the pins; and the
+# `go` directive is a floor, not a ceiling, so without GOTOOLCHAIN a developer
+# on a newer Go builds the plugins against a newer stdlib. protoc-gen-go stamps
+# its own version into every .pb.go, and gofmt's doc-comment handling has
+# changed between Go releases, so either one lands as generated-code drift in a
+# PR that never touched a .proto.
 
 .PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
@@ -18,7 +27,14 @@ BIN       := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-BREAKING_AGAINST ?= origin/main
+# The exact Go that builds the generators. Keep in step with the `go` directive
+# in go.mod, which is what CI's setup-go reads.
+GOTOOLCHAIN_PIN ?= go1.24.0
+TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
+
+# The latest release tag: the published contract is what a breaking change
+# breaks. Empty until the first release, which makes `breaking` a no-op.
+BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
 all: check
 
@@ -26,10 +42,11 @@ all: check
 tools: $(BIN)/buf $(BIN)/protoc-gen-go
 
 $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
-	cd $(TOOLS_DIR) && go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
+	@echo "building buf from source (~1 min the first time)..."
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
 
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
-	cd $(TOOLS_DIR) && go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
 
 ## deps — install the TypeScript toolchain
 deps:
@@ -54,7 +71,9 @@ format-check: $(BIN)/buf
 
 ## breaking — compare against BREAKING_AGAINST, skipping when it predates the contract
 breaking: $(BIN)/buf
-	@if git cat-file -e '$(BREAKING_AGAINST):$(PROTO)/buf.yaml' 2>/dev/null; then \
+	@if [ -z '$(BREAKING_AGAINST)' ]; then \
+		echo "nothing released yet; no published contract to break"; \
+	elif git cat-file -e '$(BREAKING_AGAINST):$(PROTO)/buf.yaml' 2>/dev/null; then \
 		$(BUF) breaking $(PROTO) \
 			--against '.git#ref=$(BREAKING_AGAINST),subdir=$(PROTO)'; \
 	else \
@@ -110,6 +129,17 @@ release: scripts/version.sh
 	MSG=$$([ -n "$(MESSAGE)" ] && echo "$(MESSAGE)" || echo "Release $$VERSION"); \
 	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
 		echo "Error: Tag $$TAG already exists"; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Error: working tree is dirty; commit or clean it before releasing"; \
+		exit 1; \
+	fi; \
+	git fetch -q origin main; \
+	if ! git merge-base --is-ancestor HEAD origin/main; then \
+		echo "Error: HEAD is not an ancestor of origin/main."; \
+		echo "Pushing the tag would carry the commit with it and publish a"; \
+		echo "version that sits on no branch, which the proxy keeps serving."; \
 		exit 1; \
 	fi; \
 	echo "About to tag and push $$TAG."; \

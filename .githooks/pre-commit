@@ -11,6 +11,13 @@ staged_protos=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*')
 
 echo "pre-commit: .proto staged — checking lint and formatting"
 
+# `make lint` builds buf from source if bin/buf is missing, which is about a
+# minute of silence on a fresh clone. Say so rather than looking hung.
+if [ ! -x bin/buf ]; then
+	echo "pre-commit: bin/buf is missing; building the generators first."
+	echo "pre-commit: this takes ~1 minute once. 'make tools' does it ahead of time."
+fi
+
 # format-check, never `format -w`: rewriting mid-commit would commit something
 # other than what was staged.
 if ! make lint format-check; then
