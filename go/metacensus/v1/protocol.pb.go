@@ -404,7 +404,7 @@ const file_metacensus_v1_protocol_proto_rawDesc = "" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12:\n" +
 	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections2w\n" +
 	"\x0eProtocolRoutes\x12e\n" +
-	"\x0eCreateProtocol\x12$.metacensus.v1.ProtocolCreateRequest\x1a\x17.metacensus.v1.Protocol\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/protocolBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x0eCreateProtocol\x12$.metacensus.v1.ProtocolCreateRequest\x1a\x17.metacensus.v1.Protocol\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/protocolB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_protocol_proto_rawDescOnce sync.Once

@@ -804,7 +804,7 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
 	"CreateProp\x12 .metacensus.v1.PropCreateRequest\x1a\x13.metacensus.v1.Prop\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12s\n" +
 	"\tListVotes\x12\x1e.metacensus.v1.VoteListRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12o\n" +
-	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_prop_proto_rawDescOnce sync.Once

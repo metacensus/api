@@ -474,7 +474,7 @@ const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\n" +
 	"ListPapers\x12\x1f.metacensus.v1.PaperListRequest\x1a\x18.metacensus.v1.PaperList\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/paper\x12`\n" +
 	"\vCreatePaper\x12!.metacensus.v1.PaperCreateRequest\x1a\x14.metacensus.v1.Paper\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/paper/create\x12k\n" +
-	"\vLookupPaper\x12!.metacensus.v1.PaperLookupRequest\x1a\".metacensus.v1.PaperLookupResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/paper/lookupBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\vLookupPaper\x12!.metacensus.v1.PaperLookupRequest\x1a\".metacensus.v1.PaperLookupResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/paper/lookupB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_paper_proto_rawDescOnce sync.Once

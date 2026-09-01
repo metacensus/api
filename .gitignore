@@ -1,0 +1,4 @@
+bin/
+node_modules/
+ts/dist/
+.DS_Store

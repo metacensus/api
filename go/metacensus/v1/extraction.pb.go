@@ -374,7 +374,7 @@ const file_metacensus_v1_extraction_proto_rawDesc = "" +
 	"protocolId2\xea\x01\n" +
 	"\x10ExtractionRoutes\x12l\n" +
 	"\rGetExtraction\x12'.metacensus.v1.DataExtractionGetRequest\x1a\x1d.metacensus.v1.DataExtraction\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/extraction\x12h\n" +
-	"\x10UpsertExtraction\x12\x1d.metacensus.v1.DataExtraction\x1a\x1d.metacensus.v1.DataExtraction\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/extractionBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x10UpsertExtraction\x12\x1d.metacensus.v1.DataExtraction\x1a\x1d.metacensus.v1.DataExtraction\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/extractionB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_extraction_proto_rawDescOnce sync.Once

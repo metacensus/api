@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	v1 "github.com/metacensus/ui/contract/go/metacensus/v1"
-	"github.com/metacensus/ui/contract/go/routes"
+	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/routes"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
@@ -127,6 +127,34 @@ func TestNonConformingRoutes(t *testing.T) {
 	for _, key := range slices.Sorted(maps.Keys(want)) {
 		if _, ok := got[key]; !ok {
 			t.Errorf("%s now conforms; remove it from this test and from issue #41", key)
+		}
+	}
+}
+
+// TestPrefix pins the shape of routes.Prefix and its relationship to the paths
+// it prefixes. The point of generating the constant beside the manifest is that
+// the two cannot drift; this is what "cannot drift" means concretely.
+func TestPrefix(t *testing.T) {
+	if routes.Prefix == "" {
+		t.Fatal("routes.Prefix is empty")
+	}
+	if !strings.HasPrefix(routes.Prefix, "/") {
+		t.Errorf("routes.Prefix %q does not start with /", routes.Prefix)
+	}
+	if strings.HasSuffix(routes.Prefix, "/") {
+		t.Errorf("routes.Prefix %q has a trailing slash; joining it with a "+
+			"Path would double the separator", routes.Prefix)
+	}
+
+	for _, r := range routes.Routes {
+		if !strings.HasPrefix(r.Path, "/") {
+			t.Errorf("%s.%s: path %q does not start with /", r.Service, r.RPC, r.Path)
+		}
+		// Paths are relative to Prefix. One that already carries it would be
+		// served at Prefix+Prefix once joined.
+		if strings.HasPrefix(r.Path, routes.Prefix) {
+			t.Errorf("%s.%s: path %q already includes the prefix %q; paths are "+
+				"declared relative to it", r.Service, r.RPC, r.Path, routes.Prefix)
 		}
 	}
 }

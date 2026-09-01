@@ -1,15 +1,15 @@
 version: v2
 
-# Paths are relative to `contract/go`, where buf runs. Use `contract/Makefile`.
+# Paths are relative to the repository root, where buf runs. Use the Makefile.
 
 plugins:
-  - local: [go, tool, protoc-gen-go]
-    out: .
+  - local: bin/protoc-gen-go
+    out: go
     opt:
       - paths=source_relative
 
-  - local: ../ts/node_modules/.bin/protoc-gen-ts_proto
-    out: ../ts/src
+  - local: ts/node_modules/.bin/protoc-gen-ts_proto
+    out: ts/src
     opt:
       # These five together describe protojson output rather than protobuf
       # binary. Nothing verifies the pairing yet: metacensus/ui#49.
@@ -19,7 +19,7 @@ plugins:
       - unrecognizedEnum=false
       - forceLong=string
       # Message fields optional, scalars required — pairs with EmitDefaultValues
-      # in contract/go/wire.go.
+      # in go/wire.go.
       - useOptionals=messages
       # The rpcs declare HTTP routes; a generated client interface would read as
       # a gRPC commitment.
@@ -32,4 +32,4 @@ plugins:
       - importSuffix=.js
 
 inputs:
-  - directory: ../proto
+  - directory: proto

@@ -56,9 +56,9 @@ for (const file of walk(srcRoot)) {
 }
 
 if (failures.length > 0) {
-  console.error("contract/ts is not runtime-free:\n");
+  console.error("ts/ is not runtime-free:\n");
   for (const failure of failures) console.error("  " + failure);
   process.exit(1);
 }
 
-console.log("contract/ts: no runtime dependencies, no value imports.");
+console.log("ts/: no runtime dependencies, no value imports.");

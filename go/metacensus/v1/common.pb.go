@@ -182,7 +182,7 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x13HealthcheckResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status2z\n" +
 	"\fHealthRoutes\x12j\n" +
-	"\vHealthcheck\x12!.metacensus.v1.HealthcheckRequest\x1a\".metacensus.v1.HealthcheckResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/healthcheckBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\vHealthcheck\x12!.metacensus.v1.HealthcheckRequest\x1a\".metacensus.v1.HealthcheckResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/healthcheckB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_common_proto_rawDescOnce sync.Once

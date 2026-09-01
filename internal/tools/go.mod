@@ -1,4 +1,16 @@
-module github.com/metacensus/ui/contract/go
+// The code generation toolchain, deliberately a separate module.
+//
+// Under Go 1.24 a `tool` directive is a real module requirement. Left in the
+// published module's go.mod, buf and protoc-gen-go would drag ~90 transitive
+// requirements — the Docker CLI, quic-go, the whole buf server graph — into
+// every consumer of github.com/metacensus/api. This module is never published
+// and never imported; the Makefile builds the binaries out of it.
+//
+// It is the original contract/go/go.mod, verbatim but for the module path, so
+// buf and protoc-gen-go stay on exactly the versions that produced the
+// committed output. Do not `go mod tidy` it to chase tidiness: tidy resolves
+// new modules at latest and moves the pins.
+module github.com/metacensus/api/internal/tools
 
 go 1.24.0
 
