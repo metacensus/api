@@ -1,6 +1,8 @@
 package contract_test
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,8 +12,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// declaredRPCs is every rpc across every service in the package, as
-// "Service.Method".
+// declaredRPCs is every rpc in the package, as "Service.Method".
 func declaredRPCs(t *testing.T) map[string]bool {
 	t.Helper()
 
@@ -37,8 +38,8 @@ func declaredRPCs(t *testing.T) map[string]bool {
 	return out
 }
 
-// TestManifestCoversEveryRPC fails when the generated manifest and the service
-// disagree, which is what a silently dropped annotation looks like.
+// The manifest and the services disagreeing is what a silently dropped
+// annotation looks like.
 func TestManifestCoversEveryRPC(t *testing.T) {
 	declared := declaredRPCs(t)
 
@@ -54,8 +55,8 @@ func TestManifestCoversEveryRPC(t *testing.T) {
 	}
 }
 
-// TestRoutesAreUnique fails on two routes sharing a method and path, which no
-// implementation could dispatch.
+// Two routes sharing a method and path is something no implementation could
+// dispatch.
 func TestRoutesAreUnique(t *testing.T) {
 	seen := map[string]string{}
 	for _, r := range routes.Routes {
@@ -67,7 +68,7 @@ func TestRoutesAreUnique(t *testing.T) {
 	}
 }
 
-// Reads are named for what they do, so the name is what a route can be checked
+// Reads are named for what they do, so the name is what to check the route
 // against.
 func isRead(rpc string) bool {
 	for _, prefix := range []string{"List", "Get", "Lookup"} {
@@ -88,10 +89,9 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// TestNonConformingRoutes pins the routes that break the conventions in
-// contract/DERIVATION.md. They are the substance of
-// https://github.com/metacensus/ui/issues/41 and are kept declared rather than
-// quietly fixed; a new one fails here, and a fixed one has to be struck off.
+// Pins the routes that break the route conventions, which are the substance of
+// https://github.com/metacensus/ui/issues/41. A new one fails here; a fixed one
+// has to be struck off.
 func TestNonConformingRoutes(t *testing.T) {
 	want := map[string]string{
 		"POST /paper":        "read over POST",
@@ -99,25 +99,32 @@ func TestNonConformingRoutes(t *testing.T) {
 		"GET /paper/lookup":  "verb in path: lookup",
 	}
 
-	got := map[string]string{}
+	// Reasons accumulate: a route can break more than one convention, and
+	// overwriting would hide the second.
+	reasons := map[string][]string{}
 	for _, r := range routes.Routes {
 		key := r.Method + " " + r.Path
 		if isRead(r.RPC) && r.Method != "GET" {
-			got[key] = "read over " + r.Method
+			reasons[key] = append(reasons[key], "read over "+r.Method)
 		}
 		if verb := verbSegment(r.Path); verb != "" {
-			got[key] = "verb in path: " + verb
+			reasons[key] = append(reasons[key], "verb in path: "+verb)
 		}
 	}
 
-	for _, key := range sortedKeys2(got) {
+	got := map[string]string{}
+	for key, rs := range reasons {
+		got[key] = strings.Join(rs, "; ")
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(got)) {
 		if reason, ok := want[key]; !ok {
 			t.Errorf("%s is newly non-conforming: %s", key, got[key])
 		} else if reason != got[key] {
 			t.Errorf("%s: non-conforming for %q, expected %q", key, got[key], reason)
 		}
 	}
-	for _, key := range sortedKeys2(want) {
+	for _, key := range slices.Sorted(maps.Keys(want)) {
 		if _, ok := got[key]; !ok {
 			t.Errorf("%s now conforms; remove it from this test and from issue #41", key)
 		}

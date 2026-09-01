@@ -1,23 +1,18 @@
 {
   "compilerOptions": {
-    // NodeNext: the package is published, so its types must resolve under plain
-    // Node, not only inside a bundler.
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2022",
     "lib": ["ES2022"],
 
-    // strictNullChecks is what makes `?: T | undefined` mean anything, and what
-    // makes the golden cross-check reject a `null` where a key is absent.
+    // strictNullChecks is what makes `?: T | undefined` mean anything.
     "strict": true,
 
-    // The package ships .ts sources; tsc is a check, not a build.
     "noEmit": true,
-
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true
   },
-  "include": ["index.ts", "src", "test"]
+  "include": ["index.ts", "src"]
 }

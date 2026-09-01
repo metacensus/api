@@ -1,9 +1,6 @@
-// Assert that the generated TypeScript carries no runtime: no declared
-// dependencies, and no value imports under src/. ts-proto's default forceLong
-// would pull in `long`; dropping onlyTypes would pull in protobufjs.
-//
-// The two permitted value emissions are self-contained data with no imports:
-// `export const protobufPackage`, and the route manifest's `routes` array.
+// Assert the generated TypeScript carries no runtime: no declared dependencies,
+// and no value imports under src/. ts-proto's default forceLong would pull in
+// `long`; dropping onlyTypes would pull in protobufjs.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -14,8 +11,6 @@ const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
 
 const failures = [];
-
-// --- 1. no declared dependencies -------------------------------------------
 
 const pkg = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf8"));
 const deps = Object.keys(pkg.dependencies ?? {});
@@ -29,8 +24,6 @@ const peers = Object.keys(pkg.peerDependencies ?? {});
 if (peers.length > 0) {
   failures.push(`package.json declares peerDependencies: ${peers.join(", ")}.`);
 }
-
-// --- 2. no value imports in generated sources ------------------------------
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -47,32 +40,19 @@ function* walk(dir) {
 const importLine = /^\s*import\s/;
 const typeOnlyImport = /^\s*import\s+type\s/;
 
-// Permitted: a string enum compiles to a self-contained object literal.
-const allowedValueDecl = /^\s*(export\s+const\s+protobufPackage\s*=|export\s+enum\s)/;
-
-let sawProtobufPackage = false;
-
 for (const file of walk(srcRoot)) {
   const rel = relative(pkgRoot, file);
-  const lines = readFileSync(file, "utf8").split("\n");
+  const source = readFileSync(file, "utf8");
 
-  for (const [i, line] of lines.entries()) {
+  for (const [i, line] of source.split("\n").entries()) {
     if (importLine.test(line) && !typeOnlyImport.test(line)) {
       failures.push(`${rel}:${i + 1}: value import — \`${line.trim()}\``);
     }
-    if (allowedValueDecl.test(line) && line.includes("protobufPackage")) {
-      sawProtobufPackage = true;
-    }
   }
 
-  if (/\brequire\s*\(/.test(lines.join("\n"))) {
+  if (/\brequire\s*\(/.test(source)) {
     failures.push(`${rel}: contains a require() call`);
   }
-}
-
-if (!sawProtobufPackage) {
-  // Not a failure, but ts-proto's output changed shape.
-  console.warn("note: no `protobufPackage` constant found; ts-proto output may have changed shape");
 }
 
 if (failures.length > 0) {

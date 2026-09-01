@@ -1,140 +1,78 @@
 package contract_test
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
-	contract "github.com/metacensus/ui/contract/go"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// The goldens record what the wire looks like; these record what it must look
-// like. A new message's golden is whatever the encoder produced — only these
-// notice that it broke a rule.
+// These are the conventions in contract/README.md, checked against the compiled
+// descriptors so they are properties of the schema rather than of a paragraph.
+//
+// Agreement between the JSON Go emits and the TypeScript generated from the same
+// .proto is not checked here: it needs documents, and inventing them proved
+// worse than waiting for real ones. https://github.com/metacensus/ui/issues/49.
+
+const protoPkg = "metacensus.v1"
 
 var (
 	lowerCamel = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
 	pascalCase = regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)
 )
 
-// TestJSONKeysAreLowerCamelCase checks every key at every depth. protojson does
-// this automatically; a `json_name` override or an already-camelCased proto
-// field name would break it.
-func TestJSONKeysAreLowerCamelCase(t *testing.T) {
-	forEachGoldenDocument(t, func(t *testing.T, name string, doc any) {
-		walkJSON(doc, "", func(path string, key string, _ any) {
-			if !lowerCamel.MatchString(key) {
-				t.Errorf("%s: key %q at %s is not lowerCamelCase", name, key, path)
-			}
-		})
-	})
-}
-
-// TestEnumsSerialiseAsPascalCaseStrings checks the enum convention on the wire.
-// buf's lint config excepts the rule that would normally police value names, so
-// this replaces it.
-func TestEnumsSerialiseAsPascalCaseStrings(t *testing.T) {
-	for _, f := range fixtures() {
-		f := f
-		t.Run(f.name, func(t *testing.T) {
-			raw, err := contract.Marshal(f.msg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var doc any
-			if err := json.Unmarshal(raw, &doc); err != nil {
-				t.Fatal(err)
-			}
-			checkEnums(t, f.msg.ProtoReflect().Descriptor(), doc, f.name)
-		})
-	}
-}
-
-func checkEnums(t *testing.T, md protoreflect.MessageDescriptor, doc any, path string) {
-	t.Helper()
-
-	obj, ok := doc.(map[string]any)
-	if !ok {
-		return
-	}
-	for key, value := range obj {
-		fd := md.Fields().ByJSONName(key)
-		if fd == nil {
-			t.Errorf("%s: field %q is not declared on %s", path, key, md.FullName())
-			continue
-		}
-
-		values := []any{value}
-		if fd.IsList() {
-			list, ok := value.([]any)
-			if !ok {
-				t.Errorf("%s.%s: repeated field did not serialise as an array", path, key)
-				continue
-			}
-			values = list
-		}
-
-		for _, v := range values {
-			switch fd.Kind() {
-			case protoreflect.EnumKind:
-				s, ok := v.(string)
-				if !ok {
-					t.Errorf("%s.%s: enum serialised as %T, want string", path, key, v)
-					continue
-				}
-				if !pascalCase.MatchString(s) {
-					t.Errorf("%s.%s: enum value %q is not PascalCase", path, key, s)
-				}
-				if fd.Enum().Values().ByName(protoreflect.Name(s)) == nil {
-					t.Errorf("%s.%s: %q is not a value of %s", path, key, s, fd.Enum().FullName())
-				}
-			case protoreflect.MessageKind, protoreflect.GroupKind:
-				if strings.HasPrefix(string(fd.Message().FullName()), "google.protobuf.") {
-					continue
-				}
-				checkEnums(t, fd.Message(), v, path+"."+key)
-			}
-		}
-	}
-}
-
-// TestEveryEnumZeroValueIsUnspecified holds even if buf.yaml is edited.
-func TestEveryEnumZeroValueIsUnspecified(t *testing.T) {
+// protojson derives JSON names from snake_case proto names, so this catches an
+// explicit json_name override or an already-camelCased field.
+func TestJSONNamesAreLowerCamelCase(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
-		enums := md.Enums()
-		for i := 0; i < enums.Len(); i++ {
-			ed := enums.Get(i)
-			if got := string(ed.Values().Get(0).Name()); got != "Unspecified" {
-				t.Errorf("%s: zero value is %q, want \"Unspecified\"", ed.FullName(), got)
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			fd := fields.Get(i)
+			if !lowerCamel.MatchString(fd.JSONName()) {
+				t.Errorf("%s: JSON name %q is not lowerCamelCase", fd.FullName(), fd.JSONName())
 			}
 		}
 	})
 }
 
-// TestNoEnumsAtPackageScope keeps every enum nested in its resource. Value
-// names are scoped to the enclosing message, so two package-scope enums could
-// not both have an `Unspecified`.
+// protojson serialises an enum as its value name, so the value names are the
+// JSON vocabulary. buf's lint config excepts the rule that would police them.
+func TestEnumValuesArePascalCase(t *testing.T) {
+	forEachContractEnum(t, func(ed protoreflect.EnumDescriptor) {
+		values := ed.Values()
+		for i := 0; i < values.Len(); i++ {
+			if name := string(values.Get(i).Name()); !pascalCase.MatchString(name) {
+				t.Errorf("%s: value %q is not PascalCase", ed.FullName(), name)
+			}
+		}
+	})
+}
+
+// Holds even if buf.yaml's enum_zero_value_suffix is edited.
+func TestEveryEnumZeroValueIsUnspecified(t *testing.T) {
+	forEachContractEnum(t, func(ed protoreflect.EnumDescriptor) {
+		if got := string(ed.Values().Get(0).Name()); got != "Unspecified" {
+			t.Errorf("%s: zero value is %q, want \"Unspecified\"", ed.FullName(), got)
+		}
+	})
+}
+
+// Enum value names are scoped to the enclosing message, so two package-scope
+// enums could not both have an Unspecified.
 func TestNoEnumsAtPackageScope(t *testing.T) {
 	forEachContractFile(t, func(fd protoreflect.FileDescriptor) {
-		if n := fd.Enums().Len(); n > 0 {
-			for i := 0; i < n; i++ {
-				t.Errorf("%s: enum %s is declared at package scope; nest it in the message that owns it",
-					fd.Path(), fd.Enums().Get(i).Name())
-			}
+		enums := fd.Enums()
+		for i := 0; i < enums.Len(); i++ {
+			t.Errorf("%s: enum %s is declared at package scope; nest it in the message that owns it",
+				fd.Path(), enums.Get(i).Name())
 		}
 	})
 }
 
-// TestListResponsesWrapItems enforces the list envelope: a list response is an
-// object with a single repeated `items`, never a bare array.
-//
-// `ListMetadata` is defined but referenced by nothing — see
-// TestListMetadataIsUnreferenced — so a list carries only its items today.
+// A list response is an object with a single repeated items, never a bare array
+// and never a second field.
 func TestListResponsesWrapItems(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		name := string(md.Name())
@@ -156,10 +94,8 @@ func TestListResponsesWrapItems(t *testing.T) {
 	})
 }
 
-// TestListMetadataIsUnreferenced holds the line that pagination is defined and
-// not yet adopted. `ListMetadata` carries the fields a paginated response will
-// need, so that the shape is agreed in advance; wiring it into a response is a
-// separate, deliberate decision per route.
+// ListMetadata fixes the shape a paginated response will take. Wiring it into
+// one is a per-route decision, not a default.
 func TestListMetadataIsUnreferenced(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()
@@ -174,17 +110,6 @@ func TestListMetadataIsUnreferenced(t *testing.T) {
 	})
 }
 
-// TestNoTopLevelArrays checks no golden document is a bare array. An array
-// cannot grow a sibling field without breaking every consumer.
-func TestNoTopLevelArrays(t *testing.T) {
-	forEachGoldenDocument(t, func(t *testing.T, name string, doc any) {
-		if _, ok := doc.(map[string]any); !ok {
-			t.Errorf("%s: document root is %T, want a JSON object", name, doc)
-		}
-	})
-}
-
-// TestIdsAreStrings requires every field named `id` or `*_id` to be a string.
 // The two backends mint incompatible id formats; strings ratify neither.
 func TestIdsAreStrings(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
@@ -202,67 +127,8 @@ func TestIdsAreStrings(t *testing.T) {
 	})
 }
 
-// TestTimestampsAreRFC3339 also catches the `{"seconds":…,"nanos":…}` shape a
-// timestamp takes under encoding/json rather than protojson.
-func TestTimestampsAreRFC3339(t *testing.T) {
-	for _, f := range fixtures() {
-		f := f
-		t.Run(f.name, func(t *testing.T) {
-			raw, err := contract.Marshal(f.msg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var doc any
-			if err := json.Unmarshal(raw, &doc); err != nil {
-				t.Fatal(err)
-			}
-			checkTimestamps(t, f.msg.ProtoReflect().Descriptor(), doc, f.name)
-		})
-	}
-}
-
-func checkTimestamps(t *testing.T, md protoreflect.MessageDescriptor, doc any, path string) {
-	t.Helper()
-
-	obj, ok := doc.(map[string]any)
-	if !ok {
-		return
-	}
-	for key, value := range obj {
-		fd := md.Fields().ByJSONName(key)
-		if fd == nil || (fd.Kind() != protoreflect.MessageKind && fd.Kind() != protoreflect.GroupKind) {
-			continue
-		}
-
-		values := []any{value}
-		if fd.IsList() {
-			list, _ := value.([]any)
-			values = list
-		}
-
-		for _, v := range values {
-			switch fd.Message().FullName() {
-			case "google.protobuf.Timestamp":
-				s, ok := v.(string)
-				if !ok {
-					t.Errorf("%s.%s: timestamp serialised as %T, want an RFC 3339 string", path, key, v)
-					continue
-				}
-				if _, err := time.Parse(time.RFC3339, s); err != nil {
-					t.Errorf("%s.%s: %q is not RFC 3339: %v", path, key, s, err)
-				}
-			default:
-				if !strings.HasPrefix(string(fd.Message().FullName()), "google.protobuf.") {
-					checkTimestamps(t, fd.Message(), v, path+"."+key)
-				}
-			}
-		}
-	}
-}
-
-// TestPresenceIsExpressedOnlyByMessageFields keeps Go and TypeScript agreeing
-// about which keys are always present. A proto3 `optional` scalar is a third
-// case neither side's settings describe.
+// A proto3 optional scalar is a third presence case neither side's settings
+// describe, so Go and TypeScript would disagree about whether the key exists.
 func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()
@@ -277,71 +143,11 @@ func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 	})
 }
 
-// --- helpers ---------------------------------------------------------------
-
-func forEachGoldenDocument(t *testing.T, check func(t *testing.T, name string, doc any)) {
-	t.Helper()
-
-	paths, err := filepath.Glob(filepath.Join(goldenDir, "*.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(paths) == 0 {
-		t.Fatal("no golden files; run `go test ./... -update`")
-	}
-
-	for _, path := range paths {
-		path := path
-		name := strings.TrimSuffix(filepath.Base(path), ".json")
-		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var doc any
-			if err := json.Unmarshal(data, &doc); err != nil {
-				t.Fatalf("%s is not valid JSON: %v", path, err)
-			}
-			check(t, name, doc)
-		})
-	}
-}
-
-func walkJSON(node any, path string, visit func(path, key string, value any)) {
-	switch n := node.(type) {
-	case map[string]any:
-		for key, value := range n {
-			visit(path, key, value)
-			walkJSON(value, path+"."+key, visit)
-		}
-	case []any:
-		for i, value := range n {
-			walkJSON(value, path+"["+itoa(i)+"]", visit)
-		}
-	}
-}
-
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	var b []byte
-	for i > 0 {
-		b = append([]byte{byte('0' + i%10)}, b...)
-		i /= 10
-	}
-	return string(b)
-}
-
-// TestNoMessageFieldCrossesResourceFiles is the contamination guard. The
-// failure it exists for is a message in one resource's file being shaped by
-// another resource's needs: the first draft's `UserReference` sat in
-// `user.proto` carrying demo's junction projections, and had a `role` field
-// only because `paper.proto` wanted one.
+// A resource's messages may be typed only from their own file or common.proto,
+// so one resource's shape cannot be bent by another's needs.
 //
-// It tests fields, not imports. An rpc naming another resource as its return
-// type adds no field and shapes no message, so a route declaration does not
-// trip this and does not need to.
+// Fields, not imports: an rpc naming another resource as its return type adds no
+// field and shapes no message.
 func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 	const shared = "metacensus/v1/common.proto"
 
@@ -371,6 +177,58 @@ func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 			}
 			t.Errorf("%s.%s is typed from %s. A resource's messages may only be "+
 				"typed from their own file or %s.", md.FullName(), fd.Name(), target.Path(), shared)
+		}
+	})
+}
+
+// --- helpers ---------------------------------------------------------------
+
+func forEachContractFile(t *testing.T, visit func(protoreflect.FileDescriptor)) {
+	t.Helper()
+
+	seen := 0
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		if string(fd.Package()) == protoPkg {
+			seen++
+			visit(fd)
+		}
+		return true
+	})
+	if seen == 0 {
+		t.Fatalf("no files registered for package %s", protoPkg)
+	}
+}
+
+func forEachContractMessage(t *testing.T, visit func(protoreflect.MessageDescriptor)) {
+	t.Helper()
+
+	var walk func(protoreflect.MessageDescriptors)
+	walk = func(mds protoreflect.MessageDescriptors) {
+		for i := 0; i < mds.Len(); i++ {
+			md := mds.Get(i)
+			// Map entries are synthetic and never appear on the wire.
+			if md.IsMapEntry() {
+				continue
+			}
+			visit(md)
+			walk(md.Messages())
+		}
+	}
+
+	forEachContractFile(t, func(fd protoreflect.FileDescriptor) {
+		walk(fd.Messages())
+	})
+}
+
+// forEachContractEnum visits every enum nested in a contract message.
+// TestNoEnumsAtPackageScope holds that there are no others.
+func forEachContractEnum(t *testing.T, visit func(protoreflect.EnumDescriptor)) {
+	t.Helper()
+
+	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
+		enums := md.Enums()
+		for i := 0; i < enums.Len(); i++ {
+			visit(enums.Get(i))
 		}
 	})
 }

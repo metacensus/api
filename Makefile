@@ -1,10 +1,10 @@
 # The MetaCensus API contract. Run from `contract/`.
 #
-# buf runs from `contract/go`, because buf and protoc-gen-go are Go `tool`
-# dependencies of that module and `go tool` only works inside its own module.
-# Every relative path in buf.gen.yaml is therefore relative to `contract/go`.
+# buf runs from `contract/go`: buf and protoc-gen-go are Go `tool` dependencies
+# of that module and `go tool` only works inside its own module. Every relative
+# path in buf.gen.yaml is therefore relative to `contract/go`.
 
-.PHONY: all gen lint format format-check breaking golden test check clean deps hooks
+.PHONY: all gen lint format format-check breaking test check clean deps hooks
 
 GO_DIR := go
 TS_DIR := ts
@@ -23,10 +23,6 @@ deps:
 gen:
 	cd $(GO_DIR) && $(BUF) generate --template $(PROTO)/buf.gen.yaml
 	cd $(GO_DIR) && go run ./cmd/routegen
-
-## golden — regenerate the golden JSON and the TypeScript cross-check
-golden: gen
-	cd $(GO_DIR) && go test ./... -update
 
 ## lint — buf's STANDARD rules
 lint:
@@ -49,7 +45,7 @@ breaking:
 		echo "no contract/proto at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
-## test — the Go golden and wire-shape suites
+## test — the schema and route invariants
 test:
 	cd $(GO_DIR) && go test ./...
 
@@ -60,11 +56,11 @@ check: lint format-check test
 	cd $(GO_DIR) && go build -o /dev/null ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
 
-## hooks — opt in to the repo's pre-commit hook; unset core.hooksPath to opt out
+## hooks — opt in to the pre-commit hook; unset core.hooksPath to opt out
 hooks:
 	git -C .. config core.hooksPath .githooks
 	@echo "core.hooksPath set to .githooks"
 
-## clean — remove generated output; `make gen golden` puts it back
+## clean — remove generated output; `make gen` puts it back
 clean:
-	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(TS_DIR)/test $(GO_DIR)/testdata
+	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src
