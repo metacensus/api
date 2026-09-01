@@ -183,6 +183,14 @@ demo-only ones against stubbed infra routes. `TestNonConformingRoutes` pins the
 set exactly — a fourth violation fails, and so does fixing one of these without
 striking it off.
 
+`CreatePaper`'s **name** is under review too, in
+[metacensus/ui#45](https://github.com/metacensus/ui/issues/45): a paper is
+looked up externally with `LookupPaper` and then brought in, so "create"
+describes the row rather than the act. The name and the path have to be settled
+together — renaming the rpc while leaving `/paper/create` would leave the
+manifest saying two different things about one route — and the path cannot move
+to `POST /paper` while that is the list endpoint, which is #41.
+
 Two of the original five, `POST /protocol-template` and `POST /protocol-element`,
 left the set by being dropped rather than fixed; see below.
 
