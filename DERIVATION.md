@@ -93,8 +93,9 @@ embedding pattern depends on `google.api.field_behavior = OUTPUT_ONLY` to mark
 The dependency is now paid for, so the annotation is free to add — and it is
 **not** added, because it is inert without tooling that consumes it
 (`protoc-gen-openapiv2` mapping `OUTPUT_ONLY` to `readOnly` is the archetype).
-Embedding therefore stays undecided, and belongs with the generation-depth
-decision record filed under `api-unification`.
+Embedding therefore stays undecided, and belongs with
+[metacensus/ui#44](https://github.com/metacensus/ui/issues/44), the
+generation-depth decision record.
 
 ### What it changed in the messages
 
@@ -176,7 +177,7 @@ Out of scope by instruction: the public backend in `server/`, at
 | `updatedAt` (all resources) | demo-only; infra has no concept, so a client cannot distinguish "never modified" from "not tracked" | **Deferred to the all-Go backend migration.** Revisit when both backends share an implementation. |
 | `Paper.status` | Five-value enum, **one reachable value**. Both create branches hardcode `"Pending Review"` (`paper.ts:220,295`); no handler transitions it | What advances a paper through screening — stored, or derived from approvals? |
 | `Paper.url` | A presigned S3 URL cached in a column; expired for most of its life. `GET /paper/{id}/presigned-url` mints a fresh one | — |
-| `DataExtractionReview.userId`, `DataExtraction.userId` | Column exists, create handler never sets it, so **every review is anonymous**. Nothing stops one user satisfying a topic's minimum-reviews threshold alone | Who owns a review, and what enforces independence between reviews of one paper? |
+| `DataExtractionReview.userId`, `DataExtraction.userId` | Column exists, create handler never sets it, so **every review is anonymous**. Nothing stops one user satisfying a topic's minimum-reviews threshold alone | Who owns a review, and what enforces independence between reviews of one paper? [metacensus/ui#43](https://github.com/metacensus/ui/issues/43) generalises it: authorship comes from auth, and its shape differs per resource. |
 | `User.lastActive`, `User.lastCredits`, same on `Member` | infra's own. `types.NewUser` sets `LastActive: created, LastCredits: 0`; nothing ever updates either | **Deferred, not rejected.** Tracked as [metacensus/infra#54](https://github.com/metacensus/infra/issues/54) — credit-gate user actions with global reach. Add back to `User` when that lands. |
 | `Prop.conclusion`, `Prop.concluded` | demo stores `status` defaulting to `"open"` and never changes it; `concluded` is emitted as `""`, not a parseable timestamp. infra has neither, which looks deliberate | How does a proposition conclude — quorum, threshold, expiry? |
 | `Topic.status`, `Topic.statusDescription` | Free text neither backend validates. The five-value enum in the first draft was inferred from the **badge-colour map** in `types/enums.ts`, a styling table mixing topic, paper and prop vocabularies | What is a topic's lifecycle, and is its state stored or derived? |
