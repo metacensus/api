@@ -4,9 +4,9 @@ Every request and response under `/metacensus/api/v1`, defined once in `.proto` 
 
 This repository was split out of [`metacensus/ui`](https://github.com/metacensus/ui), where it lived as `contract/`. The 16 commits that built it came across intact — they are the derivation argument for why each field is in or out, and `git log` is the place to read it.
 
-**Nothing consumes this yet.** The SPA uses `types/*.ts`, demo hand-writes its handlers, infra uses `core/shared/types`. Adopting it is [metacensus/ui#51](https://github.com/metacensus/ui/issues/51).
+**Nothing consumes this yet**, and nothing is published, so nothing can. infra, demo and the SPA each still carry their own hand-maintained types.
 
-Open questions about the contract's content carry the `api-unification` label. What it deliberately leaves out, and the question each omission becomes, is [#50](https://github.com/metacensus/ui/issues/50).
+The four issues in ui that tracked this work — adoption, what the contract deliberately leaves out, cross-language wire agreement, and the route conventions — were all closed as not-planned when the contract moved out of that repository. Nothing here replaces them yet, so the open questions recorded below are open in the plain sense: written down, not tracked.
 
 ## Layout
 
@@ -82,13 +82,13 @@ Protobuf binary is not used, not supported and not a fallback. Protobuf is here 
 - **All ids are strings.** demo mints integer serials, infra prefixed UUIDs.
 - **Presence is expressed only through message-typed fields.** `EmitDefaultValues` plus ts-proto's `useOptionals=messages` makes scalars, enums and repeated fields always present, and message fields `?: T | undefined`. A proto3 `optional` scalar is a third case the two sides would disagree about; use `google.protobuf.Int32Value` and friends instead.
 
-Agreement between the JSON Go emits and the TypeScript generated from the same `.proto` is not yet checked — that needs real documents: [#49](https://github.com/metacensus/ui/issues/49).
+Agreement between the JSON Go emits and the TypeScript generated from the same `.proto` is not checked. That needs real documents from a backend actually serving the contract, and nothing serves it yet.
 
 ## Routes
 
-Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `paper.proto` has `PaperRoutes`, and so on for all 24.
+Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `paper.proto` has `PaperRoutes`, and so on across all eight. They declare 24 routes between them.
 
-**The prefix is part of the contract, and it is generated too.** `routes.Prefix` in Go and `apiPrefix` in TypeScript both carry `/metacensus/api/v1`, emitted by `cmd/routegen` from the single constant it holds. Every `path` in the manifest is relative to it, so join the two to get what a client requests. It was previously written out by hand in at least three places — ui's `src/lib/routes.ts`, infra's `routeV1`, and demo's own mount — with nothing making them agree.
+**The prefix is part of the contract, and it is generated too.** `routes.Prefix` in Go and `apiPrefix` in TypeScript both carry `/metacensus/api/v1`, emitted by `cmd/routegen` from the single constant it holds. Every `path` in the manifest is relative to it, so join the two to get what a client requests. It had been written out by hand in every repository that needed it, with nothing making the copies agree; that is the reason it is generated here rather than left to each consumer.
 
 It is not expressed in the `.proto`: `google.api.http` carries a path per route and protobuf has no string constant, so putting it there would mean a custom `FileOptions` extension and a non-resource `.proto` inside a schema whose tests assert every file is a resource. `TestPrefix` pins the invariant instead — the prefix is absolute, has no trailing slash, and no route path already contains it.
 
@@ -96,7 +96,7 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 **They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
 
-Three routes on `Paper` break the conventions and are left broken deliberately, pinned by `TestNonConformingRoutes` so a fourth fails the build. Fixing them is [#41](https://github.com/metacensus/ui/issues/41).
+Three routes on `Paper` break the conventions and are left broken deliberately — a read over POST, and `create` and `lookup` as verbs in the path. `TestNonConformingRoutes` names all three, so a fourth fails the build. Fixing them is not tracked anywhere yet.
 
 ## What the tests check
 
