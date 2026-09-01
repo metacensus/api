@@ -87,6 +87,12 @@ clean:
 # Tags are minted here, never typed: scripts/version.sh validates semver and
 # the target refuses a tag that already exists. Pushing the tag is the whole
 # release — the Go module needs nothing else, and the workflow publishes npm.
+#
+# `set -e` and the empty check are load-bearing. Without them, a version.sh
+# that errors out still leaves VERSION empty, and the recipe cheerfully tags
+# and pushes `v` — which is precisely the junk tag metacensus/infra ended up
+# with. The release workflow's tag filter would not match it, so it would sit
+# there forever, silently.
 # ---------------------------------------------------------------------------
 
 VERSION ?=
@@ -94,12 +100,32 @@ TYPE    ?=
 MESSAGE ?=
 
 release: scripts/version.sh
-	@VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
+	@set -e; \
+	VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
+	if [ -z "$$VERSION" ]; then \
+		echo "Error: version.sh produced no version; refusing to tag"; \
+		exit 1; \
+	fi; \
 	TAG="v$$VERSION"; \
 	MSG=$$([ -n "$(MESSAGE)" ] && echo "$(MESSAGE)" || echo "Release $$VERSION"); \
 	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
 		echo "Error: Tag $$TAG already exists"; \
 		exit 1; \
+	fi; \
+	echo "About to tag and push $$TAG."; \
+	echo "That publishes @metacensus/api@$$VERSION to public npm and"; \
+	echo "github.com/metacensus/api@$$TAG to proxy.golang.org."; \
+	echo "Neither can be withdrawn: npm unpublish is limited to 72 hours and"; \
+	echo "the Go module proxy is an immutable cache. Deleting the tag is not"; \
+	echo "enough — that version stays served."; \
+	if [ "$(YES)" != "1" ]; then \
+		if [ -t 0 ]; then \
+			printf "Proceed? [y/N] "; read -r reply; \
+			case "$$reply" in y|Y|yes|YES) ;; *) echo "Aborted."; exit 1;; esac; \
+		else \
+			echo "Refusing to release non-interactively; pass YES=1 if you mean it."; \
+			exit 1; \
+		fi; \
 	fi; \
 	git tag -a "$$TAG" -m "$$MSG" && \
 	git push origin "$$TAG" && \
