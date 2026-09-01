@@ -13,17 +13,20 @@ import (
 	"sort"
 	"strings"
 
-	_ "github.com/metacensus/ui/contract/go/metacensus/v1"
+	_ "github.com/metacensus/api/go/metacensus/v1"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
+// Output paths are relative to the repository root, which is where the
+// Makefile runs this. Everything else in the build — buf, the generator
+// plugins — is rooted there too.
 const (
 	protoPkg = "metacensus.v1"
-	goOut    = "routes/manifest.go"
-	tsOut    = "../ts/src/route-manifest.ts"
+	goOut    = "go/routes/manifest.go"
+	tsOut    = "ts/src/route-manifest.ts"
 )
 
 type route struct {
@@ -45,7 +48,27 @@ func main() {
 	}
 }
 
+// modulePath anchors the cwd check below.
+const modulePath = "module github.com/metacensus/api"
+
+// checkRoot fails loudly when routegen is run from anywhere but the repository
+// root. goOut and tsOut are relative, so a wrong cwd does not error — it writes
+// the manifests somewhere else and leaves the committed ones stale, which the
+// freshness check cannot see because nothing in the tree changed.
+func checkRoot() error {
+	b, err := os.ReadFile("go.mod")
+	if err != nil || !strings.Contains(string(b), modulePath) {
+		wd, _ := os.Getwd()
+		return fmt.Errorf("run from the repository root (cwd is %s); use `make gen`", wd)
+	}
+	return nil
+}
+
 func run() error {
+	if err := checkRoot(); err != nil {
+		return err
+	}
+
 	var routes []route
 
 	for _, svc := range services() {

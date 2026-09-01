@@ -282,7 +282,7 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"AuthRoutes\x12O\n" +
 	"\x05Login\x12\x1b.metacensus.v1.LoginRequest\x1a\x16.metacensus.v1.Session\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/login\x12R\n" +
 	"\x06SignUp\x12\x1c.metacensus.v1.SignUpRequest\x1a\x16.metacensus.v1.Session\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/signup\x12V\n" +
-	"\x06Logout\x12\x1c.metacensus.v1.LogoutRequest\x1a\x1d.metacensus.v1.LogoutResponse\"\x0f\x82\xd3\xe4\x93\x02\t\"\a/logoutBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x06Logout\x12\x1c.metacensus.v1.LogoutRequest\x1a\x1d.metacensus.v1.LogoutResponse\"\x0f\x82\xd3\xe4\x93\x02\t\"\a/logoutB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_auth_proto_rawDescOnce sync.Once

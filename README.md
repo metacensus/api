@@ -2,18 +2,24 @@
 
 Every request and response under `/metacensus/api/v1`, defined once in `.proto` and generated into Go and TypeScript.
 
-**Nothing consumes this yet.** The SPA uses `types/*.ts`, demo hand-writes its handlers, infra uses `core/shared/types`. Adopting it is [#51](https://github.com/metacensus/ui/issues/51). `packages/contract`, the npm package exporting `API_PREFIX`, is untouched.
+This repository was split out of [`metacensus/ui`](https://github.com/metacensus/ui), where it lived as `contract/`. The 16 commits that built it came across intact — they are the derivation argument for why each field is in or out, and `git log` is the place to read it.
+
+**Nothing consumes this yet.** The SPA uses `types/*.ts`, demo hand-writes its handlers, infra uses `core/shared/types`. Adopting it is [metacensus/ui#51](https://github.com/metacensus/ui/issues/51).
 
 Open questions about the contract's content carry the `api-unification` label. What it deliberately leaves out, and the question each omission becomes, is [#50](https://github.com/metacensus/ui/issues/50).
 
 ## Layout
 
 ```
-contract/
-  proto/   .proto sources and buf config — the definition
-  go/      generated Go, the wire encoder, the manifest generator, tests
-  ts/      generated TypeScript interfaces
+proto/           .proto sources and buf config — the definition
+go/              generated Go, the wire encoder, the manifest generator, tests
+ts/              generated TypeScript interfaces, the npm package
+internal/tools/  the pinned code generators, a module of its own
+scripts/         version.sh, which `make release` uses to mint tags
+go.mod           the published Go module, rooted here
 ```
+
+**`go.mod` is at the repository root, not in `go/`, and must stay there.** A module whose `go.mod` sits in a subdirectory `go/` is versioned by tags of the form `go/v1.2.3`. A plain `v1.2.3` tag would then publish nothing and `go get ...@v1.2.3` would fail with "no matching versions", while a `go/v1.2.3` tag would not match the release workflow's tag filter, so nothing would run and no failure would be reported. Rooted here, one plain semver tag does every job.
 
 ## Working on it
 
@@ -26,13 +32,36 @@ make hooks   # optional: lint and format-check .proto on commit
 
 Generated code is committed; CI regenerates and fails on any diff.
 
-`buf` and `protoc-gen-go` are Go `tool` dependencies of `go/go.mod`. Because `go tool` only works inside its own module, **buf runs from `go/`, not from `proto/` where its config lives**, so every relative path in `buf.gen.yaml` is relative to `go/`. The Makefile is the entry point that gets this right.
+`buf` and `protoc-gen-go` are `tool` dependencies of **`internal/tools`, a separate module**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module now requires two things.
+
+`make tools` builds those generators into `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root. `routegen` refuses to run anywhere else: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
+
+## Consuming it
+
+```bash
+go get github.com/metacensus/api          # import github.com/metacensus/api/go/metacensus/v1
+npm install @metacensus/api               # types only, zero dependencies
+```
+
+Neither is published yet. See "Releasing", below.
+
+## Releasing
+
+Tags are minted, never typed:
+
+```bash
+make release-patch          # or release-minor, release-major
+make release VERSION=1.4.0  # or an explicit version
+make latest                 # the current version tag
+```
+
+`scripts/version.sh` validates semver and the target refuses a tag that already exists. Pushing the tag is the whole release: `.github/workflows/release.yml` runs the full CI suite first and only then publishes npm, and the Go module needs nothing but the tag for proxy.golang.org to serve it.
 
 ## JSON is the wire
 
 Protobuf binary is not used, not supported and not a fallback. Protobuf is here for the schema, the code generation and the breaking-change detection.
 
-- **Marshal with `protojson`, never `encoding/json`.** `contract/go` exports `Marshal`, `Unmarshal` and `MarshalOptions`. Under `encoding/json` the generated types produce enums as integers, timestamps as `{"seconds":…,"nanos":…}` and 64-bit integers as unquoted numbers.
+- **Marshal with `protojson`, never `encoding/json`.** `go/` exports `Marshal`, `Unmarshal` and `MarshalOptions`. Under `encoding/json` the generated types produce enums as integers, timestamps as `{"seconds":…,"nanos":…}` and 64-bit integers as unquoted numbers.
 - **Field names are `snake_case` in proto, `lowerCamelCase` on the wire.** protojson converts; there are no `json_name` overrides.
 - **Enum values are PascalCase** and nested in the message that owns them, because protojson serialises an enum as its value name. Zero values are `Unspecified`.
 - **All ids are strings.** demo mints integer serials, infra prefixed UUIDs.

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	v1 "github.com/metacensus/ui/contract/go/metacensus/v1"
-	"github.com/metacensus/ui/contract/go/routes"
+	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/routes"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )

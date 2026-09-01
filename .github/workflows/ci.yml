@@ -1,0 +1,117 @@
+name: CI
+
+# Validates the contract: the .proto definition and the Go and TypeScript
+# generated from it.
+#
+# One job: the expensive step is building the pinned buf and protoc-gen-go from
+# source, and splitting would pay for it repeatedly.
+#
+# `workflow_call` is what lets the release gate on this. A tag push does not
+# match the triggers below, so release.yml calls this workflow and makes the
+# publish job depend on it — an unreviewable npm publish should not be able to
+# outrun the checks.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Lint, generate, and verify the API contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # buf breaking reads the base commit from the local object store, and
+          # the tag case below needs the tag history.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          # internal/tools is where the expensive graph lives; cache on both.
+          cache-dependency-path: |
+            go.sum
+            internal/tools/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+
+      - name: Install the TypeScript toolchain
+        run: make deps
+
+      - name: Build the pinned code generators
+        run: make tools
+
+      - name: Lint the proto sources
+        run: make lint
+
+      - name: Check proto formatting
+        run: make format-check
+
+      - name: Check for breaking changes
+        # A PR's base sha is already the merge base; a push compares to the
+        # previous tip; a tag compares to the previous semver tag. The target
+        # no-ops when the ref predates proto/, which covers "no previous tag".
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              against="${{ github.event.pull_request.base.sha }}"
+              ;;
+            *)
+              if [ "${{ github.ref_type }}" = "tag" ]; then
+                against="$(git tag -l 'v*' --sort=-v:refname \
+                  | grep -vFx "${{ github.ref_name }}" | head -1)"
+              else
+                against="${{ github.event.before }}"
+              fi
+              ;;
+          esac
+          echo "comparing against ${against:-<nothing>}"
+          make breaking BREAKING_AGAINST="$against"
+
+      - name: Regenerate everything
+        run: make gen
+
+      - name: Fail if the checked-in output is stale
+        run: |
+          if ! git diff --exit-code; then
+            echo
+            echo "The committed output does not match the .proto sources."
+            echo "Run 'make gen' and commit the result."
+            exit 1
+          fi
+          # A new generated file is untracked, so the diff above misses it.
+          untracked="$(git ls-files --others --exclude-standard)"
+          if [ -n "$untracked" ]; then
+            echo "Generation produced files that are not committed:"
+            echo "$untracked"
+            exit 1
+          fi
+
+      - name: Build and vet the Go module
+        run: |
+          go build -o /dev/null ./...
+          go vet ./...
+
+      - name: Run the schema and route invariants
+        run: go test ./...
+
+      - name: Type-check the TypeScript and assert it has no runtime
+        working-directory: ts
+        run: npm run check
+
+      - name: Build the npm package
+        # Not published here — this only proves the publish build compiles, so a
+        # broken build fails on the PR rather than at release time.
+        working-directory: ts
+        run: npm run build

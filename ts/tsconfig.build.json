@@ -1,0 +1,14 @@
+// The publish build. tsconfig.json is the type-check config and emits nothing;
+// this one adds the emit, so `npm run check` and `npm run build` cannot drift.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["index.ts", "src"]
+}

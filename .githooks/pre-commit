@@ -1,0 +1,21 @@
+#!/bin/sh
+# Opt in with `make hooks`; opt out with `git config --unset core.hooksPath`.
+#
+# Checks the working tree, not the index, so a partial `git add -p` of a .proto
+# can pass a check its staged content would fail. CI is the enforcement boundary.
+
+set -e
+
+staged_protos=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*')
+[ -n "$staged_protos" ] || exit 0
+
+echo "pre-commit: .proto staged — checking lint and formatting"
+
+# format-check, never `format -w`: rewriting mid-commit would commit something
+# other than what was staged.
+if ! make lint format-check; then
+	echo >&2
+	echo "pre-commit: 'make format' fixes formatting." >&2
+	echo "Run 'make check' before pushing." >&2
+	exit 1
+fi

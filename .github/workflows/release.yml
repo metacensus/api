@@ -1,0 +1,147 @@
+name: Release
+
+# Publishes a tagged version: the Go module and the npm package. No container
+# image — this repo has none.
+#
+# Three deliberate differences from the release workflows in metacensus/ui and
+# metacensus/infra:
+#
+#  1. The tag filter is semver-shaped, not `v*`. infra has a tag literally named
+#     `v`, which `v*` matches; so would `vnext` or a typo like `v1.2`.
+#  2. The publish is gated on the full CI suite. Neither existing workflow gates
+#     on anything. ui's npm publish was incidentally protected by an image build
+#     running first; this repo has no image job, so that accident is gone, and
+#     an npm publish cannot be taken back.
+#  3. Tags are minted by `make release` (scripts/version.sh), which validates
+#     semver and refuses a duplicate, rather than typed by hand.
+#
+# The Go module needs nothing from this workflow beyond the pushed tag —
+# proxy.golang.org serves it straight from the public repo. The verify step
+# below only warms and confirms that.
+
+on:
+  push:
+    tags:
+      # GitHub filter patterns support `+`, so this is a real semver shape:
+      # `v1.2.3` and `v1.2.3-rc.1`, but not `v`, `v1`, `v1.2` or `vnext`.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: read
+
+jobs:
+  # The gate. Same suite that runs on every PR, re-run at the tagged commit.
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
+  publish-npm:
+    name: Publish the npm package
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # npm trusted publishing (OIDC). With a trusted publisher configured for
+      # the package on npmjs.com, npm >= 11.5.1 mints a short-lived credential
+      # from this token and no NPM_TOKEN secret is needed. Until then it falls
+      # back to NODE_AUTH_TOKEN below.
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+          # Public npm, not npm.pkg.github.com. GITHUB_TOKEN authenticates only
+          # against GitHub Packages and is useless here.
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Re-validate the tag as semver
+        # The trigger's glob is coarser than scripts/version.sh's regex. Fail
+        # here rather than publish a version npm would interpret differently.
+        run: ./scripts/version.sh "${GITHUB_REF_NAME}"
+
+      - name: Install the TypeScript toolchain
+        run: make deps
+
+      - name: Set the package version from the tag
+        working-directory: ts
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "Publishing version $version"
+          npm version "$version" --no-git-tag-version --allow-same-version
+
+      - name: Build the package
+        working-directory: ts
+        run: npm run build
+
+      - name: Publish to npm
+        working-directory: ts
+        run: |
+          # npm >= 11.5.1 prefers OIDC when a trusted publisher is configured
+          # and id-token: write is granted; otherwise it uses NODE_AUTH_TOKEN.
+          npm --version
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "No NPM_TOKEN secret set — relying on OIDC trusted publishing."
+          fi
+          npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  verify-go-module:
+    name: Verify the Go module is published
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Ask the module proxy for the tagged version
+        # Publishing a Go module is just the pushed tag; this asks the proxy to
+        # fetch it and proves the tag resolves. Indexing is asynchronous, so a
+        # miss here is informational, not a failure.
+        continue-on-error: true
+        run: |
+          module="github.com/metacensus/api@${GITHUB_REF_NAME}"
+          echo "Requesting $module from proxy.golang.org"
+          for i in 1 2 3 4 5; do
+            if GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
+                 go list -m "$module"; then
+              echo "Go module published: $module"
+              exit 0
+            fi
+            echo "not indexed yet; retrying in 30s ($i/5)"
+            sleep 30
+          done
+          echo "::warning::proxy.golang.org has not indexed $module yet."
+          echo "This is normal; it resolves on the first 'go get'."
+
+  github-release:
+    name: Create the GitHub release
+    needs: [publish-npm, verify-go-module]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

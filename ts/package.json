@@ -1,12 +1,37 @@
 {
-  "name": "@metacensus/contract-types",
+  "name": "@metacensus/api",
   "version": "0.0.0",
-  "private": true,
-  "description": "TypeScript interfaces generated from the MetaCensus API contract (/metacensus/api/v1). Types only, no runtime.",
+  "description": "TypeScript interfaces generated from the MetaCensus API contract (/metacensus/api/v1). Types only, no runtime dependencies.",
   "type": "module",
   "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metacensus/api.git",
+    "directory": "ts"
+  },
+  "homepage": "https://github.com/metacensus/api#readme",
+  "bugs": {
+    "url": "https://github.com/metacensus/api/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "check": "tsc --noEmit && node scripts/check-no-runtime.mjs"
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit && node scripts/check-no-runtime.mjs",
+    "prepack": "npm run build"
   },
   "dependencies": {},
   "devDependencies": {

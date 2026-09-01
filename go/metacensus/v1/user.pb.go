@@ -283,7 +283,7 @@ const file_metacensus_v1_user_proto_rawDesc = "" +
 	"UserRoutes\x12S\n" +
 	"\tListUsers\x12\x1e.metacensus.v1.UserListRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12V\n" +
 	"\aGetUser\x12\x1d.metacensus.v1.UserGetRequest\x1a\x13.metacensus.v1.User\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12L\n" +
-	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_user_proto_rawDescOnce sync.Once

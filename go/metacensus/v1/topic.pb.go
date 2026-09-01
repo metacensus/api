@@ -548,7 +548,7 @@ const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\vCreateTopic\x12!.metacensus.v1.TopicCreateRequest\x1a\x14.metacensus.v1.Topic\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12o\n" +
 	"\vGetProtocol\x12#.metacensus.v1.TopicProtocolRequest\x1a\x17.metacensus.v1.Protocol\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/topic/{topic_id}/protocol\x12l\n" +
 	"\vListMembers\x12 .metacensus.v1.MemberListRequest\x1a\x19.metacensus.v1.MemberList\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/topic/{topic_id}/member\x12o\n" +
-	"\tGetMember\x12\x1f.metacensus.v1.MemberGetRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}BAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\tGetMember\x12\x1f.metacensus.v1.MemberGetRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}B9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_topic_proto_rawDescOnce sync.Once
