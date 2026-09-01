@@ -198,7 +198,7 @@ func writeTypeScriptGolden(t *testing.T) {
 
 		addImport(typeImports, tsModule(md), tsName(md))
 		lit := tsMessageLiteral(t, md, compact.Bytes(), 1, valueImports, enumAsserts)
-		// `golden` prefix avoids colliding with the type, or with `Error`.
+		// `golden` prefix avoids colliding with the imported type name.
 		fmt.Fprintf(&body, "export const golden%s: %s = %s;\n\n", f.name, tsName(md), lit)
 	}
 

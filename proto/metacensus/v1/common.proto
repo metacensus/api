@@ -28,11 +28,6 @@ message ListMetadata {
   int32 total = 3;
 }
 
-// Error is the body of any failed request.
-message Error {
-  string error = 1;
-}
-
 // HealthcheckRequest carries no parameters.
 message HealthcheckRequest {}
 

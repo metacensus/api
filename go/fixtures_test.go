@@ -147,7 +147,6 @@ func fixtures() []fixture {
 	return []fixture{
 		// common.proto
 		{"ListMetadata", &v1.ListMetadata{Page: 1, Limit: 30, Total: 42}},
-		{"Error", &v1.Error{Error: "Invalid credentials"}},
 		{"HealthcheckRequest", &v1.HealthcheckRequest{}},
 		{"HealthcheckResponse", &v1.HealthcheckResponse{Status: "healthy"}},
 

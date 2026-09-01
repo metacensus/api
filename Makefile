@@ -4,7 +4,7 @@
 # dependencies of that module and `go tool` only works inside its own module.
 # Every relative path in buf.gen.yaml is therefore relative to `contract/go`.
 
-.PHONY: all gen lint format format-check breaking golden test check clean deps
+.PHONY: all gen lint format format-check breaking golden test check clean deps hooks
 
 GO_DIR := go
 TS_DIR := ts
@@ -59,6 +59,11 @@ check: lint format-check test
 	# binary in go/.
 	cd $(GO_DIR) && go build -o /dev/null ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
+
+## hooks — opt in to the repo's pre-commit hook; unset core.hooksPath to opt out
+hooks:
+	git -C .. config core.hooksPath .githooks
+	@echo "core.hooksPath set to .githooks"
 
 ## clean — remove generated output; `make gen golden` puts it back
 clean:

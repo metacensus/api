@@ -39,10 +39,22 @@ make deps      # npm ci in ts/ (Go needs no install step)
 make gen       # regenerate Go, TypeScript and the route manifest
 make golden    # regenerate the golden JSON and the TypeScript cross-check
 make check     # everything CI runs bar the freshness diff
+make hooks     # optional: lint and format-check .proto on commit
 ```
 
 Generated code is committed. CI regenerates it and fails on any diff, so a
 stale artifact cannot merge.
+
+`make hooks` points `core.hooksPath` at `.githooks/`, whose `pre-commit` runs
+`lint` and `format-check` when a file under `contract/proto/` is staged, and
+exits immediately otherwise. It is **opt-in on purpose**: the repo has no
+pre-commit infrastructure, and adding a mandatory one for this directory would
+tax every contributor — most of whom never touch `contract/` — to save a
+round-trip for the few who do. CI is the enforcement boundary either way. Undo
+with `git config --unset core.hooksPath`.
+
+The hook runs `format-check`, never `format -w`. A hook that rewrites files
+mid-commit commits something other than what was staged.
 
 ## Protobuf as a type system, JSON as the wire
 

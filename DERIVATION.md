@@ -325,6 +325,31 @@ rather than here.
 `GetTopicProtocol` was renamed `GetProtocol`; its route and request message are
 unchanged.
 
+### `Error` — removed
+
+`Error {string error = 1}` was the body of any failed request, and the one error
+shape both backends already produce. Ruled in review: **drop it for now; put it
+back if it is needed.**
+
+| removed | finding | question |
+| --- | --- | --- |
+| `Error` | A single free-text string is close to buying nothing. A client can display it and nothing else — it cannot branch on it, retry on it, or map it to a message of its own. The HTTP status already carries the category, which is the part a client can act on | What does a client get beyond the status, and does it need a machine-readable code? |
+
+The version that earns its place is `{code, error}`, with `code` a PascalCase
+enum: the status gives the category, `code` distinguishes instances within it,
+and `error` stays the human-readable detail. That was not added here because
+**no backend emits a code today**, and inventing one would be exactly the kind
+of field this pass has spent its time removing — a shape nothing maintains.
+
+So the trigger for reinstating it is concrete: the first time a client needs to
+*branch* on a failure rather than print it, `Error` comes back as `{code,
+error}` with the codes a backend actually emits.
+
+Note what is not affected. Nothing referenced `Error` — it was declared for
+implementers rather than used as a response type by any rpc, so no route
+changes, and the failure path was never described by the annotations in the
+first place.
+
 ## What this contract requires of implementers
 
 - **infra must implement `GET /topic/{topicId}/prop/{propId}/vote`.** It does

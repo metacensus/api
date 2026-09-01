@@ -14,7 +14,7 @@
 
 /* eslint-disable */
 import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "../src/metacensus/v1/auth.js";
-import type { Error, HealthcheckRequest, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
+import type { HealthcheckRequest, HealthcheckResponse, ListMetadata } from "../src/metacensus/v1/common.js";
 import type { DataExtraction, DataExtractionGetRequest, DatumExtraction, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
 import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse } from "../src/metacensus/v1/paper.js";
 import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
@@ -27,10 +27,6 @@ export const goldenListMetadata: ListMetadata = {
   page: 1,
   limit: 30,
   total: 42,
-};
-
-export const goldenError: Error = {
-  error: "Invalid credentials",
 };
 
 export const goldenHealthcheckRequest: HealthcheckRequest = {};

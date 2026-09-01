@@ -26,11 +26,6 @@ export interface ListMetadata {
   total: number;
 }
 
-/** Error is the body of any failed request. */
-export interface Error {
-  error: string;
-}
-
 /** HealthcheckRequest carries no parameters. */
 export interface HealthcheckRequest {
 }
