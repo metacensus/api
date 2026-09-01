@@ -3,6 +3,11 @@
 // The whole route table of /metacensus/api/v1 on one screen, generated from
 // the google.api.http annotations on each resource's service in metacensus/v1.
 
+// The path every route below hangs off. Join it with a route's `path` to get
+// the path a client actually requests; the reverse proxy in front of the API
+// is what makes that resolve.
+export const apiPrefix = "/metacensus/api/v1";
+
 // `path` is relative to /metacensus/api/v1 and spells its parameters
 // {lowerCamelCase}, as the wire does. `params`, `query` and `body` between them
 // account for every field of `request`: `params` bind path segments, `query`

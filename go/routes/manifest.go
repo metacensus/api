@@ -5,6 +5,11 @@
 // service in metacensus/v1.
 package routes
 
+// Prefix is the path every route below hangs off. Join it with a Route's
+// Path to get the path a client actually requests; the reverse proxy in
+// front of the API is what makes that resolve.
+const Prefix = "/metacensus/api/v1"
+
 // Route is one declared route. Path is relative to /metacensus/api/v1 and
 // spells its parameters {lowerCamelCase}, as the wire does. Params, Query and
 // Body between them account for every field of Request: Params bind path
