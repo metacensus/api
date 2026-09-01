@@ -64,8 +64,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Re-validate the tag as semver
-        # The trigger's glob is coarser than scripts/version.sh's regex. Fail
-        # here rather than publish a version npm would interpret differently.
+        # The trigger's glob is coarser than scripts/version.sh's regex, and
+        # this is what makes the unqualified `npm publish` below safe: a
+        # prerelease or otherwise odd tag fails here rather than moving the
+        # `latest` dist-tag to something that is not a release.
         run: ./scripts/version.sh "${GITHUB_REF_NAME}"
 
       - name: Install the TypeScript toolchain
@@ -96,16 +98,13 @@ jobs:
           if [ -z "${NODE_AUTH_TOKEN}" ]; then
             echo "No NPM_TOKEN secret set — relying on OIDC trusted publishing."
           fi
-          # `npm publish` with no --tag moves `latest`. The trigger above only
-          # accepts release versions today, but this keeps `latest` pinned to
-          # real releases if a prerelease tag is ever allowed back in — the npm
-          # analogue of an unconditional `type=raw,value=latest` on an image.
-          case "${GITHUB_REF_NAME}" in
-            *-*) dist_tag=next ;;
-            *)   dist_tag=latest ;;
-          esac
-          echo "Publishing to dist-tag: $dist_tag"
-          npm publish --provenance --access public --tag "$dist_tag"
+          # No --tag: `npm publish` defaults to `latest`, which is correct
+          # because a prerelease cannot reach this step. The trigger only
+          # matches `vX.Y.Z`, and the "Re-validate the tag as semver" step
+          # above re-checks it against scripts/version.sh, whose regex has no
+          # prerelease branch — so a hand-pushed `v1.2.3-rc.1` fails there
+          # rather than publishing to the wrong dist-tag.
+          npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

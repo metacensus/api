@@ -68,7 +68,7 @@ make release VERSION=1.4.0  # or an explicit version
 make latest                 # the current version tag
 ```
 
-**This repository has no LICENSE yet, and that blocks the first tag.** npm publishes a package with no `license` field as unlicensed-by-omission and the Go module inherits the same ambiguity — for a contract whose entire purpose is to be consumed by other repositories, that is the thing most likely to actually prevent adoption. `metacensus/infra` is BSD-3-Clause; `metacensus/ui`, where this code was written, has no license at all. Picking one is the owner's call, not this repository's to guess.
+**There is no LICENSE yet.** This is a deliberate follow-up, not an oversight: a licence review is planned separately. Until then npm would publish the package as unlicensed-by-omission and the Go module carries the same ambiguity, which is worth settling before this is widely depended on.
 
 `scripts/version.sh` validates semver, the target refuses a tag that already exists, and it prompts before pushing — a release cannot be withdrawn (npm unpublish is limited to 72 hours and the Go module proxy is an immutable cache, so deleting the tag does not unpublish the version). Pass `YES=1` to skip the prompt; without a TTY it refuses unless you do. Pushing the tag is the whole release: `.github/workflows/release.yml` runs the full CI suite first and only then publishes npm, and the Go module needs nothing but the tag for proxy.golang.org to serve it.
 
