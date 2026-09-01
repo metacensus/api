@@ -53,6 +53,10 @@ tax every contributor — most of whom never touch `contract/` — to save a
 round-trip for the few who do. CI is the enforcement boundary either way. Undo
 with `git config --unset core.hooksPath`.
 
+`core.hooksPath` lives in the shared repository config, so opting in from one
+worktree opts in from all of them. On a branch without `.githooks/`, git finds
+no hook and does nothing.
+
 The hook runs `format-check`, never `format -w`. A hook that rewrites files
 mid-commit commits something other than what was staged.
 
