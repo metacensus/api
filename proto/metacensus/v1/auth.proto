@@ -33,8 +33,6 @@ service AuthRoutes {
 message LoginRequest {
   string email = 1;
 
-  // Plaintext, under TLS. The server hashes on receipt; no hash crosses this
-  // boundary in either direction, and no password is ever returned.
   string password = 2;
 }
 
@@ -44,7 +42,6 @@ message SignUpRequest {
   string email = 2;
   string country = 3;
 
-  // Plaintext, under TLS. See `LoginRequest.password`.
   string password = 4;
 }
 

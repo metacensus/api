@@ -16,10 +16,6 @@ export const protobufPackage = "metacensus.v1";
 /** LoginRequest is unauthenticated. */
 export interface LoginRequest {
   email: string;
-  /**
-   * Plaintext, under TLS. The server hashes on receipt; no hash crosses this
-   * boundary in either direction, and no password is ever returned.
-   */
   password: string;
 }
 
@@ -28,7 +24,6 @@ export interface SignUpRequest {
   name: string;
   email: string;
   country: string;
-  /** Plaintext, under TLS. See `LoginRequest.password`. */
   password: string;
 }
 

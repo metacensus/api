@@ -290,15 +290,35 @@ Three protocol routes were dropped once the routes were visible as a table. Each
 was serving a real screen in the SPA, so what goes with them is a question about
 that screen, not a deletion of dead weight.
 
+**The protocol library is out of the contract layer, settled.** `/protocol-template`
+and `/protocol-element` were not two removals but one: both serve *reusable
+protocol building blocks that belong to no topic* — templates to start a
+protocol from, and premade elements to compose one out of. Ruled in review:
+remove protocol library support from the API contract layer, and design the
+library as its own piece of work. Treating them as two questions would repeat
+the mistake this file records under taxonomy, where `/domain` and `/category`
+were removed together for the same reason.
+
+| removed | finding |
+| --- | --- |
+| `POST /protocol-template` (`ListProtocolTemplates`), `ProtocolTemplateListRequest`, `ProtocolTemplateList`, `ProtocolTemplate` | Reusable protocols a topic can start from. Read by `CreateProtocolFromTemplate.tsx` |
+| `POST /protocol-element` (`ListProtocolElements`), `ProtocolElementListRequest`, `ProtocolElementList` | The premade element library the custom-protocol builder picks from — `CreateProtocolElement.tsx`, which posts an ignored `{ids: []}` body and feeds the result to `SelectProtocolElement` as `protocolOptions`. A catalogue of reusable elements, not a read of any protocol, so `GetProtocol` does not cover it |
+
+The third removal is separate and is not library work:
+
 | removed | finding | question |
 | --- | --- | --- |
 | `POST /protocol/{protocolId}` (`EditProtocol`), `ProtocolEditRequest` | Editing an existing protocol has unresolved problems of its own — what happens to extractions already recorded against the elements being edited, and whether an edit is even an individual's act rather than a prop's. The contract should not fix a shape ahead of that | What does editing a protocol mean once data has been extracted against it? |
-| `POST /protocol-template` (`ListProtocolTemplates`), `ProtocolTemplateListRequest`, `ProtocolTemplateList`, `ProtocolTemplate` | demo-only, and reachable: `CreateProtocolFromTemplate.tsx` reads it. Deferred with the rest of the demo routes rather than ratified early | What is a protocol template — a `Protocol` with no topic, or its own resource? |
-| `POST /protocol-element` (`ListProtocolElements`), `ProtocolElementListRequest`, `ProtocolElementList` | Returns the **premade element library** the custom-protocol builder picks from (`CreateProtocolElement.tsx`, which posts an ignored `{ids: []}` body). It is a catalogue of reusable elements, not a read of any protocol, so `GetProtocol` does not cover it | Where does the element library live, and is it a resource or a fixed vocabulary? |
 
 `ProtocolElement` and `ProtocolElementOption` stay: they are still reachable
 inside `Protocol` via `ProtocolSection`. `ProtocolTemplate` had no such second
 reference and went with its routes.
+
+**This is the first place the contract deliberately describes less than a
+working route.** Every earlier removal took out something nothing maintained, or
+something one backend had and the other did not. Both library routes are live in
+demo and read by the SPA today, so the contract is knowingly behind them. That
+debt is real and is recorded in the library design issue rather than here.
 
 `GetTopicProtocol` was renamed `GetProtocol`; its route and request message are
 unchanged.
@@ -344,17 +364,34 @@ Recorded because a reader of either backend will meet them:
 
 ## Passwords on this boundary
 
-Passwords cross `/metacensus/api/v1` **in plaintext, under TLS**, in both
-`POST /login` and `POST /user`. Both backends hash on receipt: demo bcrypts in
-its sign-up handler and compares in its login handler; infra bcrypts in
-`parseUserPost` before calling chaincode, and chaincode compares. No hash
-crosses this boundary in either direction, and no password is ever returned.
+`LoginRequest.password` and `SignUpRequest.password` carry **no comment in the
+schema**, deliberately. They used to say "plaintext, under TLS; the server
+hashes on receipt", which was an accurate description of what both backends do
+today — and that is the problem with it. Ruled in review: remove the comment and
+review the mechanism instead.
 
-A likely source of confusion: infra's `types.UserCreateRequest` carries
-`PasswordHashB64` with a `json:"passwordHash"` tag and its name reads like an
-API request type — but it is the *chaincode* request, one hop further in. The
-HTTP-facing struct is a separate anonymous one in `parseUserPost` with a
-plaintext `Password`.
+Documenting the current handling in the contract would have quietly ratified it.
+A comment in a shared schema reads as the specification, so a client author
+would take "plaintext, under TLS" as the thing to implement against rather than
+as a finding awaiting review. Silence is the honest state while the question is
+open: the contract says a password is a string, and says nothing about how it
+should be protected.
 
-Open question: should the contract require a client-side hash instead? That is a
-behaviour change for the SPA and both backends, not a rename.
+What the schema no longer says, recorded here because it is still true of the
+implementations:
+
+- Passwords cross `/metacensus/api/v1` in plaintext under TLS, on both routes.
+- Both backends hash on receipt — demo bcrypts in its sign-up handler and
+  compares in its login handler; infra bcrypts in `parseUserPost` before calling
+  chaincode, and chaincode compares.
+- No hash crosses this boundary in either direction, and no password is ever
+  returned.
+- A likely source of confusion: infra's `types.UserCreateRequest` carries
+  `PasswordHashB64` with a `json:"passwordHash"` tag and reads like an API
+  request type, but it is the *chaincode* request, one hop further in. The
+  HTTP-facing struct is a separate anonymous one in `parseUserPost` with a
+  plaintext `Password`.
+
+The open fork — document as-is, or move hashing client-side, which is a
+behaviour change for the SPA and both backends rather than a rename — is now
+part of the sign-up and login security review rather than a note here.

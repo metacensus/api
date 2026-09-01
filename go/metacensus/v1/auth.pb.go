@@ -27,11 +27,9 @@ const (
 
 // LoginRequest is unauthenticated.
 type LoginRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Email string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	// Plaintext, under TLS. The server hashes on receipt; no hash crosses this
-	// boundary in either direction, and no password is ever returned.
-	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -82,12 +80,11 @@ func (x *LoginRequest) GetPassword() string {
 
 // SignUpRequest is unauthenticated.
 type SignUpRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Email   string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	Country string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
-	// Plaintext, under TLS. See `LoginRequest.password`.
-	Password      string `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Country       string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	Password      string                 `protobuf:"bytes,4,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
