@@ -295,9 +295,10 @@ and `/protocol-element` were not two removals but one: both serve *reusable
 protocol building blocks that belong to no topic* — templates to start a
 protocol from, and premade elements to compose one out of. Ruled in review:
 remove protocol library support from the API contract layer, and design the
-library as its own piece of work. Treating them as two questions would repeat
-the mistake this file records under taxonomy, where `/domain` and `/category`
-were removed together for the same reason.
+library as its own piece of work —
+[metacensus/ui#46](https://github.com/metacensus/ui/issues/46). Treating them as
+two questions would repeat the mistake this file records under taxonomy, where
+`/domain` and `/category` were removed together for the same reason.
 
 | removed | finding |
 | --- | --- |
@@ -318,7 +319,8 @@ reference and went with its routes.
 working route.** Every earlier removal took out something nothing maintained, or
 something one backend had and the other did not. Both library routes are live in
 demo and read by the SPA today, so the contract is knowingly behind them. That
-debt is real and is recorded in the library design issue rather than here.
+debt is real and is recorded in [#46](https://github.com/metacensus/ui/issues/46)
+rather than here.
 
 `GetTopicProtocol` was renamed `GetProtocol`; its route and request message are
 unchanged.
@@ -368,7 +370,8 @@ Recorded because a reader of either backend will meet them:
 schema**, deliberately. They used to say "plaintext, under TLS; the server
 hashes on receipt", which was an accurate description of what both backends do
 today — and that is the problem with it. Ruled in review: remove the comment and
-review the mechanism instead.
+review the mechanism instead. The review is
+[metacensus/ui#47](https://github.com/metacensus/ui/issues/47).
 
 Documenting the current handling in the contract would have quietly ratified it.
 A comment in a shared schema reads as the specification, so a client author
@@ -394,4 +397,7 @@ implementations:
 
 The open fork — document as-is, or move hashing client-side, which is a
 behaviour change for the SPA and both backends rather than a rename — is now
-part of the sign-up and login security review rather than a note here.
+part of [#47](https://github.com/metacensus/ui/issues/47) rather than a note
+here. That issue also carries what this file is the wrong home for: the
+mechanism beyond the wire, triaged into actual exposure, security theatre, and
+pre-production untidiness.
