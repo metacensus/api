@@ -69,8 +69,14 @@ jobs:
               ;;
             *)
               if [ "${{ github.ref_type }}" = "tag" ]; then
-                against="$(git tag -l 'v*' --sort=-v:refname \
-                  | grep -vFx "${{ github.ref_name }}" | head -1)"
+                # The tag immediately preceding this one in version order —
+                # not simply the highest other tag, which would compare a
+                # back-released patch against a newer line. Empty for the
+                # first tag ever, which the target treats as "nothing to
+                # compare against".
+                against="$(git tag -l 'v*' --sort=v:refname \
+                  | awk -v cur="${{ github.ref_name }}" \
+                        '$0 == cur { exit } { last = $0 } END { print last }')"
               else
                 against="${{ github.event.before }}"
               fi
