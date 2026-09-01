@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -347,7 +348,7 @@ var File_metacensus_v1_extraction_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_extraction_proto_rawDesc = "" +
 	"\n" +
-	"\x1emetacensus/v1/extraction.proto\x12\rmetacensus.v1\"\x9b\x01\n" +
+	"\x1emetacensus/v1/extraction.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"\x9b\x01\n" +
 	"\x0eDataExtraction\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x19\n" +
 	"\bpaper_id\x18\x02 \x01(\tR\apaperId\x12\x1f\n" +
@@ -371,7 +372,10 @@ const file_metacensus_v1_extraction_proto_rawDesc = "" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x19\n" +
 	"\bpaper_id\x18\x02 \x01(\tR\apaperId\x12\x1f\n" +
 	"\vprotocol_id\x18\x03 \x01(\tR\n" +
-	"protocolIdBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"protocolId2\xea\x01\n" +
+	"\x10ExtractionRoutes\x12l\n" +
+	"\rGetExtraction\x12'.metacensus.v1.DataExtractionGetRequest\x1a\x1d.metacensus.v1.DataExtraction\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/extraction\x12h\n" +
+	"\x10UpsertExtraction\x12\x1d.metacensus.v1.DataExtraction\x1a\x1d.metacensus.v1.DataExtraction\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/extractionBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_extraction_proto_rawDescOnce sync.Once
@@ -397,8 +401,12 @@ var file_metacensus_v1_extraction_proto_depIdxs = []int32{
 	1, // 0: metacensus.v1.DataExtraction.data:type_name -> metacensus.v1.DatumExtraction
 	2, // 1: metacensus.v1.DatumExtraction.source_location:type_name -> metacensus.v1.SourceLocationPage
 	3, // 2: metacensus.v1.SourceLocationPage.rects:type_name -> metacensus.v1.SourceRect
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
+	4, // 3: metacensus.v1.ExtractionRoutes.GetExtraction:input_type -> metacensus.v1.DataExtractionGetRequest
+	0, // 4: metacensus.v1.ExtractionRoutes.UpsertExtraction:input_type -> metacensus.v1.DataExtraction
+	0, // 5: metacensus.v1.ExtractionRoutes.GetExtraction:output_type -> metacensus.v1.DataExtraction
+	0, // 6: metacensus.v1.ExtractionRoutes.UpsertExtraction:output_type -> metacensus.v1.DataExtraction
+	5, // [5:7] is the sub-list for method output_type
+	3, // [3:5] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -417,7 +425,7 @@ func file_metacensus_v1_extraction_proto_init() {
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_extraction_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_extraction_proto_depIdxs,

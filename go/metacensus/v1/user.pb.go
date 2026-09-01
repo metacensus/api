@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -267,7 +268,7 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x90\x01\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x90\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -279,7 +280,12 @@ const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
 	"\x0eUserGetRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x10\n" +
-	"\x0eSelfGetRequestBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x0eSelfGetRequest2\x87\x02\n" +
+	"\n" +
+	"UserRoutes\x12S\n" +
+	"\tListUsers\x12\x1e.metacensus.v1.UserListRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12V\n" +
+	"\aGetUser\x12\x1d.metacensus.v1.UserGetRequest\x1a\x13.metacensus.v1.User\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12L\n" +
+	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_user_proto_rawDescOnce sync.Once
@@ -305,8 +311,14 @@ var file_metacensus_v1_user_proto_goTypes = []any{
 var file_metacensus_v1_user_proto_depIdxs = []int32{
 	5, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
+	1, // 2: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
+	3, // 3: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
+	4, // 4: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
+	2, // 5: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
+	0, // 6: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.User
+	0, // 7: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.User
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -325,7 +337,7 @@ func file_metacensus_v1_user_proto_init() {
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_user_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_user_proto_depIdxs,

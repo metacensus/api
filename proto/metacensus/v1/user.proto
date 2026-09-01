@@ -3,9 +3,25 @@ syntax = "proto3";
 
 package metacensus.v1;
 
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Route declarations, not a gRPC commitment: see contract/README.md.
+service UserRoutes {
+  rpc ListUsers(UserListRequest) returns (UserList) {
+    option (google.api.http) = {get: "/user"};
+  }
+
+  rpc GetUser(UserGetRequest) returns (User) {
+    option (google.api.http) = {get: "/user/{user_id}"};
+  }
+
+  rpc GetSelf(SelfGetRequest) returns (User) {
+    option (google.api.http) = {get: "/self"};
+  }
+}
 
 // User is a MetaCensus account.
 message User {

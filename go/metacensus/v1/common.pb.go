@@ -10,6 +10,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -219,7 +220,7 @@ var File_metacensus_v1_common_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\"N\n" +
+	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"N\n" +
 	"\fListMetadata\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
@@ -228,7 +229,9 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x05error\x18\x01 \x01(\tR\x05error\"\x14\n" +
 	"\x12HealthcheckRequest\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06statusBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x06status\x18\x01 \x01(\tR\x06status2z\n" +
+	"\fHealthRoutes\x12j\n" +
+	"\vHealthcheck\x12!.metacensus.v1.HealthcheckRequest\x1a\".metacensus.v1.HealthcheckResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/healthcheckBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_common_proto_rawDescOnce sync.Once
@@ -250,8 +253,10 @@ var file_metacensus_v1_common_proto_goTypes = []any{
 	(*HealthcheckResponse)(nil), // 3: metacensus.v1.HealthcheckResponse
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
+	2, // 0: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
+	3, // 1: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -270,7 +275,7 @@ func file_metacensus_v1_common_proto_init() {
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_common_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_common_proto_depIdxs,

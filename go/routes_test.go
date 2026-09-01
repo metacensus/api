@@ -10,40 +10,44 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-const serviceName = "metacensus.v1.Routes"
-
-func service(t *testing.T) protoreflect.ServiceDescriptor {
+// declaredRPCs is every rpc across every service in the package, as
+// "Service.Method".
+func declaredRPCs(t *testing.T) map[string]bool {
 	t.Helper()
 
 	// Referencing the package keeps its descriptors registered.
-	_ = v1.File_metacensus_v1_routes_proto
+	_ = v1.File_metacensus_v1_topic_proto
 
-	d, err := protoregistry.GlobalFiles.FindDescriptorByName(serviceName)
-	if err != nil {
-		t.Fatalf("finding %s: %v", serviceName, err)
+	out := map[string]bool{}
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		if string(fd.Package()) != protoPkg {
+			return true
+		}
+		for i := 0; i < fd.Services().Len(); i++ {
+			svc := fd.Services().Get(i)
+			for j := 0; j < svc.Methods().Len(); j++ {
+				out[string(svc.Name())+"."+string(svc.Methods().Get(j).Name())] = true
+			}
+		}
+		return true
+	})
+	if len(out) == 0 {
+		t.Fatalf("no rpcs registered for package %s", protoPkg)
 	}
-	svc, ok := d.(protoreflect.ServiceDescriptor)
-	if !ok {
-		t.Fatalf("%s is not a service", serviceName)
-	}
-	return svc
+	return out
 }
 
 // TestManifestCoversEveryRPC fails when the generated manifest and the service
 // disagree, which is what a silently dropped annotation looks like.
 func TestManifestCoversEveryRPC(t *testing.T) {
-	svc := service(t)
-
-	declared := map[string]bool{}
-	for i := 0; i < svc.Methods().Len(); i++ {
-		declared[string(svc.Methods().Get(i).Name())] = true
-	}
+	declared := declaredRPCs(t)
 
 	for _, r := range routes.Routes {
-		if !declared[r.RPC] {
-			t.Errorf("manifest has %s, the service does not", r.RPC)
+		key := r.Service + "." + r.RPC
+		if !declared[key] {
+			t.Errorf("manifest has %s, no service declares it", key)
 		}
-		delete(declared, r.RPC)
+		delete(declared, key)
 	}
 	for name := range declared {
 		t.Errorf("%s is not in the manifest; run `make gen`", name)
@@ -57,9 +61,9 @@ func TestRoutesAreUnique(t *testing.T) {
 	for _, r := range routes.Routes {
 		key := r.Method + " " + r.Path
 		if first, ok := seen[key]; ok {
-			t.Errorf("%s is declared by both %s and %s", key, first, r.RPC)
+			t.Errorf("%s is declared by both %s and %s.%s", key, first, r.Service, r.RPC)
 		}
-		seen[key] = r.RPC
+		seen[key] = r.Service + "." + r.RPC
 	}
 }
 
@@ -90,11 +94,9 @@ func verbSegment(path string) string {
 // quietly fixed; a new one fails here, and a fixed one has to be struck off.
 func TestNonConformingRoutes(t *testing.T) {
 	want := map[string]string{
-		"POST /paper":             "read over POST",
-		"POST /protocol-template": "read over POST",
-		"POST /protocol-element":  "read over POST",
-		"POST /paper/create":      "verb in path: create",
-		"GET /paper/lookup":       "verb in path: lookup",
+		"POST /paper":        "read over POST",
+		"POST /paper/create": "verb in path: create",
+		"GET /paper/lookup":  "verb in path: lookup",
 	}
 
 	got := map[string]string{}

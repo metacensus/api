@@ -18,7 +18,7 @@ import type { Error, HealthcheckRequest, HealthcheckResponse, ListMetadata } fro
 import type { DataExtraction, DataExtractionGetRequest, DatumExtraction, SourceLocationPage, SourceRect } from "../src/metacensus/v1/extraction.js";
 import type { Paper, PaperCreateRequest, PaperList, PaperListRequest, PaperLookupRequest, PaperLookupResponse } from "../src/metacensus/v1/paper.js";
 import type { Prop, PropCitation, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "../src/metacensus/v1/prop.js";
-import type { Protocol, ProtocolCreateRequest, ProtocolEditRequest, ProtocolElement, ProtocolElementList, ProtocolElementListRequest, ProtocolElementOption, ProtocolSection, ProtocolTemplate, ProtocolTemplateList, ProtocolTemplateListRequest } from "../src/metacensus/v1/protocol.js";
+import type { Protocol, ProtocolCreateRequest, ProtocolElement, ProtocolElementOption, ProtocolSection } from "../src/metacensus/v1/protocol.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "../src/metacensus/v1/topic.js";
 import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "../src/metacensus/v1/user.js";
 import { Prop_Type, Vote_Position } from "../src/metacensus/v1/prop.js";
@@ -382,39 +382,6 @@ export const goldenProtocolElementOption: ProtocolElementOption = {
   value: "cohort",
 };
 
-export const goldenProtocolTemplate: ProtocolTemplate = {
-  id: "3",
-  title: "Cochrane-style extraction template",
-  protocolSections: [
-    {
-      id: "9",
-      title: "Study characteristics",
-      sortOrder: 0,
-      protocolElements: [
-        {
-          id: "31",
-          name: "studyDesign",
-          type: "radio",
-          label: "Study design",
-          placeholder: "",
-          required: true,
-          options: [
-            {
-              name: "Randomised controlled trial",
-              value: "rct",
-            },
-            {
-              name: "Cohort",
-              value: "cohort",
-            },
-          ],
-          sortOrder: 1,
-        },
-      ],
-    },
-  ],
-};
-
 export const goldenProtocolCreateRequest: ProtocolCreateRequest = {
   topicId: "topc:0192a642-817d-7a3e-a282-d7a282ebd482",
   title: "Custom Protocol",
@@ -444,103 +411,6 @@ export const goldenProtocolCreateRequest: ProtocolCreateRequest = {
           sortOrder: 1,
         },
       ],
-    },
-  ],
-};
-
-export const goldenProtocolEditRequest: ProtocolEditRequest = {
-  protocolId: "4",
-  sections: [
-    {
-      id: "9",
-      title: "Study characteristics",
-      sortOrder: 0,
-      protocolElements: [
-        {
-          id: "31",
-          name: "studyDesign",
-          type: "radio",
-          label: "Study design",
-          placeholder: "",
-          required: true,
-          options: [
-            {
-              name: "Randomised controlled trial",
-              value: "rct",
-            },
-            {
-              name: "Cohort",
-              value: "cohort",
-            },
-          ],
-          sortOrder: 1,
-        },
-      ],
-    },
-  ],
-};
-
-export const goldenProtocolTemplateListRequest: ProtocolTemplateListRequest = {};
-
-export const goldenProtocolTemplateList: ProtocolTemplateList = {
-  items: [
-    {
-      id: "3",
-      title: "Cochrane-style extraction template",
-      protocolSections: [
-        {
-          id: "9",
-          title: "Study characteristics",
-          sortOrder: 0,
-          protocolElements: [
-            {
-              id: "31",
-              name: "studyDesign",
-              type: "radio",
-              label: "Study design",
-              placeholder: "",
-              required: true,
-              options: [
-                {
-                  name: "Randomised controlled trial",
-                  value: "rct",
-                },
-                {
-                  name: "Cohort",
-                  value: "cohort",
-                },
-              ],
-              sortOrder: 1,
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-export const goldenProtocolElementListRequest: ProtocolElementListRequest = {};
-
-export const goldenProtocolElementList: ProtocolElementList = {
-  items: [
-    {
-      id: "31",
-      name: "studyDesign",
-      type: "radio",
-      label: "Study design",
-      placeholder: "",
-      required: true,
-      options: [
-        {
-          name: "Randomised controlled trial",
-          value: "rct",
-        },
-        {
-          name: "Cohort",
-          value: "cohort",
-        },
-      ],
-      sortOrder: 1,
     },
   ],
 };

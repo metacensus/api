@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -441,7 +442,7 @@ var File_metacensus_v1_paper_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/paper.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xda\x01\n" +
+	"\x19metacensus/v1/paper.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xda\x01\n" +
 	"\x05Paper\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\btopic_id\x18\x02 \x01(\tR\atopicId\x12\x14\n" +
@@ -470,7 +471,12 @@ const file_metacensus_v1_paper_proto_rawDesc = "" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
 	"\aauthors\x18\x03 \x03(\tR\aauthors\x12\x1a\n" +
 	"\babstract\x18\x04 \x01(\tR\babstract\x12\x10\n" +
-	"\x03doi\x18\x05 \x01(\tR\x03doiBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x03doi\x18\x05 \x01(\tR\x03doi2\xb8\x02\n" +
+	"\vPaperRoutes\x12Z\n" +
+	"\n" +
+	"ListPapers\x12\x1f.metacensus.v1.PaperListRequest\x1a\x18.metacensus.v1.PaperList\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/paper\x12`\n" +
+	"\vCreatePaper\x12!.metacensus.v1.PaperCreateRequest\x1a\x14.metacensus.v1.Paper\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/paper/create\x12k\n" +
+	"\vLookupPaper\x12!.metacensus.v1.PaperLookupRequest\x1a\".metacensus.v1.PaperLookupResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/paper/lookupBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_paper_proto_rawDescOnce sync.Once
@@ -497,8 +503,14 @@ var file_metacensus_v1_paper_proto_goTypes = []any{
 var file_metacensus_v1_paper_proto_depIdxs = []int32{
 	6, // 0: metacensus.v1.Paper.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.PaperList.items:type_name -> metacensus.v1.Paper
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
+	1, // 2: metacensus.v1.PaperRoutes.ListPapers:input_type -> metacensus.v1.PaperListRequest
+	3, // 3: metacensus.v1.PaperRoutes.CreatePaper:input_type -> metacensus.v1.PaperCreateRequest
+	4, // 4: metacensus.v1.PaperRoutes.LookupPaper:input_type -> metacensus.v1.PaperLookupRequest
+	2, // 5: metacensus.v1.PaperRoutes.ListPapers:output_type -> metacensus.v1.PaperList
+	0, // 6: metacensus.v1.PaperRoutes.CreatePaper:output_type -> metacensus.v1.Paper
+	5, // 7: metacensus.v1.PaperRoutes.LookupPaper:output_type -> metacensus.v1.PaperLookupResponse
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -517,7 +529,7 @@ func file_metacensus_v1_paper_proto_init() {
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_paper_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_paper_proto_depIdxs,

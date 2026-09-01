@@ -3,9 +3,31 @@ syntax = "proto3";
 
 package metacensus.v1;
 
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Route declarations, not a gRPC commitment: see contract/README.md.
+service PaperRoutes {
+  rpc ListPapers(PaperListRequest) returns (PaperList) {
+    option (google.api.http) = {
+      post: "/paper"
+      body: "*"
+    };
+  }
+
+  rpc CreatePaper(PaperCreateRequest) returns (Paper) {
+    option (google.api.http) = {
+      post: "/paper/create"
+      body: "*"
+    };
+  }
+
+  rpc LookupPaper(PaperLookupRequest) returns (PaperLookupResponse) {
+    option (google.api.http) = {get: "/paper/lookup"};
+  }
+}
 
 // Paper is one piece of literature attached to a topic.
 message Paper {

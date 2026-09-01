@@ -135,11 +135,15 @@ through a message field, which both sides already agree on.
   strings that are real values of their enum, RFC 3339 timestamps, string ids,
   no top-level arrays, `{items, metadata}` on every list, no package-scope
   enums, no `optional` scalars.
-- **Route tests** — the manifest covers every rpc, no two routes share a method
-  and path, and `TestNonConformingRoutes` pins the known convention violations
-  so a new one fails. `cmd/routegen` refuses a `{field}` segment that names no
-  field of the request message, so a route no implementation could bind cannot
-  be generated.
+- **Route tests** — the manifest covers every rpc across every service, no two
+  routes share a method and path, and `TestNonConformingRoutes` pins the known
+  convention violations so a new one fails. `cmd/routegen` refuses a `{field}`
+  segment that names no field of the request message, so a route no
+  implementation could bind cannot be generated.
+- **`TestNoMessageFieldCrossesResourceFiles`** — the contamination guard. A
+  message may be typed only from its own file or `common.proto`, so one
+  resource's shape cannot be bent by another's needs. It checks fields, not
+  imports: an rpc returning another resource adds no field and does not trip it.
 - **`TestNoPaginationFields`** — no request or response anywhere carries `page`,
   `limit`, `offset`, a cursor or a total. See the ruling below; it is a test
   rather than a one-time audit because the failure mode is one endpoint at a
@@ -165,22 +169,27 @@ needs paging, page that route. `TestNoPaginationFields` enforces this.
 
 ## Routes are declared, not described
 
-`proto/metacensus/v1/routes.proto` declares all 27 routes as `rpc`s carrying a
-`google.api.http` annotation.
+Each resource file declares its own routes: `topic.proto` has `TopicRoutes`,
+`paper.proto` has `PaperRoutes`, and so on for all 24 routes. A route lives with
+the messages it carries.
+
+**To read the whole route table at once, read the generated manifest** —
+`go/routes` or `ts/src/route-manifest.ts`. It lists every route across every
+service on one screen, ordered by file, and it is generated, so unlike a
+hand-kept index it cannot drift from what the services declare.
 
 **They are a route declaration, not a gRPC commitment.** Nothing generates or
 serves gRPC: there is no `protoc-gen-go-grpc`, no grpc-gateway and no Connect.
-`protoc-gen-go` emits a service descriptor and no interfaces; ts-proto is given
-`outputServices=none` so it emits no client interface either. Both were checked
-rather than assumed — without that option ts-proto does emit a types-only
-`Routes` interface of `Promise`-returning methods, which is exactly the thing a
-reader would mistake for a gRPC client.
+`protoc-gen-go` emits service descriptors and no interfaces; ts-proto is given
+`outputServices=none` so it emits no client interfaces either. Both were checked
+rather than assumed — without that option ts-proto does emit types-only service
+interfaces of `Promise`-returning methods, which is exactly the thing a reader
+would mistake for a gRPC client.
 
-What the annotations produce instead is a manifest: `go/routes` and
-`ts/src/route-manifest.ts`, both written by `go/cmd/routegen`, which reads the
-compiled descriptors rather than adding a third-party plugin. Paths are relative
-to `/metacensus/api/v1`, and the manifest spells parameters `{lowerCamelCase}`
-to match the wire.
+The manifest is written by `go/cmd/routegen`, which reads the compiled
+descriptors rather than adding a third-party plugin. Paths are relative to
+`/metacensus/api/v1`, and parameters are spelled `{lowerCamelCase}` to match the
+wire.
 
 A consequence worth knowing: **a request message models the whole request**, not
 only its body. A `{field}` segment binds that field to the path, so
@@ -188,9 +197,9 @@ only its body. A `{field}` segment binds that field to the path, so
 body. A golden file for a request message is therefore not necessarily a
 document any client sends.
 
-Five routes break the conventions in DERIVATION.md. They are left broken
-deliberately and pinned by `TestNonConformingRoutes`, so a sixth fails the
-build; fixing them is
+Three routes break the conventions in DERIVATION.md — all three on `Paper`.
+They are left broken deliberately and pinned by `TestNonConformingRoutes`, so a
+fourth fails the build; fixing them is
 [#41](https://github.com/metacensus/ui/issues/41).
 
 `google.api.field_behavior` is available from the same module and is **not**

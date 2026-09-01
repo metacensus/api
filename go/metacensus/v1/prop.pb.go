@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -743,7 +744,7 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x02\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe1\x02\n" +
 	"\x04Prop\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tauthor_id\x18\x02 \x01(\tR\bauthorId\x124\n" +
@@ -795,7 +796,15 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x128\n" +
 	"\bposition\x18\x03 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
 	"\vexplanation\x18\x04 \x01(\tR\vexplanation\x129\n" +
-	"\tcitations\x18\x05 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitationsBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\tcitations\x18\x05 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations2\xa9\x04\n" +
+	"\n" +
+	"PropRoutes\x12d\n" +
+	"\tListProps\x12\x1e.metacensus.v1.PropListRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12g\n" +
+	"\aGetProp\x12\x1d.metacensus.v1.PropGetRequest\x1a\x13.metacensus.v1.Prop\"(\x82\xd3\xe4\x93\x02\"\x12 /topic/{topic_id}/prop/{prop_id}\x12f\n" +
+	"\n" +
+	"CreateProp\x12 .metacensus.v1.PropCreateRequest\x1a\x13.metacensus.v1.Prop\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12s\n" +
+	"\tListVotes\x12\x1e.metacensus.v1.VoteListRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12o\n" +
+	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_prop_proto_rawDescOnce sync.Once
@@ -837,8 +846,18 @@ var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	3,  // 7: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
 	1,  // 8: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
 	4,  // 9: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
+	5,  // 10: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.PropListRequest
+	7,  // 11: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.PropGetRequest
+	8,  // 12: metacensus.v1.PropRoutes.CreateProp:input_type -> metacensus.v1.PropCreateRequest
+	9,  // 13: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.VoteListRequest
+	11, // 14: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.VoteSetRequest
+	6,  // 15: metacensus.v1.PropRoutes.ListProps:output_type -> metacensus.v1.PropList
+	2,  // 16: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.Prop
+	2,  // 17: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.Prop
+	10, // 18: metacensus.v1.PropRoutes.ListVotes:output_type -> metacensus.v1.VoteList
+	3,  // 19: metacensus.v1.PropRoutes.SetVote:output_type -> metacensus.v1.Vote
+	15, // [15:20] is the sub-list for method output_type
+	10, // [10:15] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -857,7 +876,7 @@ func file_metacensus_v1_prop_proto_init() {
 			NumEnums:      2,
 			NumMessages:   10,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_prop_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_prop_proto_depIdxs,

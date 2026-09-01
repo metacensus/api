@@ -53,19 +53,54 @@ These are not conflicts and are not recorded per-message anywhere:
 
 ## Routes: declared in the schema
 
-Every route is an `rpc` in `proto/metacensus/v1/routes.proto` carrying a
-`google.api.http` annotation, and `go/cmd/routegen` turns those annotations into
-a manifest for Go and TypeScript. Before this each route was a sentence in a
+Every route is an `rpc` carrying a `google.api.http` annotation, declared in the
+file that owns its messages — `TopicRoutes` in `topic.proto`, `PaperRoutes` in
+`paper.proto`, and so on. `go/cmd/routegen` turns those annotations into a
+manifest for Go and TypeScript. Before this each route was a sentence in a
 comment above its request message — documentation, not a definition, and a
 fourth unsynchronised copy after `src/lib/routes.ts`, infra's route constants and
 demo's inline literals. [metacensus/ui#41](https://github.com/metacensus/ui/issues/41).
 
 The rpcs are a route declaration and **not** a gRPC commitment. Nothing
-generates or serves gRPC; `protoc-gen-go` emits a service descriptor and no
+generates or serves gRPC; `protoc-gen-go` emits service descriptors and no
 interfaces, and ts-proto is given `outputServices=none`. Without that option
-ts-proto emits a types-only `Routes` interface of `Promise`-returning methods —
+ts-proto emits types-only service interfaces of `Promise`-returning methods —
 checked, not assumed — which is precisely what a reader would mistake for a gRPC
 client.
+
+### Per-resource services, and the one-file design that preceded them
+
+The first version put all routes in a single `routes.proto`, on the argument
+that a single file importing every resource kept the resource files
+import-isolated and so protected the contamination audit. **That was reversed,
+and the argument does not survive checking.**
+
+Mapping every rpc to the file owning its request and response messages, exactly
+one needs a cross-resource import: `topic.proto` importing `protocol.proto` for
+`GetProtocol`'s return type. It is acyclic — `protocol.proto` references nothing
+in `topic.proto` — and every file already imports `common.proto` anyway.
+
+More to the point, that import carries none of the risk the audit closed. The
+real failure was a *message* in one resource's file being shaped by another
+resource's needs: `UserReference` sat in `user.proto` carrying demo's junction
+projections, with a `role` field that existed only because `paper.proto` wanted
+one. An rpc naming `Protocol` as a return type shapes no message and adds no
+field.
+
+So the guard was retargeted from the proxy to the property:
+`TestNoMessageFieldCrossesResourceFiles` checks that no message field is typed
+from another resource's file, allowing only the message's own file and
+`common.proto`. It is stricter than the import rule it replaces — the import
+rule was never actually enforced by anything, only asserted in review — and
+route declarations do not trip it.
+
+There is no single-service constraint to trade against. Nothing generates a
+client or a server, and `routegen` iterates `Services()` as easily as one.
+
+The one property the single file did have is that the whole route table could be
+read on one screen. **The generated manifest is that screen**, ordered by file,
+and being generated it cannot drift from the services the way a hand-kept index
+would.
 
 ### The reversal, with its reasons
 
@@ -101,13 +136,12 @@ generation-depth decision record.
 
 `google.api.http` binds a path segment to a *field of the request message*, so
 "the body" and "the path parameters" stop being two kinds of message and become
-one: the whole request. Three messages grew the ids their path already carried.
+one: the whole request. Two messages grew the ids their path already carried.
 
 | message | field | route |
 | --- | --- | --- |
 | `PropCreateRequest` | `topic_id` | `POST /topic/{topicId}/prop` |
 | `VoteSetRequest` | `topic_id`, `prop_id` | `POST /topic/{topicId}/prop/{propId}/vote` |
-| `ProtocolEditRequest` | `protocol_id` | `POST /protocol/{protocolId}` |
 
 Those fields are populated from the path and do not travel in the body.
 `routegen` fails on a `{field}` segment that names no field of the request, so
@@ -129,7 +163,8 @@ instead of naming a request and a response per method: a bare read returns the
 resource, two routes can return the same one, and `UpsertExtraction` both takes
 and returns `DataExtraction`. `service_suffix` is set to `Routes` rather than
 the default `Service`, which is a positive assertion about what these are rather
-than a hole in the linter. infra's `temporal/buf.yaml` excepts the same three
+than a hole in the linter, and it is what names them `TopicRoutes`,
+`PaperRoutes` and the rest. infra's `temporal/buf.yaml` excepts the same three
 rules.
 
 ### Non-conforming routes, left non-conforming
@@ -140,17 +175,20 @@ the set is what #41 is for.
 | route | rpc | why |
 | --- | --- | --- |
 | `POST /paper` | `ListPapers` | a read served over POST |
-| `POST /protocol-template` | `ListProtocolTemplates` | a read served over POST |
-| `POST /protocol-element` | `ListProtocolElements` | a read served over POST |
 | `POST /paper/create` | `CreatePaper` | a verb in the path |
-| `GET /paper/lookup` | `LookupPaper` | a verb in the path — the weakest of the five, since it proxies a PubMed record rather than addressing a paper |
+| `GET /paper/lookup` | `LookupPaper` | a verb in the path — the weakest of the three, since it proxies a PubMed record rather than addressing a paper |
 
-`TestNonConformingRoutes` pins the set exactly: a sixth violation fails, and so
-does fixing one of these without striking it off.
+All three are on `Paper`, which is not a coincidence: the paper routes are the
+demo-only ones against stubbed infra routes. `TestNonConformingRoutes` pins the
+set exactly — a fourth violation fails, and so does fixing one of these without
+striking it off.
 
-Two kinds of drift the annotations do **not** yet make checkable: nesting
-(`/topic/{topicId}/prop` against a flat `/paper` carrying `topicId` in the body)
-and compound nouns (`/protocol-element` against `/prop`).
+Two of the original five, `POST /protocol-template` and `POST /protocol-element`,
+left the set by being dropped rather than fixed; see below.
+
+One kind of drift the annotations do **not** yet make checkable: nesting
+(`/topic/{topicId}/prop` against a flat `/paper` carrying `topicId` in the
+body).
 
 ## Endpoints excluded
 
@@ -238,6 +276,25 @@ infra paginates nothing and carries `// TODO Paginate this` on every `GetAll`.
 | `DataExtractionReview` and its list endpoints, `DataExtractionInput`, `DataExtraction{Create,Edit}Request`, `DataExtractionList{,Request}`, `DataExtractionReviewList{,Request}` | Replaced by the flat upsert (see below). The review entity keyed the old read endpoints, and it is exactly what the restructure questions | [metacensus/ui#42](https://github.com/metacensus/ui/issues/42) |
 | `ProtocolCreateRequest.Draft`, the `{"protocol": …}` body envelope | demo's wrapper; flattened with the route convention | — |
 
+### Removed in the route review
+
+Three protocol routes were dropped once the routes were visible as a table. Each
+was serving a real screen in the SPA, so what goes with them is a question about
+that screen, not a deletion of dead weight.
+
+| removed | finding | question |
+| --- | --- | --- |
+| `POST /protocol/{protocolId}` (`EditProtocol`), `ProtocolEditRequest` | Editing an existing protocol has unresolved problems of its own — what happens to extractions already recorded against the elements being edited, and whether an edit is even an individual's act rather than a prop's. The contract should not fix a shape ahead of that | What does editing a protocol mean once data has been extracted against it? |
+| `POST /protocol-template` (`ListProtocolTemplates`), `ProtocolTemplateListRequest`, `ProtocolTemplateList`, `ProtocolTemplate` | demo-only, and reachable: `CreateProtocolFromTemplate.tsx` reads it. Deferred with the rest of the demo routes rather than ratified early | What is a protocol template — a `Protocol` with no topic, or its own resource? |
+| `POST /protocol-element` (`ListProtocolElements`), `ProtocolElementListRequest`, `ProtocolElementList` | Returns the **premade element library** the custom-protocol builder picks from (`CreateProtocolElement.tsx`, which posts an ignored `{ids: []}` body). It is a catalogue of reusable elements, not a read of any protocol, so `GetProtocol` does not cover it | Where does the element library live, and is it a resource or a fixed vocabulary? |
+
+`ProtocolElement` and `ProtocolElementOption` stay: they are still reachable
+inside `Protocol` via `ProtocolSection`. `ProtocolTemplate` had no such second
+reference and went with its routes.
+
+`GetTopicProtocol` was renamed `GetProtocol`; its route and request message are
+unchanged.
+
 ## What this contract requires of implementers
 
 - **infra must implement `GET /topic/{topicId}/prop/{propId}/vote`.** It does
@@ -249,9 +306,10 @@ infra paginates nothing and carries `// TODO Paginate this` on every `GetAll`.
 - infra: `Session` sheds `user`; enum zero values become `Unspecified`.
 - demo: `Topic.createdAt` → `created`; lists wrap their arrays in `items`; writes
   return resources instead of `{"message": …}`; sign-up moves from `POST /user`
-  to `POST /signup`; `/protocol/create` and `/protocol/edit` become
-  `POST /protocol` and `POST /protocol/{protocolId}`; the extraction write
-  endpoints collapse into one upsert.
+  to `POST /signup`; `/protocol/create` becomes `POST /protocol`; the extraction
+  write endpoints collapse into one upsert. `/protocol/edit` is not covered —
+  the contract declines to describe it, so demo keeps whatever it serves until
+  protocol editing is designed.
 
 ## Behaviour found in the sources, not ratified here
 

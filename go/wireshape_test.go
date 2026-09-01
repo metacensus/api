@@ -332,3 +332,45 @@ func itoa(i int) string {
 	}
 	return string(b)
 }
+
+// TestNoMessageFieldCrossesResourceFiles is the contamination guard. The
+// failure it exists for is a message in one resource's file being shaped by
+// another resource's needs: the first draft's `UserReference` sat in
+// `user.proto` carrying demo's junction projections, and had a `role` field
+// only because `paper.proto` wanted one.
+//
+// It tests fields, not imports. An rpc naming another resource as its return
+// type adds no field and shapes no message, so a route declaration does not
+// trip this and does not need to.
+func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
+	const shared = "metacensus/v1/common.proto"
+
+	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
+		home := md.ParentFile().Path()
+
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			fd := fields.Get(i)
+
+			var target protoreflect.FileDescriptor
+			switch fd.Kind() {
+			case protoreflect.MessageKind, protoreflect.GroupKind:
+				target = fd.Message().ParentFile()
+			case protoreflect.EnumKind:
+				target = fd.Enum().ParentFile()
+			default:
+				continue
+			}
+
+			// Well-known types belong to everyone.
+			if string(target.Package()) != protoPkg {
+				continue
+			}
+			if target.Path() == home || target.Path() == shared {
+				continue
+			}
+			t.Errorf("%s.%s is typed from %s. A resource's messages may only be "+
+				"typed from their own file or %s.", md.FullName(), fd.Name(), target.Path(), shared)
+		}
+	})
+}

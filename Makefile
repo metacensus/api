@@ -55,7 +55,9 @@ test:
 
 ## check — everything CI runs, minus the freshness diff
 check: lint format-check test
-	cd $(GO_DIR) && go build ./... && go vet ./...
+	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
+	# binary in go/.
+	cd $(GO_DIR) && go build -o /dev/null ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
 
 ## clean — remove generated output; `make gen golden` puts it back

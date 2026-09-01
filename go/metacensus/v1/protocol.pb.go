@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -310,67 +311,6 @@ func (x *ProtocolElementOption) GetValue() string {
 	return ""
 }
 
-// ProtocolTemplate is a reusable protocol a topic can start from.
-type ProtocolTemplate struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title            string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	ProtocolSections []*ProtocolSection     `protobuf:"bytes,3,rep,name=protocol_sections,json=protocolSections,proto3" json:"protocol_sections,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
-}
-
-func (x *ProtocolTemplate) Reset() {
-	*x = ProtocolTemplate{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolTemplate) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolTemplate) ProtoMessage() {}
-
-func (x *ProtocolTemplate) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolTemplate.ProtoReflect.Descriptor instead.
-func (*ProtocolTemplate) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *ProtocolTemplate) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *ProtocolTemplate) GetTitle() string {
-	if x != nil {
-		return x.Title
-	}
-	return ""
-}
-
-func (x *ProtocolTemplate) GetProtocolSections() []*ProtocolSection {
-	if x != nil {
-		return x.ProtocolSections
-	}
-	return nil
-}
-
 // ProtocolCreateRequest ignores the ids on its sections and elements.
 type ProtocolCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -383,7 +323,7 @@ type ProtocolCreateRequest struct {
 
 func (x *ProtocolCreateRequest) Reset() {
 	*x = ProtocolCreateRequest{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[5]
+	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +335,7 @@ func (x *ProtocolCreateRequest) String() string {
 func (*ProtocolCreateRequest) ProtoMessage() {}
 
 func (x *ProtocolCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[5]
+	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +348,7 @@ func (x *ProtocolCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProtocolCreateRequest.ProtoReflect.Descriptor instead.
 func (*ProtocolCreateRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{5}
+	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ProtocolCreateRequest) GetTopicId() string {
@@ -432,229 +372,11 @@ func (x *ProtocolCreateRequest) GetSections() []*ProtocolSection {
 	return nil
 }
 
-// ProtocolEditRequest updates a section or element with a positive id in place;
-// any other id inserts a new one. Omitting one does not delete it.
-type ProtocolEditRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProtocolId    string                 `protobuf:"bytes,1,opt,name=protocol_id,json=protocolId,proto3" json:"protocol_id,omitempty"`
-	Sections      []*ProtocolSection     `protobuf:"bytes,2,rep,name=sections,proto3" json:"sections,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProtocolEditRequest) Reset() {
-	*x = ProtocolEditRequest{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolEditRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolEditRequest) ProtoMessage() {}
-
-func (x *ProtocolEditRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolEditRequest.ProtoReflect.Descriptor instead.
-func (*ProtocolEditRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *ProtocolEditRequest) GetProtocolId() string {
-	if x != nil {
-		return x.ProtocolId
-	}
-	return ""
-}
-
-func (x *ProtocolEditRequest) GetSections() []*ProtocolSection {
-	if x != nil {
-		return x.Sections
-	}
-	return nil
-}
-
-// ProtocolTemplateListRequest carries no parameters.
-type ProtocolTemplateListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProtocolTemplateListRequest) Reset() {
-	*x = ProtocolTemplateListRequest{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolTemplateListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolTemplateListRequest) ProtoMessage() {}
-
-func (x *ProtocolTemplateListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolTemplateListRequest.ProtoReflect.Descriptor instead.
-func (*ProtocolTemplateListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{7}
-}
-
-type ProtocolTemplateList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*ProtocolTemplate    `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProtocolTemplateList) Reset() {
-	*x = ProtocolTemplateList{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolTemplateList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolTemplateList) ProtoMessage() {}
-
-func (x *ProtocolTemplateList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolTemplateList.ProtoReflect.Descriptor instead.
-func (*ProtocolTemplateList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *ProtocolTemplateList) GetItems() []*ProtocolTemplate {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-// ProtocolElementListRequest carries no parameters.
-type ProtocolElementListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProtocolElementListRequest) Reset() {
-	*x = ProtocolElementListRequest{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolElementListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolElementListRequest) ProtoMessage() {}
-
-func (x *ProtocolElementListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolElementListRequest.ProtoReflect.Descriptor instead.
-func (*ProtocolElementListRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{9}
-}
-
-// ProtocolElementList carries the premade elements the protocol editor offers.
-// They belong to no section, so their `sort_order` is unset.
-type ProtocolElementList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*ProtocolElement     `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ProtocolElementList) Reset() {
-	*x = ProtocolElementList{}
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ProtocolElementList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ProtocolElementList) ProtoMessage() {}
-
-func (x *ProtocolElementList) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_protocol_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ProtocolElementList.ProtoReflect.Descriptor instead.
-func (*ProtocolElementList) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *ProtocolElementList) GetItems() []*ProtocolElement {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
 var File_metacensus_v1_protocol_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_protocol_proto_rawDesc = "" +
 	"\n" +
-	"\x1cmetacensus/v1/protocol.proto\x12\rmetacensus.v1\"}\n" +
+	"\x1cmetacensus/v1/protocol.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"}\n" +
 	"\bProtocol\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12K\n" +
@@ -677,25 +399,13 @@ const file_metacensus_v1_protocol_proto_rawDesc = "" +
 	"sort_order\x18\b \x01(\x05R\tsortOrder\"A\n" +
 	"\x15ProtocolElementOption\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\x85\x01\n" +
-	"\x10ProtocolTemplate\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12K\n" +
-	"\x11protocol_sections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\x10protocolSections\"\x84\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\x84\x01\n" +
 	"\x15ProtocolCreateRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12:\n" +
-	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"r\n" +
-	"\x13ProtocolEditRequest\x12\x1f\n" +
-	"\vprotocol_id\x18\x01 \x01(\tR\n" +
-	"protocolId\x12:\n" +
-	"\bsections\x18\x02 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections\"\x1d\n" +
-	"\x1bProtocolTemplateListRequest\"M\n" +
-	"\x14ProtocolTemplateList\x125\n" +
-	"\x05items\x18\x01 \x03(\v2\x1f.metacensus.v1.ProtocolTemplateR\x05items\"\x1c\n" +
-	"\x1aProtocolElementListRequest\"K\n" +
-	"\x13ProtocolElementList\x124\n" +
-	"\x05items\x18\x01 \x03(\v2\x1e.metacensus.v1.ProtocolElementR\x05itemsBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections2w\n" +
+	"\x0eProtocolRoutes\x12e\n" +
+	"\x0eCreateProtocol\x12$.metacensus.v1.ProtocolCreateRequest\x1a\x17.metacensus.v1.Protocol\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/protocolBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_protocol_proto_rawDescOnce sync.Once
@@ -709,34 +419,26 @@ func file_metacensus_v1_protocol_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_protocol_proto_rawDescData
 }
 
-var file_metacensus_v1_protocol_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_metacensus_v1_protocol_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_protocol_proto_goTypes = []any{
-	(*Protocol)(nil),                    // 0: metacensus.v1.Protocol
-	(*ProtocolSection)(nil),             // 1: metacensus.v1.ProtocolSection
-	(*ProtocolElement)(nil),             // 2: metacensus.v1.ProtocolElement
-	(*ProtocolElementOption)(nil),       // 3: metacensus.v1.ProtocolElementOption
-	(*ProtocolTemplate)(nil),            // 4: metacensus.v1.ProtocolTemplate
-	(*ProtocolCreateRequest)(nil),       // 5: metacensus.v1.ProtocolCreateRequest
-	(*ProtocolEditRequest)(nil),         // 6: metacensus.v1.ProtocolEditRequest
-	(*ProtocolTemplateListRequest)(nil), // 7: metacensus.v1.ProtocolTemplateListRequest
-	(*ProtocolTemplateList)(nil),        // 8: metacensus.v1.ProtocolTemplateList
-	(*ProtocolElementListRequest)(nil),  // 9: metacensus.v1.ProtocolElementListRequest
-	(*ProtocolElementList)(nil),         // 10: metacensus.v1.ProtocolElementList
+	(*Protocol)(nil),              // 0: metacensus.v1.Protocol
+	(*ProtocolSection)(nil),       // 1: metacensus.v1.ProtocolSection
+	(*ProtocolElement)(nil),       // 2: metacensus.v1.ProtocolElement
+	(*ProtocolElementOption)(nil), // 3: metacensus.v1.ProtocolElementOption
+	(*ProtocolCreateRequest)(nil), // 4: metacensus.v1.ProtocolCreateRequest
 }
 var file_metacensus_v1_protocol_proto_depIdxs = []int32{
 	1, // 0: metacensus.v1.Protocol.protocol_sections:type_name -> metacensus.v1.ProtocolSection
 	2, // 1: metacensus.v1.ProtocolSection.protocol_elements:type_name -> metacensus.v1.ProtocolElement
 	3, // 2: metacensus.v1.ProtocolElement.options:type_name -> metacensus.v1.ProtocolElementOption
-	1, // 3: metacensus.v1.ProtocolTemplate.protocol_sections:type_name -> metacensus.v1.ProtocolSection
-	1, // 4: metacensus.v1.ProtocolCreateRequest.sections:type_name -> metacensus.v1.ProtocolSection
-	1, // 5: metacensus.v1.ProtocolEditRequest.sections:type_name -> metacensus.v1.ProtocolSection
-	4, // 6: metacensus.v1.ProtocolTemplateList.items:type_name -> metacensus.v1.ProtocolTemplate
-	2, // 7: metacensus.v1.ProtocolElementList.items:type_name -> metacensus.v1.ProtocolElement
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	1, // 3: metacensus.v1.ProtocolCreateRequest.sections:type_name -> metacensus.v1.ProtocolSection
+	4, // 4: metacensus.v1.ProtocolRoutes.CreateProtocol:input_type -> metacensus.v1.ProtocolCreateRequest
+	0, // 5: metacensus.v1.ProtocolRoutes.CreateProtocol:output_type -> metacensus.v1.Protocol
+	5, // [5:6] is the sub-list for method output_type
+	4, // [4:5] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_protocol_proto_init() }
@@ -750,9 +452,9 @@ func file_metacensus_v1_protocol_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_protocol_proto_rawDesc), len(file_metacensus_v1_protocol_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_protocol_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_protocol_proto_depIdxs,

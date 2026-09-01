@@ -9,6 +9,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -514,7 +515,7 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\x01\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cmetacensus/v1/protocol.proto\"\x83\x01\n" +
 	"\x05Topic\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
 	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x12\n" +
@@ -540,7 +541,15 @@ const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\x05items\x18\x01 \x03(\v2\x15.metacensus.v1.MemberR\x05items\"F\n" +
 	"\x10MemberGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userIdBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\auser_id\x18\x02 \x01(\tR\x06userId2\xee\x04\n" +
+	"\vTopicRoutes\x12W\n" +
+	"\n" +
+	"ListTopics\x12\x1f.metacensus.v1.TopicListRequest\x1a\x18.metacensus.v1.TopicList\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/topic\x12[\n" +
+	"\bGetTopic\x12\x1e.metacensus.v1.TopicGetRequest\x1a\x14.metacensus.v1.Topic\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/topic/{topic_id}\x12Y\n" +
+	"\vCreateTopic\x12!.metacensus.v1.TopicCreateRequest\x1a\x14.metacensus.v1.Topic\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12o\n" +
+	"\vGetProtocol\x12#.metacensus.v1.TopicProtocolRequest\x1a\x17.metacensus.v1.Protocol\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/topic/{topic_id}/protocol\x12l\n" +
+	"\vListMembers\x12 .metacensus.v1.MemberListRequest\x1a\x19.metacensus.v1.MemberList\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/topic/{topic_id}/member\x12o\n" +
+	"\tGetMember\x12\x1f.metacensus.v1.MemberGetRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}BAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_topic_proto_rawDescOnce sync.Once
@@ -567,14 +576,27 @@ var file_metacensus_v1_topic_proto_goTypes = []any{
 	(*MemberList)(nil),            // 8: metacensus.v1.MemberList
 	(*MemberGetRequest)(nil),      // 9: metacensus.v1.MemberGetRequest
 	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*Protocol)(nil),              // 11: metacensus.v1.Protocol
 }
 var file_metacensus_v1_topic_proto_depIdxs = []int32{
 	10, // 0: metacensus.v1.Topic.created:type_name -> google.protobuf.Timestamp
 	0,  // 1: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
 	10, // 2: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
 	6,  // 3: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
-	4,  // [4:4] is the sub-list for method output_type
-	4,  // [4:4] is the sub-list for method input_type
+	1,  // 4: metacensus.v1.TopicRoutes.ListTopics:input_type -> metacensus.v1.TopicListRequest
+	3,  // 5: metacensus.v1.TopicRoutes.GetTopic:input_type -> metacensus.v1.TopicGetRequest
+	4,  // 6: metacensus.v1.TopicRoutes.CreateTopic:input_type -> metacensus.v1.TopicCreateRequest
+	5,  // 7: metacensus.v1.TopicRoutes.GetProtocol:input_type -> metacensus.v1.TopicProtocolRequest
+	7,  // 8: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.MemberListRequest
+	9,  // 9: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.MemberGetRequest
+	2,  // 10: metacensus.v1.TopicRoutes.ListTopics:output_type -> metacensus.v1.TopicList
+	0,  // 11: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.Topic
+	0,  // 12: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.Topic
+	11, // 13: metacensus.v1.TopicRoutes.GetProtocol:output_type -> metacensus.v1.Protocol
+	8,  // 14: metacensus.v1.TopicRoutes.ListMembers:output_type -> metacensus.v1.MemberList
+	6,  // 15: metacensus.v1.TopicRoutes.GetMember:output_type -> metacensus.v1.Member
+	10, // [10:16] is the sub-list for method output_type
+	4,  // [4:10] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -585,6 +607,7 @@ func file_metacensus_v1_topic_proto_init() {
 	if File_metacensus_v1_topic_proto != nil {
 		return
 	}
+	file_metacensus_v1_protocol_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
@@ -593,7 +616,7 @@ func file_metacensus_v1_topic_proto_init() {
 			NumEnums:      0,
 			NumMessages:   10,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_topic_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_topic_proto_depIdxs,

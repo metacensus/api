@@ -4,7 +4,30 @@ syntax = "proto3";
 
 package metacensus.v1;
 
+import "google/api/annotations.proto";
+
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Route declarations, not a gRPC commitment: see contract/README.md.
+service AuthRoutes {
+  rpc Login(LoginRequest) returns (Session) {
+    option (google.api.http) = {
+      post: "/login"
+      body: "*"
+    };
+  }
+
+  rpc SignUp(SignUpRequest) returns (Session) {
+    option (google.api.http) = {
+      post: "/signup"
+      body: "*"
+    };
+  }
+
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {post: "/logout"};
+  }
+}
 
 // LoginRequest is unauthenticated.
 message LoginRequest {

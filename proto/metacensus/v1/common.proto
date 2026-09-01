@@ -4,7 +4,16 @@ syntax = "proto3";
 
 package metacensus.v1;
 
+import "google/api/annotations.proto";
+
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Route declarations, not a gRPC commitment: see contract/README.md.
+service HealthRoutes {
+  rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {
+    option (google.api.http) = {get: "/healthcheck"};
+  }
+}
 
 // ListMetadata is the pagination envelope for list responses. Defined, but
 // referenced by nothing: no route paginates yet.

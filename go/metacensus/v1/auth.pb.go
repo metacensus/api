@@ -10,6 +10,7 @@
 package metacensusv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -272,7 +273,7 @@ var File_metacensus_v1_auth_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/auth.proto\x12\rmetacensus.v1\"@\n" +
+	"\x18metacensus/v1/auth.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"o\n" +
@@ -284,7 +285,12 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\aSession\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponseBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x0eLogoutResponse2\x89\x02\n" +
+	"\n" +
+	"AuthRoutes\x12O\n" +
+	"\x05Login\x12\x1b.metacensus.v1.LoginRequest\x1a\x16.metacensus.v1.Session\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/login\x12R\n" +
+	"\x06SignUp\x12\x1c.metacensus.v1.SignUpRequest\x1a\x16.metacensus.v1.Session\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/signup\x12V\n" +
+	"\x06Logout\x12\x1c.metacensus.v1.LogoutRequest\x1a\x1d.metacensus.v1.LogoutResponse\"\x0f\x82\xd3\xe4\x93\x02\t\"\a/logoutBAZ?github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_auth_proto_rawDescOnce sync.Once
@@ -307,8 +313,14 @@ var file_metacensus_v1_auth_proto_goTypes = []any{
 	(*LogoutResponse)(nil), // 4: metacensus.v1.LogoutResponse
 }
 var file_metacensus_v1_auth_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
+	0, // 0: metacensus.v1.AuthRoutes.Login:input_type -> metacensus.v1.LoginRequest
+	1, // 1: metacensus.v1.AuthRoutes.SignUp:input_type -> metacensus.v1.SignUpRequest
+	3, // 2: metacensus.v1.AuthRoutes.Logout:input_type -> metacensus.v1.LogoutRequest
+	2, // 3: metacensus.v1.AuthRoutes.Login:output_type -> metacensus.v1.Session
+	2, // 4: metacensus.v1.AuthRoutes.SignUp:output_type -> metacensus.v1.Session
+	4, // 5: metacensus.v1.AuthRoutes.Logout:output_type -> metacensus.v1.LogoutResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -327,7 +339,7 @@ func file_metacensus_v1_auth_proto_init() {
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_auth_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_auth_proto_depIdxs,

@@ -22,7 +22,6 @@ const (
 	protocolID = "4"
 	sectionID  = "9"
 	elementID  = "31"
-	templateID = "3"
 )
 
 func ts(s string) *timestamppb.Timestamp {
@@ -234,31 +233,10 @@ func fixtures() []fixture {
 		{"ProtocolSection", protocolSection()},
 		{"ProtocolElement", protocolElement()},
 		{"ProtocolElementOption", &v1.ProtocolElementOption{Name: "Cohort", Value: "cohort"}},
-		{"ProtocolTemplate", &v1.ProtocolTemplate{
-			Id:               templateID,
-			Title:            "Cochrane-style extraction template",
-			ProtocolSections: []*v1.ProtocolSection{protocolSection()},
-		}},
 		{"ProtocolCreateRequest", &v1.ProtocolCreateRequest{
 			TopicId:  topicID,
 			Title:    "Custom Protocol",
 			Sections: []*v1.ProtocolSection{protocolSection()},
-		}},
-		{"ProtocolEditRequest", &v1.ProtocolEditRequest{
-			ProtocolId: protocolID,
-			Sections:   []*v1.ProtocolSection{protocolSection()},
-		}},
-		{"ProtocolTemplateListRequest", &v1.ProtocolTemplateListRequest{}},
-		{"ProtocolTemplateList", &v1.ProtocolTemplateList{
-			Items: []*v1.ProtocolTemplate{{
-				Id:               templateID,
-				Title:            "Cochrane-style extraction template",
-				ProtocolSections: []*v1.ProtocolSection{protocolSection()},
-			}},
-		}},
-		{"ProtocolElementListRequest", &v1.ProtocolElementListRequest{}},
-		{"ProtocolElementList", &v1.ProtocolElementList{
-			Items: []*v1.ProtocolElement{protocolElement()},
 		}},
 
 		// extraction.proto

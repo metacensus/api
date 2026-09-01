@@ -48,45 +48,9 @@ export interface ProtocolElementOption {
   value: string;
 }
 
-/** ProtocolTemplate is a reusable protocol a topic can start from. */
-export interface ProtocolTemplate {
-  id: string;
-  title: string;
-  protocolSections: ProtocolSection[];
-}
-
 /** ProtocolCreateRequest ignores the ids on its sections and elements. */
 export interface ProtocolCreateRequest {
   topicId: string;
   title: string;
   sections: ProtocolSection[];
-}
-
-/**
- * ProtocolEditRequest updates a section or element with a positive id in place;
- * any other id inserts a new one. Omitting one does not delete it.
- */
-export interface ProtocolEditRequest {
-  protocolId: string;
-  sections: ProtocolSection[];
-}
-
-/** ProtocolTemplateListRequest carries no parameters. */
-export interface ProtocolTemplateListRequest {
-}
-
-export interface ProtocolTemplateList {
-  items: ProtocolTemplate[];
-}
-
-/** ProtocolElementListRequest carries no parameters. */
-export interface ProtocolElementListRequest {
-}
-
-/**
- * ProtocolElementList carries the premade elements the protocol editor offers.
- * They belong to no section, so their `sort_order` is unset.
- */
-export interface ProtocolElementList {
-  items: ProtocolElement[];
 }

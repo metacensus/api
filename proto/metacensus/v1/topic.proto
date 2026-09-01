@@ -3,9 +3,41 @@ syntax = "proto3";
 
 package metacensus.v1;
 
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
+import "metacensus/v1/protocol.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
+
+// Route declarations, not a gRPC commitment: see contract/README.md.
+service TopicRoutes {
+  rpc ListTopics(TopicListRequest) returns (TopicList) {
+    option (google.api.http) = {get: "/topic"};
+  }
+
+  rpc GetTopic(TopicGetRequest) returns (Topic) {
+    option (google.api.http) = {get: "/topic/{topic_id}"};
+  }
+
+  rpc CreateTopic(TopicCreateRequest) returns (Topic) {
+    option (google.api.http) = {
+      post: "/topic"
+      body: "*"
+    };
+  }
+
+  rpc GetProtocol(TopicProtocolRequest) returns (Protocol) {
+    option (google.api.http) = {get: "/topic/{topic_id}/protocol"};
+  }
+
+  rpc ListMembers(MemberListRequest) returns (MemberList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/member"};
+  }
+
+  rpc GetMember(MemberGetRequest) returns (Member) {
+    option (google.api.http) = {get: "/topic/{topic_id}/member/{user_id}"};
+  }
+}
 
 // Topic is a systematic review in progress.
 message Topic {
