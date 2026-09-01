@@ -1,5 +1,4 @@
-// Shared types. Derivation, exclusions and open questions:
-// contract/DERIVATION.md.
+// Shared types.
 syntax = "proto3";
 
 package metacensus.v1;
@@ -15,8 +14,8 @@ service HealthRoutes {
   }
 }
 
-// ListMetadata is the pagination envelope for list responses. Defined, but
-// referenced by nothing: no route paginates yet.
+// ListMetadata is the pagination envelope for list responses. No route
+// paginates yet, so nothing references it.
 message ListMetadata {
   // 1-based.
   int32 page = 1;
@@ -28,7 +27,6 @@ message ListMetadata {
   int32 total = 3;
 }
 
-// HealthcheckRequest carries no parameters.
 message HealthcheckRequest {}
 
 message HealthcheckResponse {

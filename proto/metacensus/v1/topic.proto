@@ -47,7 +47,6 @@ message Topic {
   string description = 4;
 }
 
-// TopicListRequest carries no parameters.
 message TopicListRequest {}
 
 message TopicList {

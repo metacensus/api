@@ -18,7 +18,6 @@ export interface Topic {
   description: string;
 }
 
-/** TopicListRequest carries no parameters. */
 export interface TopicListRequest {
 }
 

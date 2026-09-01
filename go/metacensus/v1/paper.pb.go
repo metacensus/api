@@ -25,7 +25,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Paper is one piece of literature attached to a topic.
 type Paper struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -227,8 +226,8 @@ func (x *PaperList) GetItems() []*Paper {
 	return nil
 }
 
-// PaperCreateRequest carries no PDF: uploading one is not part of this
-// contract. See contract/DERIVATION.md.
+// PaperCreateRequest carries no PDF; uploading one is not part of this
+// contract.
 type PaperCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -313,8 +312,7 @@ func (x *PaperCreateRequest) GetPmid() string {
 	return ""
 }
 
-// PaperLookupRequest names the PubMed record the create form is prefilled
-// from.
+// PaperLookupRequest names the PubMed record the create form is prefilled from.
 type PaperLookupRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pmid          string                 `protobuf:"bytes,1,opt,name=pmid,proto3" json:"pmid,omitempty"`

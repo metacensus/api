@@ -8,14 +8,11 @@
 
 export const protobufPackage = "metacensus.v1";
 
-/**
- * Shared types. Derivation, exclusions and open questions:
- * contract/DERIVATION.md.
- */
+/** Shared types. */
 
 /**
- * ListMetadata is the pagination envelope for list responses. Defined, but
- * referenced by nothing: no route paginates yet.
+ * ListMetadata is the pagination envelope for list responses. No route
+ * paginates yet, so nothing references it.
  */
 export interface ListMetadata {
   /** 1-based. */
@@ -26,7 +23,6 @@ export interface ListMetadata {
   total: number;
 }
 
-/** HealthcheckRequest carries no parameters. */
 export interface HealthcheckRequest {
 }
 

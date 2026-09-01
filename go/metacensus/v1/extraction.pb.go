@@ -24,9 +24,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// DataExtraction is the set of values extracted from one paper against one
-// protocol, identified by the three ids together. It is both what is upserted
-// and what is read back.
+// DataExtraction is the values extracted from one paper against one protocol,
+// identified by the three ids together. Upserted and read back as-is.
 type DataExtraction struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -282,8 +281,8 @@ func (x *SourceRect) GetH() float64 {
 	return 0
 }
 
-// DataExtractionGetRequest requires all three fields: together they identify
-// one `DataExtraction`.
+// DataExtractionGetRequest requires all three fields; together they identify
+// one DataExtraction.
 type DataExtractionGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`

@@ -23,7 +23,6 @@ service UserRoutes {
   }
 }
 
-// User is a MetaCensus account.
 message User {
   string id = 1;
   string name = 2;
@@ -32,7 +31,6 @@ message User {
   google.protobuf.Timestamp created = 5;
 }
 
-// UserListRequest carries no parameters.
 message UserListRequest {}
 
 message UserList {
@@ -43,5 +41,5 @@ message UserGetRequest {
   string user_id = 1;
 }
 
-// SelfGetRequest carries no parameters: the user is the authenticated one.
+// SelfGetRequest is empty: the user is the authenticated one.
 message SelfGetRequest {}

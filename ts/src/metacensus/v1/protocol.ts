@@ -25,7 +25,6 @@ export interface ProtocolSection {
   protocolElements: ProtocolElement[];
 }
 
-/** ProtocolElement is one field of the extraction form. */
 export interface ProtocolElement {
   id: string;
   name: string;

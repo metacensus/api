@@ -37,8 +37,8 @@ service PropRoutes {
   }
 }
 
-// Prop is a motion a topic's members vote on. Propositions can be functional —
-// changing the topic — or simply establish consensus among members.
+// Prop is a motion a topic's members vote on. It can be functional, changing
+// the topic, or simply establish consensus.
 message Prop {
   // Type is what the proposition would do if it passed.
   enum Type {

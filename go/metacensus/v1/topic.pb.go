@@ -94,7 +94,6 @@ func (x *Topic) GetDescription() string {
 	return ""
 }
 
-// TopicListRequest carries no parameters.
 type TopicListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields

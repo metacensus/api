@@ -10,7 +10,6 @@ export const protobufPackage = "metacensus.v1";
 
 /** Users. Sign-up and login live in auth.proto. */
 
-/** User is a MetaCensus account. */
 export interface User {
   id: string;
   name: string;
@@ -19,7 +18,6 @@ export interface User {
   created?: string | undefined;
 }
 
-/** UserListRequest carries no parameters. */
 export interface UserListRequest {
 }
 
@@ -31,6 +29,6 @@ export interface UserGetRequest {
   userId: string;
 }
 
-/** SelfGetRequest carries no parameters: the user is the authenticated one. */
+/** SelfGetRequest is empty: the user is the authenticated one. */
 export interface SelfGetRequest {
 }

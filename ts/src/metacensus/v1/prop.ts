@@ -11,8 +11,8 @@ export const protobufPackage = "metacensus.v1";
 /** Propositions and votes: the consensus mechanism. */
 
 /**
- * Prop is a motion a topic's members vote on. Propositions can be functional —
- * changing the topic — or simply establish consensus among members.
+ * Prop is a motion a topic's members vote on. It can be functional, changing
+ * the topic, or simply establish consensus.
  */
 export interface Prop {
   id: string;

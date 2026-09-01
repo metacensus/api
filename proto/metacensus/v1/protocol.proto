@@ -7,8 +7,7 @@ import "google/api/annotations.proto";
 
 option go_package = "github.com/metacensus/ui/contract/go/metacensus/v1;metacensusv1";
 
-// Routes are `rpc`s with a `google.api.http` option, not a gRPC commitment.
-// See contract/README.md.
+// Route declarations, not a gRPC commitment: see contract/README.md.
 service ProtocolRoutes {
   rpc CreateProtocol(ProtocolCreateRequest) returns (Protocol) {
     option (google.api.http) = {
@@ -33,7 +32,6 @@ message ProtocolSection {
   repeated ProtocolElement protocol_elements = 4;
 }
 
-// ProtocolElement is one field of the extraction form.
 message ProtocolElement {
   string id = 1;
   string name = 2;

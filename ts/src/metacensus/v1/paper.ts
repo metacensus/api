@@ -10,7 +10,6 @@ export const protobufPackage = "metacensus.v1";
 
 /** Papers: the literature under review in a topic. */
 
-/** Paper is one piece of literature attached to a topic. */
 export interface Paper {
   id: string;
   topicId: string;
@@ -41,8 +40,8 @@ export interface PaperList {
 }
 
 /**
- * PaperCreateRequest carries no PDF: uploading one is not part of this
- * contract. See contract/DERIVATION.md.
+ * PaperCreateRequest carries no PDF; uploading one is not part of this
+ * contract.
  */
 export interface PaperCreateRequest {
   topicId: string;
@@ -53,10 +52,7 @@ export interface PaperCreateRequest {
   pmid: string;
 }
 
-/**
- * PaperLookupRequest names the PubMed record the create form is prefilled
- * from.
- */
+/** PaperLookupRequest names the PubMed record the create form is prefilled from. */
 export interface PaperLookupRequest {
   pmid: string;
 }

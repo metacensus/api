@@ -8,18 +8,13 @@
 
 export const protobufPackage = "metacensus.v1";
 
-/**
- * Sign-up, login and logout: the two unauthenticated endpoints and the session
- * they establish.
- */
+/** Sign-up, login and logout. */
 
-/** LoginRequest is unauthenticated. */
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-/** SignUpRequest is unauthenticated. */
 export interface SignUpRequest {
   name: string;
   email: string;
@@ -32,10 +27,8 @@ export interface Session {
   token: string;
 }
 
-/** LogoutRequest carries no parameters. */
 export interface LogoutRequest {
 }
 
-/** LogoutResponse is empty, and expected to stay that way. */
 export interface LogoutResponse {
 }

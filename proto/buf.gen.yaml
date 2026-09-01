@@ -1,7 +1,6 @@
 version: v2
 
-# Paths are relative to `contract/go`, which is where buf runs. Use
-# `contract/Makefile`; see contract/README.md.
+# Paths are relative to `contract/go`, where buf runs. Use `contract/Makefile`.
 
 plugins:
   - local: [go, tool, protoc-gen-go]
@@ -13,20 +12,20 @@ plugins:
     out: ../ts/src
     opt:
       # These five together describe protojson output rather than protobuf
-      # binary. Changing any of them breaks the golden cross-check.
+      # binary. Nothing verifies the pairing yet: metacensus/ui#49.
       - onlyTypes=true
       - useDate=string
       - stringEnums=true
       - unrecognizedEnum=false
       - forceLong=string
-      # Message fields optional, scalars required — pairs with
-      # EmitDefaultValues in contract/go/wire.go.
+      # Message fields optional, scalars required — pairs with EmitDefaultValues
+      # in contract/go/wire.go.
       - useOptionals=messages
-      # routes.proto's rpcs declare HTTP routes; a generated client interface
-      # would read as a gRPC commitment.
+      # The rpcs declare HTTP routes; a generated client interface would read as
+      # a gRPC commitment.
       - outputServices=none
-      # Nothing references the imported files' types: Timestamp is a string
-      # here, and google.api.http is read from the descriptor, not the wire.
+      # Nothing references the imported files' types: Timestamp is a string here,
+      # and google.api.http is read from the descriptor, not the wire.
       - emitImportedFiles=false
       - esModuleInterop=true
       # NodeNext resolution requires extensions on relative imports.

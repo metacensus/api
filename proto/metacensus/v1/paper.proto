@@ -29,7 +29,6 @@ service PaperRoutes {
   }
 }
 
-// Paper is one piece of literature attached to a topic.
 message Paper {
   string id = 1;
   string topic_id = 2;
@@ -59,8 +58,8 @@ message PaperList {
   repeated Paper items = 1;
 }
 
-// PaperCreateRequest carries no PDF: uploading one is not part of this
-// contract. See contract/DERIVATION.md.
+// PaperCreateRequest carries no PDF; uploading one is not part of this
+// contract.
 message PaperCreateRequest {
   string topic_id = 1;
   string title = 2;
@@ -70,8 +69,7 @@ message PaperCreateRequest {
   string pmid = 6;
 }
 
-// PaperLookupRequest names the PubMed record the create form is prefilled
-// from.
+// PaperLookupRequest names the PubMed record the create form is prefilled from.
 message PaperLookupRequest {
   string pmid = 1;
 }

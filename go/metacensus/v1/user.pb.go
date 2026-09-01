@@ -25,7 +25,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// User is a MetaCensus account.
 type User struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -102,7 +101,6 @@ func (x *User) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
-// UserListRequest carries no parameters.
 type UserListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -227,7 +225,7 @@ func (x *UserGetRequest) GetUserId() string {
 	return ""
 }
 
-// SelfGetRequest carries no parameters: the user is the authenticated one.
+// SelfGetRequest is empty: the user is the authenticated one.
 type SelfGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields

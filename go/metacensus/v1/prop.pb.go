@@ -142,8 +142,8 @@ func (Vote_Position) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1, 0}
 }
 
-// Prop is a motion a topic's members vote on. Propositions can be functional —
-// changing the topic — or simply establish consensus among members.
+// Prop is a motion a topic's members vote on. It can be functional, changing
+// the topic, or simply establish consensus.
 type Prop struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

@@ -1,7 +1,7 @@
 // Package contract carries the wire encoding for the MetaCensus API contract.
 //
 // The generated types are in ./metacensus/v1. Marshal them with these options,
-// never with encoding/json. See contract/README.md for why.
+// never with encoding/json: see contract/README.md.
 package contract
 
 import (

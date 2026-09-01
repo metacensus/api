@@ -11,9 +11,8 @@ export const protobufPackage = "metacensus.v1";
 /** Data extraction: the values pulled from one paper against one protocol. */
 
 /**
- * DataExtraction is the set of values extracted from one paper against one
- * protocol, identified by the three ids together. It is both what is upserted
- * and what is read back.
+ * DataExtraction is the values extracted from one paper against one protocol,
+ * identified by the three ids together. Upserted and read back as-is.
  */
 export interface DataExtraction {
   topicId: string;
@@ -52,8 +51,8 @@ export interface SourceRect {
 }
 
 /**
- * DataExtractionGetRequest requires all three fields: together they identify
- * one `DataExtraction`.
+ * DataExtractionGetRequest requires all three fields; together they identify
+ * one DataExtraction.
  */
 export interface DataExtractionGetRequest {
   topicId: string;

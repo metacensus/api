@@ -21,9 +21,8 @@ service ExtractionRoutes {
   }
 }
 
-// DataExtraction is the set of values extracted from one paper against one
-// protocol, identified by the three ids together. It is both what is upserted
-// and what is read back.
+// DataExtraction is the values extracted from one paper against one protocol,
+// identified by the three ids together. Upserted and read back as-is.
 message DataExtraction {
   string topic_id = 1;
   string paper_id = 2;
@@ -58,8 +57,8 @@ message SourceRect {
   double h = 4;
 }
 
-// DataExtractionGetRequest requires all three fields: together they identify
-// one `DataExtraction`.
+// DataExtractionGetRequest requires all three fields; together they identify
+// one DataExtraction.
 message DataExtractionGetRequest {
   string topic_id = 1;
   string paper_id = 2;
