@@ -4,42 +4,45 @@
 // the google.api.http annotations on each resource's service in metacensus/v1.
 
 // `path` is relative to /metacensus/api/v1 and spells its parameters
-// {lowerCamelCase}, as the wire does. `body` is "*" when the whole request
-// message travels in the body and "" when none does.
+// {lowerCamelCase}, as the wire does. `params`, `query` and `body` between them
+// account for every field of `request`: `params` bind path segments, `query`
+// travels in the query string, and `body` is "*" when the rest travels in the
+// body and "" when none does.
 export interface Route {
   readonly service: string;
   readonly rpc: string;
   readonly method: string;
   readonly path: string;
   readonly params: readonly string[];
+  readonly query: readonly string[];
   readonly body: string;
   readonly request: string;
   readonly response: string;
 }
 
 export const routes: readonly Route[] = [
-  { service: "AuthRoutes", rpc: "Login", method: "POST", path: "/login", params: [], body: "*", request: "LoginRequest", response: "Session" },
-  { service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], body: "*", request: "SignUpRequest", response: "Session" },
-  { service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], body: "", request: "LogoutRequest", response: "LogoutResponse" },
-  { service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], body: "", request: "HealthcheckRequest", response: "HealthcheckResponse" },
-  { service: "ExtractionRoutes", rpc: "GetExtraction", method: "GET", path: "/extraction", params: [], body: "", request: "DataExtractionGetRequest", response: "DataExtraction" },
-  { service: "ExtractionRoutes", rpc: "UpsertExtraction", method: "POST", path: "/extraction", params: [], body: "*", request: "DataExtraction", response: "DataExtraction" },
-  { service: "PaperRoutes", rpc: "ListPapers", method: "POST", path: "/paper", params: [], body: "*", request: "PaperListRequest", response: "PaperList" },
-  { service: "PaperRoutes", rpc: "CreatePaper", method: "POST", path: "/paper/create", params: [], body: "*", request: "PaperCreateRequest", response: "Paper" },
-  { service: "PaperRoutes", rpc: "LookupPaper", method: "GET", path: "/paper/lookup", params: [], body: "", request: "PaperLookupRequest", response: "PaperLookupResponse" },
-  { service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], body: "", request: "PropListRequest", response: "PropList" },
-  { service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], body: "", request: "PropGetRequest", response: "Prop" },
-  { service: "PropRoutes", rpc: "CreateProp", method: "POST", path: "/topic/{topicId}/prop", params: ["topicId"], body: "*", request: "PropCreateRequest", response: "Prop" },
-  { service: "PropRoutes", rpc: "ListVotes", method: "GET", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], body: "", request: "VoteListRequest", response: "VoteList" },
-  { service: "PropRoutes", rpc: "SetVote", method: "POST", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], body: "*", request: "VoteSetRequest", response: "Vote" },
-  { service: "ProtocolRoutes", rpc: "CreateProtocol", method: "POST", path: "/protocol", params: [], body: "*", request: "ProtocolCreateRequest", response: "Protocol" },
-  { service: "TopicRoutes", rpc: "ListTopics", method: "GET", path: "/topic", params: [], body: "", request: "TopicListRequest", response: "TopicList" },
-  { service: "TopicRoutes", rpc: "GetTopic", method: "GET", path: "/topic/{topicId}", params: ["topicId"], body: "", request: "TopicGetRequest", response: "Topic" },
-  { service: "TopicRoutes", rpc: "CreateTopic", method: "POST", path: "/topic", params: [], body: "*", request: "TopicCreateRequest", response: "Topic" },
-  { service: "TopicRoutes", rpc: "GetProtocol", method: "GET", path: "/topic/{topicId}/protocol", params: ["topicId"], body: "", request: "TopicProtocolRequest", response: "Protocol" },
-  { service: "TopicRoutes", rpc: "ListMembers", method: "GET", path: "/topic/{topicId}/member", params: ["topicId"], body: "", request: "MemberListRequest", response: "MemberList" },
-  { service: "TopicRoutes", rpc: "GetMember", method: "GET", path: "/topic/{topicId}/member/{userId}", params: ["topicId", "userId"], body: "", request: "MemberGetRequest", response: "Member" },
-  { service: "UserRoutes", rpc: "ListUsers", method: "GET", path: "/user", params: [], body: "", request: "UserListRequest", response: "UserList" },
-  { service: "UserRoutes", rpc: "GetUser", method: "GET", path: "/user/{userId}", params: ["userId"], body: "", request: "UserGetRequest", response: "User" },
-  { service: "UserRoutes", rpc: "GetSelf", method: "GET", path: "/self", params: [], body: "", request: "SelfGetRequest", response: "User" },
+  { service: "AuthRoutes", rpc: "Login", method: "POST", path: "/login", params: [], query: [], body: "*", request: "LoginRequest", response: "Session" },
+  { service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], query: [], body: "*", request: "SignUpRequest", response: "Session" },
+  { service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "", request: "LogoutRequest", response: "LogoutResponse" },
+  { service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], query: [], body: "", request: "HealthcheckRequest", response: "HealthcheckResponse" },
+  { service: "ExtractionRoutes", rpc: "GetExtraction", method: "GET", path: "/extraction", params: [], query: ["topicId", "paperId", "protocolId"], body: "", request: "DataExtractionGetRequest", response: "DataExtraction" },
+  { service: "ExtractionRoutes", rpc: "UpsertExtraction", method: "POST", path: "/extraction", params: [], query: [], body: "*", request: "DataExtraction", response: "DataExtraction" },
+  { service: "PaperRoutes", rpc: "ListPapers", method: "POST", path: "/paper", params: [], query: [], body: "*", request: "PaperListRequest", response: "PaperList" },
+  { service: "PaperRoutes", rpc: "CreatePaper", method: "POST", path: "/paper/create", params: [], query: [], body: "*", request: "PaperCreateRequest", response: "Paper" },
+  { service: "PaperRoutes", rpc: "LookupPaper", method: "GET", path: "/paper/lookup", params: [], query: ["pmid"], body: "", request: "PaperLookupRequest", response: "PaperLookupResponse" },
+  { service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "", request: "PropListRequest", response: "PropList" },
+  { service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], query: [], body: "", request: "PropGetRequest", response: "Prop" },
+  { service: "PropRoutes", rpc: "CreateProp", method: "POST", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "*", request: "PropCreateRequest", response: "Prop" },
+  { service: "PropRoutes", rpc: "ListVotes", method: "GET", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "", request: "VoteListRequest", response: "VoteList" },
+  { service: "PropRoutes", rpc: "SetVote", method: "POST", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "*", request: "VoteSetRequest", response: "Vote" },
+  { service: "ProtocolRoutes", rpc: "CreateProtocol", method: "POST", path: "/protocol", params: [], query: [], body: "*", request: "ProtocolCreateRequest", response: "Protocol" },
+  { service: "TopicRoutes", rpc: "ListTopics", method: "GET", path: "/topic", params: [], query: [], body: "", request: "TopicListRequest", response: "TopicList" },
+  { service: "TopicRoutes", rpc: "GetTopic", method: "GET", path: "/topic/{topicId}", params: ["topicId"], query: [], body: "", request: "TopicGetRequest", response: "Topic" },
+  { service: "TopicRoutes", rpc: "CreateTopic", method: "POST", path: "/topic", params: [], query: [], body: "*", request: "TopicCreateRequest", response: "Topic" },
+  { service: "TopicRoutes", rpc: "GetProtocol", method: "GET", path: "/topic/{topicId}/protocol", params: ["topicId"], query: [], body: "", request: "TopicProtocolRequest", response: "Protocol" },
+  { service: "TopicRoutes", rpc: "ListMembers", method: "GET", path: "/topic/{topicId}/member", params: ["topicId"], query: [], body: "", request: "MemberListRequest", response: "MemberList" },
+  { service: "TopicRoutes", rpc: "GetMember", method: "GET", path: "/topic/{topicId}/member/{userId}", params: ["topicId", "userId"], query: [], body: "", request: "MemberGetRequest", response: "Member" },
+  { service: "UserRoutes", rpc: "ListUsers", method: "GET", path: "/user", params: [], query: [], body: "", request: "UserListRequest", response: "UserList" },
+  { service: "UserRoutes", rpc: "GetUser", method: "GET", path: "/user/{userId}", params: ["userId"], query: [], body: "", request: "UserGetRequest", response: "User" },
+  { service: "UserRoutes", rpc: "GetSelf", method: "GET", path: "/self", params: [], query: [], body: "", request: "SelfGetRequest", response: "User" },
 ];

@@ -6,44 +6,47 @@
 package routes
 
 // Route is one declared route. Path is relative to /metacensus/api/v1 and
-// spells its parameters {lowerCamelCase}, as the wire does. Body is "*" when
-// the whole request message travels in the body and empty when none does.
+// spells its parameters {lowerCamelCase}, as the wire does. Params, Query and
+// Body between them account for every field of Request: Params bind path
+// segments, Query travels in the query string, and Body is "*" when the rest
+// travels in the body and empty when none does.
 type Route struct {
 	Service  string
 	RPC      string
 	Method   string
 	Path     string
 	Params   []string
+	Query    []string
 	Body     string
 	Request  string
 	Response string
 }
 
 // Routes is every route across every service, ordered by file then by
-// declaration. This is the whole route table on one screen.
+// declaration.
 var Routes = []Route{
-	{Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Body: "*", Request: "LoginRequest", Response: "Session"},
-	{Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Body: "*", Request: "SignUpRequest", Response: "Session"},
-	{Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Body: "", Request: "LogoutRequest", Response: "LogoutResponse"},
-	{Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Body: "", Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
-	{Service: "ExtractionRoutes", RPC: "GetExtraction", Method: "GET", Path: "/extraction", Params: nil, Body: "", Request: "DataExtractionGetRequest", Response: "DataExtraction"},
-	{Service: "ExtractionRoutes", RPC: "UpsertExtraction", Method: "POST", Path: "/extraction", Params: nil, Body: "*", Request: "DataExtraction", Response: "DataExtraction"},
-	{Service: "PaperRoutes", RPC: "ListPapers", Method: "POST", Path: "/paper", Params: nil, Body: "*", Request: "PaperListRequest", Response: "PaperList"},
-	{Service: "PaperRoutes", RPC: "CreatePaper", Method: "POST", Path: "/paper/create", Params: nil, Body: "*", Request: "PaperCreateRequest", Response: "Paper"},
-	{Service: "PaperRoutes", RPC: "LookupPaper", Method: "GET", Path: "/paper/lookup", Params: nil, Body: "", Request: "PaperLookupRequest", Response: "PaperLookupResponse"},
-	{Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Body: "", Request: "PropListRequest", Response: "PropList"},
-	{Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Body: "", Request: "PropGetRequest", Response: "Prop"},
-	{Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Body: "*", Request: "PropCreateRequest", Response: "Prop"},
-	{Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Body: "", Request: "VoteListRequest", Response: "VoteList"},
-	{Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Body: "*", Request: "VoteSetRequest", Response: "Vote"},
-	{Service: "ProtocolRoutes", RPC: "CreateProtocol", Method: "POST", Path: "/protocol", Params: nil, Body: "*", Request: "ProtocolCreateRequest", Response: "Protocol"},
-	{Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Body: "", Request: "TopicListRequest", Response: "TopicList"},
-	{Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Body: "", Request: "TopicGetRequest", Response: "Topic"},
-	{Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Body: "*", Request: "TopicCreateRequest", Response: "Topic"},
-	{Service: "TopicRoutes", RPC: "GetProtocol", Method: "GET", Path: "/topic/{topicId}/protocol", Params: []string{"topicId"}, Body: "", Request: "TopicProtocolRequest", Response: "Protocol"},
-	{Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Body: "", Request: "MemberListRequest", Response: "MemberList"},
-	{Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Body: "", Request: "MemberGetRequest", Response: "Member"},
-	{Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Body: "", Request: "UserListRequest", Response: "UserList"},
-	{Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Body: "", Request: "UserGetRequest", Response: "User"},
-	{Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Body: "", Request: "SelfGetRequest", Response: "User"},
+	{Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Request: "LoginRequest", Response: "Session"},
+	{Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Request: "SignUpRequest", Response: "Session"},
+	{Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "", Request: "LogoutRequest", Response: "LogoutResponse"},
+	{Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
+	{Service: "ExtractionRoutes", RPC: "GetExtraction", Method: "GET", Path: "/extraction", Params: nil, Query: []string{"topicId", "paperId", "protocolId"}, Body: "", Request: "DataExtractionGetRequest", Response: "DataExtraction"},
+	{Service: "ExtractionRoutes", RPC: "UpsertExtraction", Method: "POST", Path: "/extraction", Params: nil, Query: nil, Body: "*", Request: "DataExtraction", Response: "DataExtraction"},
+	{Service: "PaperRoutes", RPC: "ListPapers", Method: "POST", Path: "/paper", Params: nil, Query: nil, Body: "*", Request: "PaperListRequest", Response: "PaperList"},
+	{Service: "PaperRoutes", RPC: "CreatePaper", Method: "POST", Path: "/paper/create", Params: nil, Query: nil, Body: "*", Request: "PaperCreateRequest", Response: "Paper"},
+	{Service: "PaperRoutes", RPC: "LookupPaper", Method: "GET", Path: "/paper/lookup", Params: nil, Query: []string{"pmid"}, Body: "", Request: "PaperLookupRequest", Response: "PaperLookupResponse"},
+	{Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Request: "PropListRequest", Response: "PropList"},
+	{Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Request: "PropGetRequest", Response: "Prop"},
+	{Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Request: "PropCreateRequest", Response: "Prop"},
+	{Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Request: "VoteListRequest", Response: "VoteList"},
+	{Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "*", Request: "VoteSetRequest", Response: "Vote"},
+	{Service: "ProtocolRoutes", RPC: "CreateProtocol", Method: "POST", Path: "/protocol", Params: nil, Query: nil, Body: "*", Request: "ProtocolCreateRequest", Response: "Protocol"},
+	{Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Query: nil, Body: "", Request: "TopicListRequest", Response: "TopicList"},
+	{Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Query: nil, Body: "", Request: "TopicGetRequest", Response: "Topic"},
+	{Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Query: nil, Body: "*", Request: "TopicCreateRequest", Response: "Topic"},
+	{Service: "TopicRoutes", RPC: "GetProtocol", Method: "GET", Path: "/topic/{topicId}/protocol", Params: []string{"topicId"}, Query: nil, Body: "", Request: "TopicProtocolRequest", Response: "Protocol"},
+	{Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Query: nil, Body: "", Request: "MemberListRequest", Response: "MemberList"},
+	{Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Query: nil, Body: "", Request: "MemberGetRequest", Response: "Member"},
+	{Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Request: "UserListRequest", Response: "UserList"},
+	{Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Request: "UserGetRequest", Response: "User"},
+	{Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Request: "SelfGetRequest", Response: "User"},
 }
