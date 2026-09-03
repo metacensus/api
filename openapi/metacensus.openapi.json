@@ -1,0 +1,1160 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "MetaCensus API",
+        "version": "v1"
+    },
+    "tags": [
+        {
+            "name": "AuthRoutes"
+        },
+        {
+            "name": "HealthRoutes"
+        },
+        {
+            "name": "ExtractionRoutes"
+        },
+        {
+            "name": "PropRoutes"
+        },
+        {
+            "name": "ProtocolRoutes"
+        },
+        {
+            "name": "TopicRoutes"
+        },
+        {
+            "name": "UserRoutes"
+        }
+    ],
+    "paths": {
+        "/extraction": {
+            "get": {
+                "operationId": "ExtractionRoutes_GetExtraction",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1DataExtraction"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "paperId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "protocolId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "ExtractionRoutes"
+                ]
+            },
+            "post": {
+                "operationId": "ExtractionRoutes_UpsertExtraction",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1DataExtraction"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/v1DataExtraction"
+                            }
+                        }
+                    },
+                    "description": "DataExtraction is the values extracted from one paper against one protocol,\nidentified by the three ids together. Upserted and read back as-is.",
+                    "required": true
+                },
+                "tags": [
+                    "ExtractionRoutes"
+                ]
+            }
+        },
+        "/healthcheck": {
+            "get": {
+                "operationId": "HealthRoutes_Healthcheck",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1HealthcheckResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "HealthRoutes"
+                ]
+            }
+        },
+        "/login": {
+            "post": {
+                "operationId": "AuthRoutes_Login",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Session"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/v1LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "tags": [
+                    "AuthRoutes"
+                ]
+            }
+        },
+        "/logout": {
+            "post": {
+                "operationId": "AuthRoutes_Logout",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1LogoutResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "AuthRoutes"
+                ]
+            }
+        },
+        "/protocol": {
+            "post": {
+                "operationId": "ProtocolRoutes_CreateProtocol",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Protocol"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/v1ProtocolCreateRequest"
+                            }
+                        }
+                    },
+                    "description": "ProtocolCreateRequest ignores the ids on its sections and elements.",
+                    "required": true
+                },
+                "tags": [
+                    "ProtocolRoutes"
+                ]
+            }
+        },
+        "/self": {
+            "get": {
+                "operationId": "UserRoutes_GetSelf",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1User"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "UserRoutes"
+                ]
+            }
+        },
+        "/signup": {
+            "post": {
+                "operationId": "AuthRoutes_SignUp",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Session"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/v1SignUpRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "tags": [
+                    "AuthRoutes"
+                ]
+            }
+        },
+        "/topic": {
+            "get": {
+                "operationId": "TopicRoutes_ListTopics",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1TopicList"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "TopicRoutes"
+                ]
+            },
+            "post": {
+                "operationId": "TopicRoutes_CreateTopic",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Topic"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/v1TopicCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "tags": [
+                    "TopicRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}": {
+            "get": {
+                "operationId": "TopicRoutes_GetTopic",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Topic"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "TopicRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/member": {
+            "get": {
+                "operationId": "TopicRoutes_ListMembers",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1MemberList"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "TopicRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/member/{userId}": {
+            "get": {
+                "operationId": "TopicRoutes_GetMember",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Member"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "TopicRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/prop": {
+            "get": {
+                "operationId": "PropRoutes_ListProps",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1PropList"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "PropRoutes"
+                ]
+            },
+            "post": {
+                "operationId": "PropRoutes_CreateProp",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Prop"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PropRoutesCreatePropBody"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "tags": [
+                    "PropRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/prop/{propId}": {
+            "get": {
+                "operationId": "PropRoutes_GetProp",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Prop"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "propId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "PropRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/prop/{propId}/vote": {
+            "get": {
+                "operationId": "PropRoutes_ListVotes",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1VoteList"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "propId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "PropRoutes"
+                ]
+            },
+            "post": {
+                "operationId": "PropRoutes_SetVote",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Vote"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "propId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PropRoutesSetVoteBody"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "tags": [
+                    "PropRoutes"
+                ]
+            }
+        },
+        "/topic/{topicId}/protocol": {
+            "get": {
+                "operationId": "TopicRoutes_GetProtocol",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1Protocol"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "topicId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "TopicRoutes"
+                ]
+            }
+        },
+        "/user": {
+            "get": {
+                "operationId": "UserRoutes_ListUsers",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1UserList"
+                                }
+                            }
+                        }
+                    }
+                },
+                "tags": [
+                    "UserRoutes"
+                ]
+            }
+        },
+        "/user/{userId}": {
+            "get": {
+                "operationId": "UserRoutes_GetUser",
+                "responses": {
+                    "200": {
+                        "description": "A successful response.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/v1User"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "UserRoutes"
+                ]
+            }
+        }
+    },
+    "servers": [
+        {
+            "url": "/metacensus/api/v1"
+        }
+    ],
+    "components": {
+        "schemas": {
+            "PropRoutesCreatePropBody": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/v1PropType"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "description": "PropCreateRequest takes no author: it is the authenticated user."
+            },
+            "PropRoutesSetVoteBody": {
+                "type": "object",
+                "properties": {
+                    "position": {
+                        "$ref": "#/components/schemas/VotePosition"
+                    },
+                    "explanation": {
+                        "type": "string"
+                    },
+                    "citations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1PropCitation"
+                        }
+                    }
+                },
+                "description": "VoteSetRequest sets rather than creates: it replaces the caller's previous\nvote on this prop."
+            },
+            "VotePosition": {
+                "type": "string",
+                "enum": [
+                    "Unspecified",
+                    "For",
+                    "Against",
+                    "Abstain"
+                ],
+                "default": "Unspecified"
+            },
+            "v1DataExtraction": {
+                "type": "object",
+                "properties": {
+                    "topicId": {
+                        "type": "string"
+                    },
+                    "paperId": {
+                        "type": "string"
+                    },
+                    "protocolId": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1DatumExtraction"
+                        }
+                    }
+                },
+                "description": "DataExtraction is the values extracted from one paper against one protocol,\nidentified by the three ids together. Upserted and read back as-is."
+            },
+            "v1DatumExtraction": {
+                "type": "object",
+                "properties": {
+                    "protocolElementId": {
+                        "type": "string"
+                    },
+                    "datum": {
+                        "type": "string",
+                        "description": "The extracted value. A string for every element type the contract\ndescribes; multi-select elements have no representation yet."
+                    },
+                    "sourceLocation": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1SourceLocationPage"
+                        },
+                        "description": "Where in the PDF the value was read from. Empty when the value was typed\nrather than selected."
+                    }
+                },
+                "description": "DatumExtraction is one answered protocol element."
+            },
+            "v1HealthcheckResponse": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "v1LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "v1LogoutResponse": {
+                "type": "object"
+            },
+            "v1Member": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "The member's user id, not an id of the membership itself."
+                    },
+                    "joined": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "When the user joined the topic."
+                    }
+                },
+                "description": "Member is a user's membership of a topic. No backend implements the member\nroutes yet."
+            },
+            "v1MemberList": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1Member"
+                        }
+                    }
+                }
+            },
+            "v1Prop": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "authorId": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "type": {
+                        "$ref": "#/components/schemas/v1PropType"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "The text of the proposition, and the text `Vote.citations` index into."
+                    }
+                },
+                "description": "Prop is a motion a topic's members vote on. It can be functional, changing\nthe topic, or simply establish consensus."
+            },
+            "v1PropCitation": {
+                "type": "object",
+                "properties": {
+                    "start": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "end": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "description": "PropCitation is a half-open character range in a prop's `description`."
+            },
+            "v1PropList": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1Prop"
+                        }
+                    }
+                }
+            },
+            "v1PropType": {
+                "type": "string",
+                "enum": [
+                    "Unspecified",
+                    "Statement",
+                    "TopicQuestion",
+                    "TopicChange",
+                    "UserAdmit",
+                    "UserExpulse",
+                    "PaperExtractionComplete",
+                    "PaperIncludeMetaAnalysis"
+                ],
+                "default": "Unspecified",
+                "description": "Type is what the proposition would do if it passed."
+            },
+            "v1Protocol": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "protocolSections": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1ProtocolSection"
+                        }
+                    }
+                },
+                "description": "Protocol is an ordered set of sections, each an ordered set of elements."
+            },
+            "v1ProtocolCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "topicId": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1ProtocolSection"
+                        }
+                    }
+                },
+                "description": "ProtocolCreateRequest ignores the ids on its sections and elements."
+            },
+            "v1ProtocolElement": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "An HTML input type, used verbatim as `<input type=…>`: `text`, `number`,\n`date`, `textarea`, `radio` or `checkbox`."
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "placeholder": {
+                        "type": "string"
+                    },
+                    "required": {
+                        "type": "boolean"
+                    },
+                    "options": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1ProtocolElementOption"
+                        },
+                        "description": "Only meaningful for `radio` and `checkbox`."
+                    },
+                    "sortOrder": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "v1ProtocolElementOption": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    }
+                },
+                "description": "ProtocolElementOption is one choice of a radio or checkbox element."
+            },
+            "v1ProtocolSection": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "sortOrder": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "protocolElements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1ProtocolElement"
+                        }
+                    }
+                },
+                "description": "ProtocolSection is a titled group of elements, ordered by `sort_order`."
+            },
+            "v1Session": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "description": "Bearer token, sent back as `Authorization: Bearer <token>`."
+                    }
+                }
+            },
+            "v1SignUpRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "country": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                }
+            },
+            "v1SourceLocationPage": {
+                "type": "object",
+                "properties": {
+                    "page": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "rects": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1SourceRect"
+                        }
+                    }
+                },
+                "description": "SourceLocationPage is the highlighted rectangles on one page of a PDF."
+            },
+            "v1SourceRect": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "y": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "w": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "h": {
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "description": "SourceRect is one highlight rectangle, in the PDF viewer's coordinate space."
+            },
+            "v1Topic": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "description": "Topic is a systematic review in progress."
+            },
+            "v1TopicCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "v1TopicList": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1Topic"
+                        }
+                    }
+                }
+            },
+            "v1User": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "country": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "v1UserList": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1User"
+                        }
+                    }
+                }
+            },
+            "v1Vote": {
+                "type": "object",
+                "properties": {
+                    "propId": {
+                        "type": "string"
+                    },
+                    "userId": {
+                        "type": "string"
+                    },
+                    "position": {
+                        "$ref": "#/components/schemas/VotePosition"
+                    },
+                    "explanation": {
+                        "type": "string",
+                        "description": "Free-text rationale."
+                    },
+                    "citations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1PropCitation"
+                        },
+                        "description": "Spans of the prop's `description` the voter highlighted. Meaningful only\nfor an `Against` vote; cleared when the position changes to any other."
+                    },
+                    "lastCast": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "When the vote was most recently cast. Overwritten on every recast."
+                    }
+                },
+                "description": "Vote is one member's position on one prop, keyed by `(propId, userId)`: a\nsecond vote from the same user replaces the first rather than adding to it."
+            },
+            "v1VoteList": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/v1Vote"
+                        }
+                    }
+                },
+                "description": "VoteList is the only way to read a prop's votes."
+            }
+        }
+    }
+}

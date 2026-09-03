@@ -1,0 +1,19 @@
+# Swagger-level configuration protoc-gen-openapiv2 cannot derive from the
+# .proto sources. Kept out of the schema deliberately: base_path is not
+# expressible in google.api.http, and putting it in a .proto would need the
+# protoc-gen-openapiv2 annotations import and a non-resource file inside a
+# schema whose tests assert every file is a resource.
+#
+# base_path duplicates cmd/routegen's apiPrefix. TestBasePathMatchesManifest
+# is what keeps the two from drifting.
+openapiOptions:
+  file:
+    - file: metacensus/v1/auth.proto
+      option:
+        base_path: /metacensus/api/v1
+        info:
+          title: MetaCensus API
+          version: v1
+        schemes: [HTTPS]
+        consumes: [application/json]
+        produces: [application/json]
