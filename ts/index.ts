@@ -5,7 +5,6 @@
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
 export * from "./src/metacensus/v1/extraction.js";
-export * from "./src/metacensus/v1/paper.js";
 export * from "./src/metacensus/v1/prop.js";
 export * from "./src/metacensus/v1/protocol.js";
 export * from "./src/metacensus/v1/topic.js";
