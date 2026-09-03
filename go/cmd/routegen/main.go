@@ -1,6 +1,6 @@
 // Command routegen writes the route manifest for Go and TypeScript from the
-// google.api.http annotations on every service in metacensus.v1. It reads the
-// descriptors the generated Go package registers, so it runs after
+// google.api.http annotations on every service in every contract package. It
+// reads the descriptors the generated Go packages register, so it runs after
 // `buf generate`.
 package main
 
@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	_ "github.com/metacensus/api/go/metacensus/public/v1"
 	_ "github.com/metacensus/api/go/metacensus/v1"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
@@ -24,24 +25,63 @@ import (
 // Makefile runs this. Everything else in the build — buf, the generator
 // plugins — is rooted there too.
 const (
-	protoPkg = "metacensus.v1"
-	goOut    = "go/routes/manifest.go"
-	tsOut    = "ts/src/route-manifest.ts"
+	goOut = "go/routes/manifest.go"
+	tsOut = "ts/src/route-manifest.ts"
 
-	// apiPrefix is the path every route in the manifest is relative to, and the
-	// only place this string is written down. Both generated manifests take it
-	// from here, including their prose, so the constant and the paths it
-	// describes cannot drift apart.
-	//
-	// It is not in the .proto: google.api.http annotations carry a path each and
-	// protobuf has no notion of a string constant, so expressing it there would
-	// mean a custom FileOptions extension and a non-resource .proto file inside
-	// a schema whose tests assert every file is a resource. Not worth it for one
-	// string that the route generator is already the authority on.
-	apiPrefix = "/metacensus/api/v1"
+	// packageRoot is the namespace every contract package sits under. A
+	// registered file inside it that `packages` below does not name is an error
+	// rather than a package silently generating no routes.
+	packageRoot = "metacensus."
 )
 
+// packages is every contract package and the path prefix its routes hang off.
+// This table is the only place either prefix is written down. Both generated
+// manifests take theirs from here, including their prose, so a constant and the
+// paths it describes cannot drift apart — which is the reason the prefix is
+// generated at all rather than retyped in each consumer.
+//
+// The prefixes are not in the .proto: google.api.http annotations carry a path
+// each and protobuf has no notion of a string constant, so expressing them
+// there would mean a custom FileOptions extension and a non-resource .proto
+// file inside a schema whose tests assert every file is a resource. Not worth
+// it for two strings the route generator is already the authority on.
+//
+// Order is the manifest's order, so the authenticated surface stays first and
+// adding a package does not reshuffle the existing rows.
+var packages = []contractPackage{
+	{
+		Proto:   "metacensus.v1",
+		Prefix:  "/metacensus/api/v1",
+		GoConst: "Prefix",
+		TSConst: "apiPrefix",
+		Summary: "the authenticated API",
+	},
+	{
+		Proto: "metacensus.public.v1",
+		// No version segment, unlike the authenticated surface. See README.md,
+		// "Versioning the public surface": the intake routes commit to additive
+		// evolution instead, and read-only public data — if it ever arrives —
+		// gets its own versioned prefix rather than retrofitting one here.
+		Prefix:  "/metacensus/public",
+		GoConst: "PublicPrefix",
+		TSConst: "publicPrefix",
+		Summary: "the public, unauthenticated surface",
+	},
+}
+
+type contractPackage struct {
+	Proto   string
+	Prefix  string
+	GoConst string
+	TSConst string
+	Summary string
+}
+
 type route struct {
+	// Prefix is the package's prefix, carried on the route rather than left
+	// implicit. With one prefix a consumer could hard-code it; with two, a
+	// consumer holding a Route has no other way to know which one to join.
+	Prefix   string
 	Service  string
 	RPC      string
 	Method   string
@@ -81,19 +121,26 @@ func run() error {
 		return err
 	}
 
+	if err := checkEveryPackageIsNamed(); err != nil {
+		return err
+	}
+
 	var routes []route
 
-	for _, svc := range services() {
-		for i := 0; i < svc.Methods().Len(); i++ {
-			r, err := describe(svc.Methods().Get(i))
-			if err != nil {
-				return err
+	for _, pkg := range packages {
+		before := len(routes)
+		for _, svc := range services(pkg.Proto) {
+			for i := 0; i < svc.Methods().Len(); i++ {
+				r, err := describe(pkg, svc.Methods().Get(i))
+				if err != nil {
+					return err
+				}
+				routes = append(routes, r)
 			}
-			routes = append(routes, r)
 		}
-	}
-	if len(routes) == 0 {
-		return fmt.Errorf("no routes found in package %s", protoPkg)
+		if len(routes) == before {
+			return fmt.Errorf("no routes found in package %s", pkg.Proto)
+		}
 	}
 
 	if err := write(goOut, renderGo(routes)); err != nil {
@@ -102,9 +149,50 @@ func run() error {
 	return write(tsOut, renderTS(routes))
 }
 
+// checkEveryPackageIsNamed fails on a registered metacensus.* package that the
+// table above does not name. Without it, a new package's routes would be
+// missing from the manifest and the only symptom would be their absence —
+// which is precisely the failure the manifest exists to prevent. It also
+// catches the reverse, a package named here whose files never register,
+// because that would make every check over it silently vacuous.
+func checkEveryPackageIsNamed() error {
+	named := map[string]bool{}
+	for _, pkg := range packages {
+		named[pkg.Proto] = false
+	}
+
+	var stray []string
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		name := string(fd.Package())
+		if !strings.HasPrefix(name, packageRoot) {
+			return true
+		}
+		if _, ok := named[name]; !ok {
+			stray = append(stray, name+" ("+fd.Path()+")")
+			return true
+		}
+		named[name] = true
+		return true
+	})
+
+	sort.Strings(stray)
+	if len(stray) > 0 {
+		return fmt.Errorf("package(s) not in routegen's table, so their routes would be "+
+			"missing from the manifest: %s. Add an entry with the prefix its routes hang off",
+			strings.Join(stray, ", "))
+	}
+	for _, pkg := range packages {
+		if !named[pkg.Proto] {
+			return fmt.Errorf("package %s is in routegen's table but no file registers it; "+
+				"is the name a typo, or is the generated Go package not imported here?", pkg.Proto)
+		}
+	}
+	return nil
+}
+
 // services returns every service in the package, ordered by file then by
 // declaration, so the manifest is stable across runs.
-func services() []protoreflect.ServiceDescriptor {
+func services(protoPkg string) []protoreflect.ServiceDescriptor {
 	var files []protoreflect.FileDescriptor
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		if string(fd.Package()) == protoPkg {
@@ -123,7 +211,7 @@ func services() []protoreflect.ServiceDescriptor {
 	return out
 }
 
-func describe(md protoreflect.MethodDescriptor) (route, error) {
+func describe(pkg contractPackage, md protoreflect.MethodDescriptor) (route, error) {
 	rule, ok := proto.GetExtension(md.Options(), annotations.E_Http).(*annotations.HttpRule)
 	if !ok || rule == nil {
 		return route{}, fmt.Errorf("%s: no google.api.http option", md.Name())
@@ -159,6 +247,7 @@ func describe(md protoreflect.MethodDescriptor) (route, error) {
 	}
 
 	return route{
+		Prefix:   pkg.Prefix,
 		Service:  string(md.Parent().Name()),
 		RPC:      string(md.Name()),
 		Method:   method,
@@ -236,20 +325,35 @@ func renderGo(routes []route) []byte {
 	var b bytes.Buffer
 
 	b.WriteString("// Code generated by cmd/routegen. DO NOT EDIT.\n\n")
-	fmt.Fprintf(&b, "// Package routes is the whole route table of %s on one\n", apiPrefix)
-	b.WriteString("// screen, generated from the google.api.http annotations on each resource's\n")
-	b.WriteString("// service in metacensus/v1.\n")
+	b.WriteString("// Package routes is every MetaCensus route on one screen, generated from the\n")
+	b.WriteString("// google.api.http annotations on each service.\n")
+	b.WriteString("//\n")
+	b.WriteString("// Two surfaces are declared here, under two prefixes:\n")
+	b.WriteString("//\n")
+	for _, pkg := range packages {
+		fmt.Fprintf(&b, "//\t%-12s %-20s %s\n", pkg.GoConst, pkg.Prefix, pkg.Summary)
+	}
+	b.WriteString("//\n")
+	b.WriteString("// One manifest rather than one per surface: the client that consumes both is\n")
+	b.WriteString("// the reason the contract lives in one repository at all, and a route table\n")
+	b.WriteString("// split in two is a table no one reads whole.\n")
 	b.WriteString("package routes\n\n")
-	b.WriteString("// Prefix is the path every route below hangs off. Join it with a Route's\n")
-	b.WriteString("// Path to get the path a client actually requests; the reverse proxy in\n")
-	b.WriteString("// front of the API is what makes that resolve.\n")
-	fmt.Fprintf(&b, "const Prefix = %q\n\n", apiPrefix)
-	fmt.Fprintf(&b, "// Route is one declared route. Path is relative to %s and\n", apiPrefix)
+	for _, pkg := range packages {
+		fmt.Fprintf(&b, "// %s is the path %s routes hang off:\n", pkg.GoConst, pkg.Proto)
+		fmt.Fprintf(&b, "// %s.\n//\n", pkg.Summary)
+		b.WriteString("// Join it with a Route's Path to get the path a client actually requests;\n")
+		b.WriteString("// the reverse proxy in front of both services is what makes that resolve.\n")
+		b.WriteString("// A Route carries its own Prefix, so joining does not mean knowing which\n")
+		b.WriteString("// surface a route came from.\n")
+		fmt.Fprintf(&b, "const %s = %q\n\n", pkg.GoConst, pkg.Prefix)
+	}
+	b.WriteString("// Route is one declared route. Path is relative to Prefix and\n")
 	b.WriteString("// spells its parameters {lowerCamelCase}, as the wire does. Params, Query and\n")
 	b.WriteString("// Body between them account for every field of Request: Params bind path\n")
 	b.WriteString("// segments, Query travels in the query string, and Body is \"*\" when the rest\n")
 	b.WriteString("// travels in the body and empty when none does.\n")
 	b.WriteString("type Route struct {\n")
+	b.WriteString("\tPrefix   string\n")
 	b.WriteString("\tService  string\n")
 	b.WriteString("\tRPC      string\n")
 	b.WriteString("\tMethod   string\n")
@@ -260,13 +364,13 @@ func renderGo(routes []route) []byte {
 	b.WriteString("\tRequest  string\n")
 	b.WriteString("\tResponse string\n")
 	b.WriteString("}\n\n")
-	b.WriteString("// Routes is every route across every service, ordered by file then by\n")
-	b.WriteString("// declaration.\n")
+	b.WriteString("// Routes is every route across every surface, ordered by package, then by\n")
+	b.WriteString("// file, then by declaration.\n")
 	b.WriteString("var Routes = []Route{\n")
 
 	for _, r := range routes {
-		fmt.Fprintf(&b, "\t{Service: %q, RPC: %q, Method: %q, Path: %q, Params: %s, Query: %s, Body: %q, Request: %q, Response: %q},\n",
-			r.Service, r.RPC, r.Method, r.Path, goSlice(r.Params), goSlice(r.Query), r.Body, r.Request, r.Response)
+		fmt.Fprintf(&b, "\t{Prefix: %s, Service: %q, RPC: %q, Method: %q, Path: %q, Params: %s, Query: %s, Body: %q, Request: %q, Response: %q},\n",
+			goConstFor(r.Prefix), r.Service, r.RPC, r.Method, r.Path, goSlice(r.Params), goSlice(r.Query), r.Body, r.Request, r.Response)
 	}
 
 	b.WriteString("}\n")
@@ -276,6 +380,27 @@ func renderGo(routes []route) []byte {
 		panic(err)
 	}
 	return src
+}
+
+// goConstFor renders a route's Prefix as the constant rather than the literal,
+// so the two cannot be edited apart in the generated file either.
+func goConstFor(prefix string) string {
+	for _, pkg := range packages {
+		if pkg.Prefix == prefix {
+			return pkg.GoConst
+		}
+	}
+	panic("no constant for prefix " + prefix)
+}
+
+// tsConstFor is goConstFor for the TypeScript manifest.
+func tsConstFor(prefix string) string {
+	for _, pkg := range packages {
+		if pkg.Prefix == prefix {
+			return pkg.TSConst
+		}
+	}
+	panic("no constant for prefix " + prefix)
 }
 
 func goSlice(items []string) string {
@@ -297,18 +422,31 @@ func renderTS(routes []route) []byte {
 	var b bytes.Buffer
 
 	b.WriteString("// Code generated by cmd/routegen. DO NOT EDIT.\n\n")
-	fmt.Fprintf(&b, "// The whole route table of %s on one screen, generated from\n", apiPrefix)
-	b.WriteString("// the google.api.http annotations on each resource's service in metacensus/v1.\n\n")
-	b.WriteString("// The path every route below hangs off. Join it with a route's `path` to get\n")
-	b.WriteString("// the path a client actually requests; the reverse proxy in front of the API\n")
-	b.WriteString("// is what makes that resolve.\n")
-	fmt.Fprintf(&b, "export const apiPrefix = %q;\n\n", apiPrefix)
-	fmt.Fprintf(&b, "// `path` is relative to %s and spells its parameters\n", apiPrefix)
+	b.WriteString("// Every MetaCensus route on one screen, generated from the google.api.http\n")
+	b.WriteString("// annotations on each service. Two surfaces, under two prefixes:\n")
+	b.WriteString("//\n")
+	for _, pkg := range packages {
+		fmt.Fprintf(&b, "//   %-12s %-20s %s\n", pkg.TSConst, pkg.Prefix, pkg.Summary)
+	}
+	b.WriteString("//\n")
+	b.WriteString("// One manifest rather than one per surface: the client that consumes both is\n")
+	b.WriteString("// the reason the contract lives in one repository at all, and a route table\n")
+	b.WriteString("// split in two is a table no one reads whole.\n\n")
+	for _, pkg := range packages {
+		fmt.Fprintf(&b, "// The path %s routes hang off:\n", pkg.Proto)
+		fmt.Fprintf(&b, "// %s. Join it with a\n", pkg.Summary)
+		b.WriteString("// route's `path` to get the path a client actually requests; the reverse proxy\n")
+		b.WriteString("// in front of both services is what makes that resolve. A route carries its\n")
+		b.WriteString("// own `prefix`, so joining does not mean knowing which surface it came from.\n")
+		fmt.Fprintf(&b, "export const %s = %q;\n\n", pkg.TSConst, pkg.Prefix)
+	}
+	b.WriteString("// `path` is relative to `prefix` and spells its parameters\n")
 	b.WriteString("// {lowerCamelCase}, as the wire does. `params`, `query` and `body` between them\n")
 	b.WriteString("// account for every field of `request`: `params` bind path segments, `query`\n")
 	b.WriteString("// travels in the query string, and `body` is \"*\" when the rest travels in the\n")
 	b.WriteString("// body and \"\" when none does.\n")
 	b.WriteString("export interface Route {\n")
+	b.WriteString("  readonly prefix: string;\n")
 	b.WriteString("  readonly service: string;\n")
 	b.WriteString("  readonly rpc: string;\n")
 	b.WriteString("  readonly method: string;\n")
@@ -322,8 +460,8 @@ func renderTS(routes []route) []byte {
 	b.WriteString("export const routes: readonly Route[] = [\n")
 
 	for _, r := range routes {
-		fmt.Fprintf(&b, "  { service: %q, rpc: %q, method: %q, path: %q, params: [%s], query: [%s], body: %q, request: %q, response: %q },\n",
-			r.Service, r.RPC, r.Method, r.Path,
+		fmt.Fprintf(&b, "  { prefix: %s, service: %q, rpc: %q, method: %q, path: %q, params: [%s], query: [%s], body: %q, request: %q, response: %q },\n",
+			tsConstFor(r.Prefix), r.Service, r.RPC, r.Method, r.Path,
 			strings.Join(quoteAll(r.Params), ", "), strings.Join(quoteAll(r.Query), ", "),
 			r.Body, r.Request, r.Response)
 	}

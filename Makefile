@@ -16,7 +16,7 @@
 # changed between Go releases, so either one lands as generated-code drift in a
 # PR that never touched a .proto.
 
-.PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
+.PHONY: all gen lint format format-check breaking breaking-public test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
 GO_DIR    := go
@@ -35,6 +35,22 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 # The latest release tag: the published contract is what a breaking change
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
+
+# The public surface is compared against a different baseline, on purpose.
+#
+# For the authenticated API, what a break breaks is the published module — so
+# the released tag is the right baseline, and before adoption a break costs a
+# coordinated deploy. The public surface has no such option. Its callers are
+# browsers running whatever build of the SPA they loaded, plus whatever sits in
+# a CDN cache, plus — if read-only public data ever arrives — third parties who
+# never coordinated with anyone. None of them consume a tag. What they run
+# against is what is deployed, and what is deployed tracks main.
+#
+# So: the authenticated surface answers "does this break what was released?",
+# and the public surface answers "does this break what is deployed?". Same tool,
+# two questions, because two different populations of caller.
+PUBLIC_PROTO_DIR         := $(PROTO)/metacensus/public
+PUBLIC_BREAKING_AGAINST  ?= origin/main
 
 all: check
 
@@ -80,12 +96,38 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
+## breaking-public — the public surface against what is deployed, not what is tagged
+#
+# `--path` scopes the comparison to the public package: one buf module (one lint
+# config, one format pass, one import graph) with two breaking checks over it.
+# Splitting into two buf modules was the alternative and does not work — a v2
+# module's path is its import root, so `metacensus/v1/auth.proto` would become
+# `auth.proto` and every import in the schema would have to be rewritten.
+#
+# The rule set is FILE, the same as above, and deliberately so: FILE is already
+# buf's strictest category, so there is no stricter setting to reach for. The
+# extra things that are breaking *here* and not to buf — a narrowed length cap,
+# a newly-required field, a reordered meaning — are invisible to any schema
+# differ, because they live in comments and in the server. Those are held by
+# review and by the policy written down in README.md, and pretending a config
+# flag catches them would be worse than saying so.
+breaking-public: $(BIN)/buf
+	@if ! git rev-parse --verify -q '$(PUBLIC_BREAKING_AGAINST)^{commit}' >/dev/null; then \
+		echo "no $(PUBLIC_BREAKING_AGAINST) to compare against; skipping"; \
+	elif [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
+		echo "no public package at $(PUBLIC_BREAKING_AGAINST) yet; nothing deployed to break"; \
+	else \
+		$(BUF) breaking $(PROTO) \
+			--against '.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
+			--path '$(PUBLIC_PROTO_DIR)'; \
+	fi
+
 ## test — the schema and route invariants
 test:
 	go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check test
+check: lint format-check breaking-public test
 	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
 	# binary in the working directory.
 	go build -o /dev/null ./... && go vet ./...

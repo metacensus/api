@@ -1,12 +1,150 @@
 # The MetaCensus API contract, in Protocol Buffers
 
-Every request and response under `/metacensus/api/v1`, defined once in `.proto` and generated into Go and TypeScript.
+Every request and response under `/metacensus/api/v1` and `/metacensus/public`, defined once in `.proto` and generated into Go and TypeScript.
 
 This repository was split out of [`metacensus/ui`](https://github.com/metacensus/ui), where it lived as `contract/`. The 16 commits that built it came across intact — they are the derivation argument for why each field is in or out, and `git log` is the place to read it.
 
 **Nothing consumes this yet**, and nothing is published, so nothing can. infra, demo and the SPA each still carry their own hand-maintained types.
 
 The four issues in ui that tracked this work — adoption, what the contract deliberately leaves out, cross-language wire agreement, and the route conventions — were all closed as not-planned when the contract moved out of that repository. Nothing here replaces them yet, so the open questions recorded below are open in the plain sense: written down, not tracked.
+
+## The two surfaces
+
+Two proto packages live here, because two surfaces do, and they differ in almost
+every property a contract encodes:
+
+|  | `metacensus.v1` | `metacensus.public.v1` |
+| --- | --- | --- |
+| prefix | `/metacensus/api/v1` | `/metacensus/public` |
+| caller | an authenticated session | anyone on the internet |
+| implementers | two, with different persistence | one, `metacensus/service-public-api` |
+| compatibility owed | none yet, by stated stance | to whatever is deployed |
+| breaking baseline | the latest release tag | `origin/main` |
+| threat model | authenticated abuse | spam, floods, forged origins |
+
+They are separate packages rather than a corner of one, and a schema test
+(`TestNoMessageFieldCrossesResourceFiles`) refuses a field typed across the
+boundary. That is not tidiness. The compatibility policies below differ, and a
+message shared between the two would put the laxer policy in charge of the
+stricter one's wire shape.
+
+**One repository, though, and one of each generated artifact.** The SPA calls
+`POST /metacensus/public/partner` and `POST /metacensus/api/v1/login` from one
+build on one origin, and it is the only party that sees every surface — which is
+the same argument that put the authenticated contract here. It takes one Go
+module and one npm package. What it does not have to take is one *namespace*:
+Go already separates them, since `go/metacensus/public/v1` is a package of its
+own that pulls nothing else in, and npm separates them with a subpath export.
+
+## Versioning the public surface
+
+The two questions people conflate here are the release tag and the wire version.
+They are not the same thing and they got different answers.
+
+**The wire version is independent.** `metacensus.public.v1` carries its own `v1`,
+so the public schema can reach v2 while the authenticated one stays at v1, or the
+reverse. Nothing couples them.
+
+**The release tag is shared.** One repository, one `v*` tag, one npm version, one
+Go module version. Splitting the Go side would mean a `go.mod` under a
+subdirectory, which is versioned by `go/v1.2.3` tags — the exact trap the
+"Releasing" section below exists to avoid, paid twice. A shared tag says nothing
+about the wire; it says these files were released together.
+
+**The compatibility policy is independent, and it is the part that matters.**
+`AGENTS.md` says no backwards compatibility is owed yet. That is true of the
+authenticated API, whose consumers are two backends and one SPA that ship
+together. It is *not* true of the public surface, and not as a matter of taste:
+
+- its callers are browsers running whatever build of the SPA they loaded, which
+  nobody can redeploy, plus whatever a CDN is still serving
+- there is no auth handshake, no version negotiation and no client registry, so
+  there is no way to find out who would break and no way to tell them
+- a rolling deploy, where the old SPA is served for another few minutes, is on
+  its own enough to break submissions during the window
+
+So `make breaking` and `make breaking-public` ask different questions. The first
+asks whether the schema breaks **what was released**, comparing against the
+latest tag, because that is what a module consumer holds. The second asks whether
+it breaks **what is deployed**, comparing against `origin/main`, because that is
+what a browser talks to. Same tool, two baselines, two populations of caller.
+
+One honest limit: the *rule set* is `FILE` for both, because `FILE` is already
+buf's strictest category — there is nothing stricter to switch on. The extra
+things that are breaking on this surface and invisible to any schema differ — a
+narrowed length cap, a newly-required field, a value that quietly changes meaning
+— are held by review and by this paragraph. A config flag that claimed to catch
+them would be worse than saying plainly that none does.
+
+**The path carries no version segment**, unlike `/metacensus/api/v1`. Form intake
+commits to additive evolution instead: values get added to `Interest`, never
+removed or renumbered. If read-only public data ever arrives — the category
+[service-public-api#2](https://github.com/metacensus/service-public-api/issues/2)
+deliberately leaves open — it should get its own versioned prefix rather than
+retrofitting one here. The machinery is ready for that and does not assume it:
+the proto package is already `metacensus.public.v1`, and a prefix is one entry in
+`cmd/routegen`'s table. `TestPrefix` will fail the day a nested prefix appears,
+which is the point — the reverse proxy routes by longest prefix match, and how it
+tells `/metacensus/public` from `/metacensus/public/v1` is a decision to take
+rather than to discover.
+
+## Why `/healthz` is not in the contract
+
+`metacensus/service-public-api` also answers `GET /healthz`, and it is not here.
+
+The case for including it: it is part of the service's observable surface, it
+returns a JSON body, and a contract that omits it is not a complete description
+of what the service serves.
+
+The case against, which won: **every route in this manifest is relative to a
+prefix, and `/healthz` is relative to nothing.** It sits outside
+`/metacensus/public` on purpose — the container runtime probes the service
+directly rather than through the proxy, which is exactly why it must not move.
+Putting it in would mean either an absolute path in a manifest whose paths are
+all relative, or a third, empty prefix, which makes "prefix" stop meaning
+anything. `TestEveryRouteHangsOffADeclaredPrefix` records that.
+
+And nothing would consume it. Its caller is a container runtime reading a health
+probe out of a compose file or a Kubernetes manifest in a third repository; it
+does not import Go types or npm packages. The contract's unit is a route a client
+codes against, and "the service's whole surface" is a different set. Note too
+that `metacensus.v1` already declares a `HealthRoutes` at `/healthcheck`, which
+*is* under a prefix and is the API's — adding a second, prefixless health shape
+would leave two of them in one manifest meaning different things.
+
+If the answer ever changes, the thing that changed is that something started
+consuming it programmatically. That would be worth noticing.
+
+## What the public contract does and does not mechanise
+
+**The interest set is mechanised, and it is the reason this exists.**
+`PartnerSubmission.Interest` is a proto enum. Adding a checkbox is adding a value;
+both the service and the SPA regenerate from it, and `buf breaking` refuses a
+removal. Before this, `PartnerInterests` in the service had to equal
+`partnerInterests` in the SPA, asserted by a test that needed both trees checked
+out at once — a test the repository split destroyed. Getting it wrong now fails
+in CI; getting it wrong then 400'd every submission carrying the new checkbox, at
+runtime, for users.
+
+**The display wording is deliberately not mechanised.** The enum carries the set;
+the label ("Fund the work") stays in the SPA as copy. Putting labels in the schema
+would make a copy edit into a schema change, a regeneration, a release and a
+service deploy. The two also fail differently — a stale label renders an odd
+string in a Slack message, a stale set rejects every submission — and only the
+second is worth a build failure. The set is a contract; the wording is copy.
+
+**The validation limits are documented, not enforced.** `name` ≤ 120, `email` ≤
+254, `message` ≤ 2000, body ≤ 16 KiB. They are comments on the fields rather than
+`protovalidate` constraints, because the constraints could not reach the half that
+needs them: ts-proto runs with `onlyTypes=true` and drops field options entirely,
+so an annotation would generate the server's checks and nothing for the form,
+while `protovalidate-es` would put a runtime dependency into a package whose whole
+claim is that it has none. A mismatched cap degrades a form; a mismatched interest
+set breaks it. Only one was worth new machinery.
+
+**No server stubs and no client.** Same depth as the authenticated surface, for
+the same reason: the rpcs are a route declaration, not a gRPC commitment, and the
+SPA calls a relative path with `fetch`.
 
 ## Layout
 
@@ -41,13 +179,38 @@ Generated code is committed; CI regenerates and fails on any diff.
 ## Consuming it
 
 ```bash
-go get github.com/metacensus/api          # import github.com/metacensus/api/go/metacensus/v1
+go get github.com/metacensus/api
 npm install @metacensus/api               # types only, zero dependencies
 ```
+
+```go
+import v1 "github.com/metacensus/api/go/metacensus/v1"              // authenticated
+import publicv1 "github.com/metacensus/api/go/metacensus/public/v1"  // public
+import "github.com/metacensus/api/go/routes"                         // both, one table
+```
+
+```ts
+import type { Topic } from "@metacensus/api";                  // authenticated
+import type { PartnerSubmission } from "@metacensus/api/public"; // public
+```
+
+**One package, two entry points.** The SPA calls both surfaces from one build and
+takes one dependency; a consumer of only the public surface — a third party
+integrating against `/metacensus/public/*`, who never had a session — imports
+`@metacensus/api/public` and does not acquire the authenticated types. Go needed
+no equivalent: its packages were already separate. The route manifest is exported
+from both, deliberately, because "every MetaCensus route on one screen" is the
+reason the contract lives in one repository, and the manifest is string literals
+rather than a type surface.
 
 Neither is published yet. See "Releasing", below.
 
 ## What "breaking" is measured against
+
+There are two comparisons, over two baselines. This section is about the
+authenticated one; see "Versioning the public surface" above for why
+`make breaking-public` compares `metacensus.public.v1` against `origin/main`
+instead, and why that is a fact about callers rather than a preference.
 
 `buf breaking` compares the schema against **the latest release tag**, not against the PR's merge base. The published contract is what a breaking change breaks; unreleased `main` is not a promise to anyone. That makes it a question about state — does the schema as it stands break what consumers have — rather than about a diff, so the answer does not depend on which base a PR happens to have.
 
@@ -86,11 +249,15 @@ Agreement between the JSON Go emits and the TypeScript generated from the same `
 
 ## Routes
 
-Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `prop.proto` has `PropRoutes`, and so on across all seven. They declare 21 routes between them.
+Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `prop.proto` has `PropRoutes`, and so on across all seven. They declare 21 routes between them. The public package adds an eighth service, `PartnerRoutes` in `partner.proto`, for 22 routes in one manifest.
 
-**The prefix is part of the contract, and it is generated too.** `routes.Prefix` in Go and `apiPrefix` in TypeScript both carry `/metacensus/api/v1`, emitted by `cmd/routegen` from the single constant it holds. Every `path` in the manifest is relative to it, so join the two to get what a client requests. It had been written out by hand in every repository that needed it, with nothing making the copies agree; that is the reason it is generated here rather than left to each consumer.
+**The prefixes are part of the contract, and they are generated too.** `routes.Prefix` / `apiPrefix` carries `/metacensus/api/v1` and `routes.PublicPrefix` / `publicPrefix` carries `/metacensus/public`, emitted by `cmd/routegen` from the one table it holds. Every `path` in the manifest is relative to one of them, so join the two to get what a client requests. They had been written out by hand in every repository that needed them, with nothing making the copies agree; that is the reason they are generated here rather than left to each consumer.
 
-It is not expressed in the `.proto`: `google.api.http` carries a path per route and protobuf has no string constant, so putting it there would mean a custom `FileOptions` extension and a non-resource `.proto` inside a schema whose tests assert every file is a resource. `TestPrefix` pins the invariant instead — the prefix is absolute, has no trailing slash, and no route path already contains it.
+**Each route carries its own `prefix`.** With one prefix a consumer could hard-code it; with two, a consumer holding a `Route` has no other way to know which to join, and guessing from the service name is exactly the hand-mirroring this repository exists to stop. That is also what keeps one manifest workable instead of one per surface — and one is the point, since the client that sees every surface is why the contract lives here.
+
+`cmd/routegen` fails on a registered `metacensus.*` package its table does not name, rather than generating a manifest silently missing that package's routes.
+
+The prefixes are not expressed in the `.proto`: `google.api.http` carries a path per route and protobuf has no string constant, so putting them there would mean a custom `FileOptions` extension and a non-resource `.proto` inside a schema whose tests assert every file is a resource. `TestPrefix` pins the invariants instead — each prefix is absolute, has no trailing slash, is one a route actually hangs off, and no route path already contains its own prefix. It also refuses a prefix nested inside another, because the reverse proxy routes by longest prefix match and a nested pair moves that decision into a config file in a third repository.
 
 **To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `PropCreateRequest` carries `topic_id` although `topic_id` never travels in a body.
 
@@ -100,6 +267,16 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 ## What the tests check
 
-`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path.
+`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and full path.
+
+**They run over both packages, and that took work rather than a wildcard.** Each check used to close over a single `protoPkg` constant, so a second package would not have been *exempted* — it would have been invisible, and every test would have gone on passing over a schema smaller than the one that ships. Three things changed:
+
+- the checks iterate `contractPackages`, and `forEachContractFile` fails **per package** when one registers no files, so a typo or a missing import cannot make a package's coverage vacuous while the other keeps the count non-zero
+- `TestEveryPackageIsGoverned` fails on any registered `metacensus.*` package absent from that list, so exempting one has to be a deliberate edit that says which invariant it cannot satisfy
+- the shared-file exemption became per-package (`sharedFileOf`), and typing a field across the package boundary is now an error in its own right — the two surfaces owe different compatibility, and a field spanning them would put one policy in charge of the other's wire shape
+
+Route identity is the **full** path now, prefix included. With one prefix, "the path" and "the URL" were the same question; with two they are not, in both directions — a public `/partner` and an authenticated `/partner` are different URLs and must not be reported as a clash, while two routes that genuinely resolve to the same URL must be, whichever packages they came from.
+
+Registration is explicit in `go/registered_test.go`. It used to be a side effect of one test file importing one package for another reason, which would have kept working and kept covering only that package.
 
 `ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.
