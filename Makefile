@@ -50,6 +50,8 @@ BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 # and the public surface answers "does this break what is deployed?". Same tool,
 # two questions, because two different populations of caller.
 PUBLIC_PROTO_DIR         := $(PROTO)/metacensus/public
+# The same directory as buf sees it, i.e. relative to the module root.
+PUBLIC_PACKAGE_PATH      := metacensus/public
 PUBLIC_BREAKING_AGAINST  ?= origin/main
 
 all: check
@@ -104,6 +106,14 @@ breaking: $(BIN)/buf
 # module's path is its import root, so `metacensus/v1/auth.proto` would become
 # `auth.proto` and every import in the schema would have to be rewritten.
 #
+# **This is the one buf invocation that does not run from the repository root**,
+# and it has to be. `--path` resolves against the input's context directory, and
+# the `--against` input is the module rooted at `proto/` inside a git archive —
+# so a path written from the root ("proto/metacensus/public") is not a path that
+# exists in it, and buf answers "no .proto files were targeted" rather than
+# failing usefully. Running from $(PROTO) makes one spelling correct for both
+# inputs. $(BUF) is absolute, so this is safe; nothing else here is relative.
+#
 # The rule set is FILE, the same as above, and deliberately so: FILE is already
 # buf's strictest category, so there is no stricter setting to reach for. The
 # extra things that are breaking *here* and not to buf — a narrowed length cap,
@@ -117,9 +127,9 @@ breaking-public: $(BIN)/buf
 	elif [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
 		echo "no public package at $(PUBLIC_BREAKING_AGAINST) yet; nothing deployed to break"; \
 	else \
-		$(BUF) breaking $(PROTO) \
-			--against '.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
-			--path '$(PUBLIC_PROTO_DIR)'; \
+		cd $(PROTO) && $(BUF) breaking . \
+			--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
+			--path '$(PUBLIC_PACKAGE_PATH)'; \
 	fi
 
 ## test — the schema and route invariants
