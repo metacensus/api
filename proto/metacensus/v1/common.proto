@@ -14,19 +14,6 @@ service HealthRoutes {
   }
 }
 
-// ListMetadata is the pagination envelope for list responses. No route
-// paginates yet, so nothing references it.
-message ListMetadata {
-  // 1-based.
-  int32 page = 1;
-
-  // Items per page.
-  int32 limit = 2;
-
-  // Items across all pages, not just this one.
-  int32 total = 3;
-}
-
 message HealthcheckRequest {}
 
 message HealthcheckResponse {

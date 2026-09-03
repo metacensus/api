@@ -24,71 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ListMetadata is the pagination envelope for list responses. No route
-// paginates yet, so nothing references it.
-type ListMetadata struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// 1-based.
-	Page int32 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	// Items per page.
-	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Items across all pages, not just this one.
-	Total         int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListMetadata) Reset() {
-	*x = ListMetadata{}
-	mi := &file_metacensus_v1_common_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListMetadata) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListMetadata) ProtoMessage() {}
-
-func (x *ListMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_common_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListMetadata.ProtoReflect.Descriptor instead.
-func (*ListMetadata) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *ListMetadata) GetPage() int32 {
-	if x != nil {
-		return x.Page
-	}
-	return 0
-}
-
-func (x *ListMetadata) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *ListMetadata) GetTotal() int32 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
-}
-
 type HealthcheckRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -97,7 +32,7 @@ type HealthcheckRequest struct {
 
 func (x *HealthcheckRequest) Reset() {
 	*x = HealthcheckRequest{}
-	mi := &file_metacensus_v1_common_proto_msgTypes[1]
+	mi := &file_metacensus_v1_common_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -109,7 +44,7 @@ func (x *HealthcheckRequest) String() string {
 func (*HealthcheckRequest) ProtoMessage() {}
 
 func (x *HealthcheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_common_proto_msgTypes[1]
+	mi := &file_metacensus_v1_common_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -122,7 +57,7 @@ func (x *HealthcheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthcheckRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{1}
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{0}
 }
 
 type HealthcheckResponse struct {
@@ -134,7 +69,7 @@ type HealthcheckResponse struct {
 
 func (x *HealthcheckResponse) Reset() {
 	*x = HealthcheckResponse{}
-	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	mi := &file_metacensus_v1_common_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +81,7 @@ func (x *HealthcheckResponse) String() string {
 func (*HealthcheckResponse) ProtoMessage() {}
 
 func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_common_proto_msgTypes[2]
+	mi := &file_metacensus_v1_common_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +94,7 @@ func (x *HealthcheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthcheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthcheckResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *HealthcheckResponse) GetStatus() string {
@@ -173,11 +108,7 @@ var File_metacensus_v1_common_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"N\n" +
-	"\fListMetadata\x12\x12\n" +
-	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
-	"\x05total\x18\x03 \x01(\x05R\x05total\"\x14\n" +
+	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"\x14\n" +
 	"\x12HealthcheckRequest\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status2z\n" +
@@ -196,15 +127,14 @@ func file_metacensus_v1_common_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_common_proto_rawDescData
 }
 
-var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_metacensus_v1_common_proto_goTypes = []any{
-	(*ListMetadata)(nil),        // 0: metacensus.v1.ListMetadata
-	(*HealthcheckRequest)(nil),  // 1: metacensus.v1.HealthcheckRequest
-	(*HealthcheckResponse)(nil), // 2: metacensus.v1.HealthcheckResponse
+	(*HealthcheckRequest)(nil),  // 0: metacensus.v1.HealthcheckRequest
+	(*HealthcheckResponse)(nil), // 1: metacensus.v1.HealthcheckResponse
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
-	1, // 0: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
-	2, // 1: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
+	0, // 0: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
+	1, // 1: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -223,7 +153,7 @@ func file_metacensus_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_common_proto_rawDesc), len(file_metacensus_v1_common_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

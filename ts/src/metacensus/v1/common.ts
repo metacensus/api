@@ -10,19 +10,6 @@ export const protobufPackage = "metacensus.v1";
 
 /** Shared types. */
 
-/**
- * ListMetadata is the pagination envelope for list responses. No route
- * paginates yet, so nothing references it.
- */
-export interface ListMetadata {
-  /** 1-based. */
-  page: number;
-  /** Items per page. */
-  limit: number;
-  /** Items across all pages, not just this one. */
-  total: number;
-}
-
 export interface HealthcheckRequest {
 }
 
