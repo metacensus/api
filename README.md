@@ -13,6 +13,7 @@ The four issues in ui that tracked this work — adoption, what the contract del
 ```
 proto/           .proto sources and buf config — the definition
 go/              generated Go, the wire encoder, the manifest generator, tests
+go/server/       the grpc-gateway wiring: marshaler, error handler, auth guard
 ts/              generated TypeScript interfaces, the npm package
 internal/tools/  the pinned code generators, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
@@ -35,6 +36,10 @@ make hooks   # optional: lint and format-check .proto on commit
 Generated code is committed; CI regenerates and fails on any diff.
 
 `buf` and `protoc-gen-go` are `tool` dependencies of **`internal/tools`, a separate module**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module now requires two things.
+
+**The published module requires eight things, not two.** The generated code imports `google.golang.org/grpc` and `github.com/grpc-ecosystem/grpc-gateway/v2/runtime`, which bring `golang.org/x/net`, `x/sys`, `x/text` and `genproto/googleapis/rpc` with them. Every Go consumer takes all of it; the npm package is untouched.
+
+Both generators also had to be pinned *down*: their current releases require Go 1.25 and this module is on 1.24.0, so `protoc-gen-go-grpc` is held at v1.5.1 and grpc-gateway at v2.28.0. That version set moved `google.golang.org/protobuf` from 1.36.9 to 1.36.11, which restamped every `.pb.go`, and it forced a `go mod tidy` on `internal/tools` — the module whose own header says not to run one.
 
 `make tools` builds those generators with `GOWORK=off` and a pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a PR that never touched a `.proto`. It builds them into `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root. `routegen` refuses to run anywhere else: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
 
@@ -98,9 +103,38 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 **To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `PropCreateRequest` carries `topic_id` although `topic_id` never travels in a body.
 
-**They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
+**They are a gRPC commitment on the server side, and not on the client side.** `protoc-gen-go-grpc` emits one service interface per resource and `protoc-gen-grpc-gateway` emits the HTTP transcoding for them. No gRPC server runs and nothing is dialled — `RegisterXHandlerServer` calls the implementation in process. The SPA is unaffected: ts-proto is still given `outputServices=none`, so nothing gRPC-shaped reaches TypeScript.
+
+This reverses the position the contract held until now, stated in every service file and in `buf.gen.yaml`. Those comments were updated rather than left to rot.
 
 **Every route conforms to the conventions.** It did not always: three routes on `Paper` broke them — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `TestNonConformingRoutes` still runs, pinning the set of deliberate exceptions at empty, so a route that starts breaking a convention fails the build.
+
+## Serving it
+
+`protoc-gen-go-grpc` emits one interface per resource — `v1.TopicRoutesServer` and its siblings — and `protoc-gen-grpc-gateway` emits the HTTP transcoding. An implementation that misses a route, or carries the wrong request or response type, does not compile.
+
+```go
+handler, err := server.New(ctx, server.Handlers{
+	Topic: store,                 // a v1.TopicRoutesServer or it does not build
+	Prop:  store,
+}, server.Options{
+	Log:    logErr,
+	Auth:   sessions,
+	Public: map[string]bool{"POST /login": true, "POST /signup": true, "GET /healthcheck": true},
+})
+```
+
+**`require_unimplemented_servers=false` is load-bearing.** With protoc-gen-go-grpc's default, a server embeds `UnimplementedTopicRoutesServer`, a missing method compiles, and the failure becomes a runtime `codes.Unimplemented`. That embedding would give away the compile-time completeness this depth is adopted for.
+
+**The marshaler has to be set explicitly.** grpc-gateway has its own protojson defaults, so without `WithMarshalerOption` the wire rules above would describe an encoder nothing was running.
+
+**Errors have two paths, and one of them is a leak.** A `*server.Error` carries an HTTP status, `code` and message and is exposed as written. A gRPC status error is mapped by `runtime.HTTPStatusFromCode` and **its message is exposed**, because that is the gRPC convention and because the gateway's own binding failures arrive that way. `status.Error(codes.Internal, dbErr.Error())` is ordinary gRPC and puts a datastore's words on the wire. Anything else becomes an opaque 500.
+
+`*server.Error` exists because gRPC codes are a second status vocabulary mapped onto HTTP lossily: `codes.Aborted` gives 409 and `codes.FailedPrecondition` gives 400, so 412 is unreachable and nothing produces 413.
+
+**Auth is middleware, not an interceptor.** In-process registration does not run gRPC interceptors — grpc-gateway says so and offers `WithMiddlewares` instead. That middleware is installed once for every route and is not told which route matched, so it sees a method and a path. It works here only because every public route is parameterless; `server.New` refuses a parameterised route named public rather than silently authenticating it.
+
+**There is no body cap.** grpc-gateway offers no option for one, so it has to be an `http.MaxBytesReader` in whatever wraps the handler, and nothing in this package can require it.
 
 ## What the tests check
 

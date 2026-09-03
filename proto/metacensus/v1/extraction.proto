@@ -7,7 +7,8 @@ import "google/api/annotations.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
-// Route declarations, not a gRPC commitment: see contract/README.md.
+// Declared as a gRPC service and served over HTTP by grpc-gateway, which
+// transcodes from the google.api.http annotations below. No gRPC server runs.
 service ExtractionRoutes {
   rpc GetExtraction(DataExtractionGetRequest) returns (DataExtraction) {
     option (google.api.http) = {get: "/extraction"};

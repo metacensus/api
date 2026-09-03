@@ -7,7 +7,8 @@ import "google/api/annotations.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
-// Route declarations, not a gRPC commitment: see contract/README.md.
+// Declared as a gRPC service and served over HTTP by grpc-gateway, which
+// transcodes from the google.api.http annotations below. No gRPC server runs.
 service HealthRoutes {
   rpc Healthcheck(HealthcheckRequest) returns (HealthcheckResponse) {
     option (google.api.http) = {get: "/healthcheck"};
@@ -25,6 +26,15 @@ message ListMetadata {
 
   // Items across all pages, not just this one.
   int32 total = 3;
+}
+
+// Error is the body of any failed request. `code` is a stable PascalCase
+// identifier for the specific failure; the HTTP status carries the category and
+// this does not restate it. Codes are added over time, so a client that does not
+// recognise one falls back to the status.
+message Error {
+  string code = 1;
+  string error = 2;
 }
 
 message HealthcheckRequest {}

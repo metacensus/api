@@ -39,7 +39,7 @@ BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 all: check
 
 ## tools — build the pinned code generators out of internal/tools
-tools: $(BIN)/buf $(BIN)/protoc-gen-go
+tools: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-go-grpc $(BIN)/protoc-gen-grpc-gateway
 
 $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
@@ -47,6 +47,12 @@ $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(BIN)/protoc-gen-go-grpc: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+$(BIN)/protoc-gen-grpc-gateway: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
 
 ## deps — install the TypeScript toolchain
 deps:
