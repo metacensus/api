@@ -88,6 +88,26 @@ jobs:
           echo "comparing against ${against:-<nothing released yet>}"
           make breaking BREAKING_AGAINST="$against"
 
+      - name: Check for breaking changes to the public surface
+        # A second comparison, over metacensus.public.v1 only, against a
+        # different baseline: origin/main rather than the latest release tag.
+        #
+        # The step above asks whether the schema breaks what was *released*,
+        # because that is what a consumer of the Go module or the npm package
+        # has. This one asks whether it breaks what is *deployed*, because the
+        # public surface's callers are browsers holding a build of the SPA
+        # nobody can redeploy, and a CDN cache, and eventually third parties
+        # who never coordinated with us. None of them consume a tag; all of
+        # them talk to whatever is running, which tracks main.
+        #
+        # It is enforcing, not advisory. Failing it means the change breaks
+        # live callers, and the answer is a deliberate decision recorded in
+        # the PR — not a rerun. Before the public package exists at the
+        # baseline the target says so and passes.
+        run: |
+          git fetch -q --no-tags origin main
+          make breaking-public PUBLIC_BREAKING_AGAINST=origin/main
+
       - name: Regenerate everything
         run: make gen
 
