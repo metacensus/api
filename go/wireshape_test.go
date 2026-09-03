@@ -94,22 +94,6 @@ func TestListResponsesWrapItems(t *testing.T) {
 	})
 }
 
-// ListMetadata fixes the shape a paginated response will take. Wiring it into
-// one is a per-route decision, not a default.
-func TestListMetadataIsUnreferenced(t *testing.T) {
-	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
-		fields := md.Fields()
-		for i := 0; i < fields.Len(); i++ {
-			fd := fields.Get(i)
-			if fd.Kind() == protoreflect.MessageKind &&
-				fd.Message().FullName() == "metacensus.v1.ListMetadata" {
-				t.Errorf("%s.%s references ListMetadata. No route paginates yet; "+
-					"adopting it is a per-route decision, not a default.", md.FullName(), fd.Name())
-			}
-		}
-	})
-}
-
 // The two backends mint incompatible id formats; strings ratify neither.
 func TestIdsAreStrings(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {

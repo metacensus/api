@@ -6,9 +6,13 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// No route paginates. demo does, so re-deriving any of its request messages
-// would reintroduce the parameters one endpoint at a time: a test, not a
-// one-off audit.
+// No route paginates, and the envelope that would have described one is gone:
+// ListMetadata{page, limit, total} was removed because Fabric offers an opaque
+// bookmark rather than an offset and `total` needs an unbounded scan, so it was
+// an operation only one implementer could express (go/store/README.md, step 4).
+// demo does paginate, so re-deriving any of its request messages would
+// reintroduce the parameters one endpoint at a time: a test, not a one-off
+// audit.
 func TestNoPaginationFields(t *testing.T) {
 	paginationNames := map[string]bool{
 		"page": true, "limit": true, "offset": true, "cursor": true,
@@ -19,10 +23,6 @@ func TestNoPaginationFields(t *testing.T) {
 
 	// The legitimate uses of those words on this surface.
 	allowed := map[string]bool{
-		// Referenced by no response, so defining these commits nothing.
-		"metacensus.v1.ListMetadata.page":  true,
-		"metacensus.v1.ListMetadata.limit": true,
-		"metacensus.v1.ListMetadata.total": true,
 		// Where in a PDF a reviewer highlighted an extracted value.
 		"metacensus.v1.SourceLocationPage.page": true,
 		// A character range in a prop's description.

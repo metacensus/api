@@ -13,6 +13,8 @@ The four issues in ui that tracked this work — adoption, what the contract del
 ```
 proto/           .proto sources and buf config — the definition
 go/              generated Go, the wire encoder, the manifest generator, tests
+go/store/        the persistence seam: a hand-written Go interface, its
+                 placement rule, and a conformance suite
 ts/              generated TypeScript interfaces, the npm package
 internal/tools/  the pinned code generators, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
@@ -98,8 +100,32 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 Three routes on `Paper` break the conventions and are left broken deliberately — a read over POST, and `create` and `lookup` as verbs in the path. `TestNonConformingRoutes` names all three, so a fourth fails the build. Fixing them is not tracked anywhere yet.
 
+## The persistence seam
+
+`go/store` is a second contract in this repository, and a different kind of
+one. `proto/` defines what crosses the wire between a client and a service;
+`go/store` defines what crosses the seam between the shared API layer and a
+backend — Postgres in `metacensus/demo`, Hyperledger Fabric in
+`metacensus/infra`. It is hand-written Go, not generated, and it depends on
+nothing in `proto/`: the store's domain types and the wire's messages are two
+of the three representations, and mapping between them is the shared layer's
+job.
+
+It lives here for the same reason `proto/` does. Two implementers share it, so
+it belongs where neither owns it — including the rule that decides what may
+cross it, `go/store/README.md`, ported from
+[metacensus/infra#56](https://github.com/metacensus/infra/issues/56) where it
+would have been one implementer's convention.
+
+**Nothing implements it yet.** Until something does, it is a proposal, and the
+conformance suite in `go/store/storetest` runs only against an in-memory double
+that proves its cases are satisfiable. `go/store/storetest/README.md` says what
+that does and does not establish.
+
 ## What the tests check
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path.
+
+It also runs the two checks that belong to `go/store`: that the package and its suite import nothing outside the standard library, which is the structural form of "the seam is a definition, not one implementer's dependencies"; and the conformance suite itself, against the in-memory double.
 
 `ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.
