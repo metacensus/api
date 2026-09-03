@@ -1,0 +1,13 @@
+# oapi-codegen reads the converted OpenAPI 3 document. Run by `make gen`; the
+# path it is given is on the command line, not here.
+package: server
+output: go/server/server.gen.go
+generate:
+  # strict-server gives handlers typed request and response objects. Without
+  # it, chi-server alone emits func(w http.ResponseWriter, r *http.Request) --
+  # route coverage, and nothing more.
+  strict-server: true
+  chi-server: true
+  models: true
+output-options:
+  skip-prune: true

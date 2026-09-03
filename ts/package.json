@@ -34,8 +34,8 @@
     "check": "tsc --noEmit && node scripts/check-no-runtime.mjs",
     "prepack": "npm run build"
   },
-  "dependencies": {},
   "devDependencies": {
+    "swagger2openapi": "7.0.8",
     "ts-proto": "2.7.7",
     "typescript": "5.5.4"
   }
