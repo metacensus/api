@@ -84,6 +84,23 @@ const DefaultMaxBodyBytes = 1 << 20
 // relative to routes.Prefix.
 func prefixedPath(route routes.Route) string { return routes.Prefix + route.Path }
 
+// routeOf is the manifest entry for a service and rpc, and is how the generated
+// registration gets a path at all.
+//
+// Reading it from the manifest rather than emitting it again is what stops the
+// two generated artifacts drifting: they come out of the same run over the same
+// descriptors, so a miss cannot happen, and if one ever did it is a wiring
+// failure worth hearing about at startup rather than a route quietly served at
+// the empty path.
+func routeOf(service, rpc string) routes.Route {
+	for _, r := range routes.Routes {
+		if r.Service == service && r.RPC == rpc {
+			return r
+		}
+	}
+	panic("server: no route in the manifest for " + service + "." + rpc)
+}
+
 // handle registers h for route, applying Wrap.
 //
 // The two panics are for a Mux that cannot serve the route at all. Both are
@@ -118,6 +135,12 @@ func (m Mux) errorHandler() ErrorHandler {
 func (m Mux) respond(w http.ResponseWriter, r *http.Request, msg proto.Message, err error) {
 	if err != nil {
 		m.errorHandler()(w, r, err)
+		return
+	}
+	// A handler that returns neither a response nor an error. Nothing sensible
+	// can be written, and an empty 200 would read as success.
+	if msg == nil || !msg.ProtoReflect().IsValid() {
+		m.errorHandler()(w, r, errors.New("server: handler returned no response and no error"))
 		return
 	}
 

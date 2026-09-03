@@ -27,6 +27,7 @@ const (
 	protoPkg = "metacensus.v1"
 	goOut    = "go/routes/manifest.go"
 	tsOut    = "ts/src/route-manifest.ts"
+	srvOut   = "go/server/routes.gen.go"
 
 	// apiPrefix is the path every route in the manifest is relative to, and the
 	// only place this string is written down. Both generated manifests take it
@@ -41,16 +42,33 @@ const (
 	apiPrefix = "/metacensus/api/v1"
 )
 
+// fieldRef is one request field a route binds. JSON is the name on the wire and
+// in the manifests; Go is the field protoc-gen-go generates for it, which the
+// server renderer assigns to and the manifests never mention.
+type fieldRef struct {
+	JSON string
+	Go   string
+}
+
 type route struct {
 	Service  string
 	RPC      string
 	Method   string
 	Path     string
-	Params   []string
-	Query    []string
+	Params   []fieldRef
+	Query    []fieldRef
 	Body     string
 	Request  string
 	Response string
+}
+
+// jsonNames is the wire names of refs, which is all either manifest carries.
+func jsonNames(refs []fieldRef) []string {
+	out := make([]string, len(refs))
+	for i, f := range refs {
+		out[i] = f.JSON
+	}
+	return out
 }
 
 func main() {
@@ -99,7 +117,10 @@ func run() error {
 	if err := write(goOut, renderGo(routes)); err != nil {
 		return err
 	}
-	return write(tsOut, renderTS(routes))
+	if err := write(tsOut, renderTS(routes)); err != nil {
+		return err
+	}
+	return write(srvOut, renderServer(routes))
 }
 
 // services returns every service in the package, ordered by file then by
@@ -149,6 +170,10 @@ func describe(md protoreflect.MethodDescriptor) (route, error) {
 	}
 
 	body := rule.GetBody()
+	if body != "" && body != "*" {
+		return route{}, fmt.Errorf("%s: body %q names a single field; generated binding decodes "+
+			"the whole request message or none of it", md.Name(), body)
+	}
 	path, params, bound, err := rewriteParams(path, md.Input())
 	if err != nil {
 		return route{}, fmt.Errorf("%s: %w", md.Name(), err)
@@ -175,9 +200,9 @@ func describe(md protoreflect.MethodDescriptor) (route, error) {
 // parameters in path order alongside the proto names they bound. A segment
 // naming no field of the request is an error: it would be a route no
 // implementation could bind.
-func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []string, map[protoreflect.Name]bool, error) {
+func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []fieldRef, map[protoreflect.Name]bool, error) {
 	var out strings.Builder
-	var params []string
+	var params []fieldRef
 	bound := map[protoreflect.Name]bool{}
 
 	for len(path) > 0 {
@@ -198,9 +223,14 @@ func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []s
 			return "", nil, nil, fmt.Errorf("path parameter %q is not a field of %s", name, req.FullName())
 		}
 
+		if fd.Kind() != protoreflect.StringKind || fd.IsList() || fd.IsMap() {
+			return "", nil, nil, fmt.Errorf("path parameter %q is not a singular string on %s; "+
+				"generated binding cannot parse it", name, req.FullName())
+		}
+
 		out.WriteString(path[:open])
 		out.WriteString("{" + fd.JSONName() + "}")
-		params = append(params, fd.JSONName())
+		params = append(params, refOf(fd))
 		bound[fd.Name()] = true
 		path = path[shut+1:]
 	}
@@ -212,7 +242,7 @@ func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []s
 // field the path did not bind and the body does not carry. `body: "*"` carries
 // all of them, a named body carries that one field, and an absent body carries
 // none.
-func queryParams(req protoreflect.MessageDescriptor, bound map[protoreflect.Name]bool, body string) ([]string, error) {
+func queryParams(req protoreflect.MessageDescriptor, bound map[protoreflect.Name]bool, body string) ([]fieldRef, error) {
 	if body == "*" {
 		return nil, nil
 	}
@@ -220,17 +250,66 @@ func queryParams(req protoreflect.MessageDescriptor, bound map[protoreflect.Name
 		return nil, fmt.Errorf("body %q is not a field of %s", body, req.FullName())
 	}
 
-	var out []string
+	var out []fieldRef
 	fields := req.Fields()
 	for i := 0; i < fields.Len(); i++ {
 		fd := fields.Get(i)
 		if bound[fd.Name()] || string(fd.Name()) == body {
 			continue
 		}
-		out = append(out, fd.JSONName())
+		// Generated binding assigns a string. A non-string query field would
+		// need parsing this does not do, so it is an error rather than a
+		// silently dropped parameter.
+		if fd.Kind() != protoreflect.StringKind || fd.IsList() || fd.IsMap() {
+			return nil, fmt.Errorf("%s.%s travels in the query string but is not a singular string; "+
+				"generated binding cannot parse it", req.FullName(), fd.Name())
+		}
+		out = append(out, refOf(fd))
 	}
 	return out, nil
 }
+
+// refOf names a field on the wire and in generated Go.
+func refOf(fd protoreflect.FieldDescriptor) fieldRef {
+	return fieldRef{JSON: fd.JSONName(), Go: goCamelCase(string(fd.Name()))}
+}
+
+// goCamelCase is protoc-gen-go's field naming, reimplemented because the
+// upstream copy lives in an internal package. It has to agree exactly: the
+// generated server assigns to the fields protoc-gen-go emitted, so a
+// disagreement is a compile error in generated code.
+func goCamelCase(s string) string {
+	var b []byte
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '.' && i+1 < len(s) && isASCIILower(s[i+1]):
+			// Skip over '.' in ".{{lowercase}}".
+		case c == '.':
+			b = append(b, '_')
+		case c == '_' && (i == 0 || s[i-1] == '.'):
+			b = append(b, 'X')
+		case c == '_' && i+1 < len(s) && isASCIILower(s[i+1]):
+			// Skip the underscore; the next iteration capitalises.
+		case isASCIIDigit(c):
+			b = append(b, c)
+		default:
+			// A letter starts a word, so it is upper case; the lower-case run
+			// that follows is copied as it stands.
+			if isASCIILower(c) {
+				c -= 'a' - 'A'
+			}
+			b = append(b, c)
+			for ; i+1 < len(s) && isASCIILower(s[i+1]); i++ {
+				b = append(b, s[i+1])
+			}
+		}
+	}
+	return string(b)
+}
+
+func isASCIILower(c byte) bool { return 'a' <= c && c <= 'z' }
+func isASCIIDigit(c byte) bool { return '0' <= c && c <= '9' }
 
 func renderGo(routes []route) []byte {
 	var b bytes.Buffer
@@ -266,7 +345,7 @@ func renderGo(routes []route) []byte {
 
 	for _, r := range routes {
 		fmt.Fprintf(&b, "\t{Service: %q, RPC: %q, Method: %q, Path: %q, Params: %s, Query: %s, Body: %q, Request: %q, Response: %q},\n",
-			r.Service, r.RPC, r.Method, r.Path, goSlice(r.Params), goSlice(r.Query), r.Body, r.Request, r.Response)
+			r.Service, r.RPC, r.Method, r.Path, goSlice(jsonNames(r.Params)), goSlice(jsonNames(r.Query)), r.Body, r.Request, r.Response)
 	}
 
 	b.WriteString("}\n")
@@ -324,7 +403,7 @@ func renderTS(routes []route) []byte {
 	for _, r := range routes {
 		fmt.Fprintf(&b, "  { service: %q, rpc: %q, method: %q, path: %q, params: [%s], query: [%s], body: %q, request: %q, response: %q },\n",
 			r.Service, r.RPC, r.Method, r.Path,
-			strings.Join(quoteAll(r.Params), ", "), strings.Join(quoteAll(r.Query), ", "),
+			strings.Join(quoteAll(jsonNames(r.Params)), ", "), strings.Join(quoteAll(jsonNames(r.Query)), ", "),
 			r.Body, r.Request, r.Response)
 	}
 
@@ -337,4 +416,94 @@ func write(path string, content []byte) error {
 		return err
 	}
 	return os.WriteFile(path, content, 0o644)
+}
+
+// renderServer writes the server package's generated half: one interface per
+// service, and the registration and binding that drive it.
+//
+// The interfaces are the point. An implementation missing a route, or carrying
+// the wrong request or response type, does not build — which is a stronger
+// guarantee than the manifest, since the manifest is a definition nothing
+// compares an implementation to.
+func renderServer(routes []route) []byte {
+	var b bytes.Buffer
+
+	b.WriteString("// Code generated by cmd/routegen. DO NOT EDIT.\n\n")
+	b.WriteString("package server\n\n")
+	b.WriteString("import (\n")
+	b.WriteString("\t\"context\"\n")
+	b.WriteString("\t\"net/http\"\n\n")
+	b.WriteString("\tv1 \"github.com/metacensus/api/go/metacensus/v1\"\n")
+	b.WriteString(")\n\n")
+
+	for _, svc := range groupByService(routes) {
+		renderService(&b, svc)
+	}
+
+	src, err := format.Source(b.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	return src
+}
+
+// service is one service's routes, in declaration order.
+type service struct {
+	Name   string
+	Routes []route
+}
+
+// groupByService keeps the manifest's order: routes arrive grouped by service
+// already, so this only draws the boundaries.
+func groupByService(routes []route) []service {
+	var out []service
+	for _, r := range routes {
+		if len(out) == 0 || out[len(out)-1].Name != r.Service {
+			out = append(out, service{Name: r.Service})
+		}
+		out[len(out)-1].Routes = append(out[len(out)-1].Routes, r)
+	}
+	return out
+}
+
+func renderService(b *bytes.Buffer, svc service) {
+	fmt.Fprintf(b, "// %s is the %s side of every route declared by the %s\n", svc.Name, "server", svc.Name)
+	fmt.Fprintf(b, "// service. An implementation satisfies it or does not compile.\n")
+	fmt.Fprintf(b, "type %s interface {\n", svc.Name)
+	for _, r := range svc.Routes {
+		fmt.Fprintf(b, "\t// %s serves %s %s.\n", r.RPC, r.Method, apiPrefix+r.Path)
+		fmt.Fprintf(b, "\t%s(context.Context, *v1.%s) (*v1.%s, error)\n", r.RPC, r.Request, r.Response)
+	}
+	b.WriteString("}\n\n")
+
+	fmt.Fprintf(b, "// Register%s registers every %s route on m.\n", svc.Name, svc.Name)
+	fmt.Fprintf(b, "func (m Mux) Register%s(h %s) {\n", svc.Name, svc.Name)
+	for _, r := range svc.Routes {
+		renderRoute(b, r)
+	}
+	b.WriteString("}\n\n")
+}
+
+func renderRoute(b *bytes.Buffer, r route) {
+	fmt.Fprintf(b, "\tm.handle(routeOf(%q, %q), func(w http.ResponseWriter, r *http.Request) {\n", r.Service, r.RPC)
+	fmt.Fprintf(b, "\t\treq := &v1.%s{}\n", r.Request)
+
+	if r.Body == "*" {
+		b.WriteString("\t\tif err := m.bindBody(w, r, req); err != nil {\n")
+		b.WriteString("\t\t\tm.respond(w, r, nil, err)\n")
+		b.WriteString("\t\t\treturn\n")
+		b.WriteString("\t\t}\n")
+	}
+	// Path wins over the body: the path is what routed the request, so a body
+	// field of the same name is the caller disagreeing with the URL it called.
+	for _, f := range r.Params {
+		fmt.Fprintf(b, "\t\treq.%s = m.bindPath(r, %q)\n", f.Go, f.JSON)
+	}
+	for _, f := range r.Query {
+		fmt.Fprintf(b, "\t\treq.%s = bindQuery(r, %q)\n", f.Go, f.JSON)
+	}
+
+	fmt.Fprintf(b, "\t\tresp, err := h.%s(r.Context(), req)\n", r.RPC)
+	b.WriteString("\t\tm.respond(w, r, resp, err)\n")
+	b.WriteString("\t})\n")
 }
