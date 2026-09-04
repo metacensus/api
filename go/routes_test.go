@@ -89,15 +89,16 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the routes that break the route conventions, which are the substance of
-// https://github.com/metacensus/ui/issues/41. A new one fails here; a fixed one
-// has to be struck off.
+// Pins the set of routes that break the route conventions. That set is empty:
+// the only three members were Paper's, and Paper left the contract with its
+// design unsettled (metacensus/api#8).
+//
+// The map stays rather than the check collapsing to "no route may break a
+// convention", because a deliberate exception is a thing this contract has had
+// and may have again. Empty, it says the exceptions are none — and any route
+// that starts breaking a convention fails here with the reason spelled out.
 func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{
-		"POST /paper":        "read over POST",
-		"POST /paper/create": "verb in path: create",
-		"GET /paper/lookup":  "verb in path: lookup",
-	}
+	want := map[string]string{}
 
 	// Reasons accumulate: a route can break more than one convention, and
 	// overwriting would hide the second.
@@ -126,7 +127,7 @@ func TestNonConformingRoutes(t *testing.T) {
 	}
 	for _, key := range slices.Sorted(maps.Keys(want)) {
 		if _, ok := got[key]; !ok {
-			t.Errorf("%s now conforms; remove it from this test and from issue #41", key)
+			t.Errorf("%s now conforms; strike it off this test", key)
 		}
 	}
 }

@@ -86,7 +86,7 @@ Agreement between the JSON Go emits and the TypeScript generated from the same `
 
 ## Routes
 
-Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `paper.proto` has `PaperRoutes`, and so on across all eight. They declare 24 routes between them.
+Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `prop.proto` has `PropRoutes`, and so on across all seven. They declare 21 routes between them.
 
 **The prefix is part of the contract, and it is generated too.** `routes.Prefix` in Go and `apiPrefix` in TypeScript both carry `/metacensus/api/v1`, emitted by `cmd/routegen` from the single constant it holds. Every `path` in the manifest is relative to it, so join the two to get what a client requests. It had been written out by hand in every repository that needed it, with nothing making the copies agree; that is the reason it is generated here rather than left to each consumer.
 
@@ -96,7 +96,7 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 **They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
 
-Three routes on `Paper` break the conventions and are left broken deliberately — a read over POST, and `create` and `lookup` as verbs in the path. `TestNonConformingRoutes` names all three, so a fourth fails the build. Fixing them is not tracked anywhere yet.
+**Every route conforms to the conventions.** It did not always: three routes on `Paper` broke them — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `TestNonConformingRoutes` still runs, pinning the set of deliberate exceptions at empty, so a route that starts breaking a convention fails the build.
 
 ## What the tests check
 
