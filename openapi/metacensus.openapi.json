@@ -6,25 +6,32 @@
     },
     "tags": [
         {
-            "name": "AuthRoutes"
+            "name": "AuthRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "HealthRoutes"
+            "name": "HealthRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "ExtractionRoutes"
+            "name": "ExtractionRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "PropRoutes"
+            "name": "PropRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "ProtocolRoutes"
+            "name": "ProtocolRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "TopicRoutes"
+            "name": "TopicRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         },
         {
-            "name": "UserRoutes"
+            "name": "UserRoutes",
+            "description": "Route declarations, not a gRPC commitment: see contract/README.md."
         }
     ],
     "paths": {
