@@ -28,9 +28,17 @@ BIN       := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# The exact Go that builds the generators. Keep in step with the `go` directive
-# in go.mod, which is what CI's setup-go reads.
-GOTOOLCHAIN_PIN ?= go1.24.0
+# The exact Go that builds the generators, and only them: TOOLENV is used by the
+# $(BIN)/* rules and nothing else. It is deliberately ahead of the `go` directive
+# in go.mod, which is what consumers see and what CI's setup-go reads -- the
+# generators are built from internal/tools, a module that is never published and
+# never imported, so what compiles them is a build-time choice with no reach.
+#
+# Pinning it is about reproducibility, not about staying old. Holding it back
+# means taking older releases of every generator, which is the more expensive
+# trade and the wrong one: bumping this from go1.24.0 to go1.25.5 was verified to
+# leave every generated file byte-identical.
+GOTOOLCHAIN_PIN ?= go1.25.5
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # The latest release tag: the published contract is what a breaking change
