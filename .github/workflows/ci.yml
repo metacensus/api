@@ -28,8 +28,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # buf breaking reads the base commit from the local object store, and
-          # the tag case below needs the tag history.
+          # Only the breaking check needed history, and it is commented out
+          # below (#14). Kept so that turning it back on stays a matter of
+          # uncommenting: it reads the base commit from the local object
+          # store, and its tag case needs the tag history.
           fetch-depth: 0
 
       - uses: actions/setup-go@v5
@@ -66,27 +68,50 @@ jobs:
       - name: Check proto formatting
         run: make format-check
 
-      - name: Check for breaking changes
-        # Compare against the latest release tag, not the merge base.
-        #
-        # The contract is what has been published; unreleased main is not a
-        # promise to anyone. This asks a question about state — "does the
-        # schema as it stands break the released contract?" — rather than
-        # about a diff, so the answer does not depend on which base the PR
-        # happens to have, and it is the question consumers actually care
-        # about. With no tags yet, nothing is released, so there is nothing to
-        # break and the target no-ops. On a tag push, compare against the tag
-        # immediately preceding this one, so the release itself is checked.
-        run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            against="$(git tag -l 'v*' --sort=v:refname \
-              | awk -v cur="${{ github.ref_name }}" \
-                    '$0 == cur { exit } { last = $0 } END { print last }')"
-          else
-            against="$(git tag -l 'v*' --sort=v:refname | tail -1)"
-          fi
-          echo "comparing against ${against:-<nothing released yet>}"
-          make breaking BREAKING_AGAINST="$against"
+      # Breaking-change detection is off. See #14, which carries the trigger
+      # for turning it back on.
+      #
+      # It compared against the latest release tag. That is the right target
+      # once something is published, but nothing consumes this contract and
+      # the only tag, v0.1.0, exists to exercise the release path rather than
+      # to promise anything — so a throwaway tag became the baseline for every
+      # branch. Removing paper.proto (#9) has failed the step on main and on
+      # every open PR since. Because it sits here, that failure aborts the job
+      # before the tests, the build, the TypeScript check and the freshness
+      # diff ever run: the whole suite was being spent to guard a
+      # compatibility promise nobody has been made.
+      #
+      # Unguarded until it comes back: renumbered fields, changed types,
+      # removed fields, deleted files. `make breaking` still works and can be
+      # run by hand, and proto/buf.yaml's `breaking` config is untouched, so
+      # this is a step to uncomment rather than one to rebuild. #14 also
+      # records the release-workflow bug that has to be fixed at the same
+      # time — a tag push compares against the preceding tag, so a release
+      # carrying a deliberate break fails its own gate, and the Go module
+      # publishes from the tag regardless.
+      #
+      # - name: Check for breaking changes
+      #   # Compare against the latest release tag, not the merge base.
+      #   #
+      #   # The contract is what has been published; unreleased main is not a
+      #   # promise to anyone. This asks a question about state — "does the
+      #   # schema as it stands break the released contract?" — rather than
+      #   # about a diff, so the answer does not depend on which base the PR
+      #   # happens to have, and it is the question consumers actually care
+      #   # about. With no tags yet, nothing is released, so there is nothing
+      #   # to break and the target no-ops. On a tag push, compare against the
+      #   # tag immediately preceding this one, so the release itself is
+      #   # checked.
+      #   run: |
+      #     if [ "${{ github.ref_type }}" = "tag" ]; then
+      #       against="$(git tag -l 'v*' --sort=v:refname \
+      #         | awk -v cur="${{ github.ref_name }}" \
+      #               '$0 == cur { exit } { last = $0 } END { print last }')"
+      #     else
+      #       against="$(git tag -l 'v*' --sort=v:refname | tail -1)"
+      #     fi
+      #     echo "comparing against ${against:-<nothing released yet>}"
+      #     make breaking BREAKING_AGAINST="$against"
 
       - name: Regenerate everything
         run: make gen
