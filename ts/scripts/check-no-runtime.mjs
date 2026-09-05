@@ -1,6 +1,7 @@
-// Assert the generated TypeScript carries no runtime: no declared dependencies,
-// and no value imports under src/. ts-proto's default forceLong would pull in
-// `long`; dropping onlyTypes would pull in protobufjs.
+// Assert the TypeScript carries no runtime: no declared dependencies, and no
+// value imports in anything that ships — the generated files under src/ and the
+// entry points package.json points at. ts-proto's default forceLong would pull
+// in `long`; dropping onlyTypes would pull in protobufjs.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -9,6 +10,10 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
+
+// The entry points are hand-written and outside src/, so walking src/ alone
+// would leave every published module but the generated ones unchecked.
+const entryPoints = ["index.ts", "public.ts"].map((f) => join(pkgRoot, f));
 
 const failures = [];
 
@@ -40,7 +45,7 @@ function* walk(dir) {
 const importLine = /^\s*import\s/;
 const typeOnlyImport = /^\s*import\s+type\s/;
 
-for (const file of walk(srcRoot)) {
+for (const file of [...entryPoints, ...walk(srcRoot)]) {
   const rel = relative(pkgRoot, file);
   const source = readFileSync(file, "utf8");
 

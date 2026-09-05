@@ -36,19 +36,10 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
-# The public surface is compared against a different baseline, on purpose.
-#
-# For the authenticated API, what a break breaks is the published module — so
-# the released tag is the right baseline, and before adoption a break costs a
-# coordinated deploy. The public surface has no such option. Its callers are
-# browsers running whatever build of the SPA they loaded, plus whatever sits in
-# a CDN cache, plus — if read-only public data ever arrives — third parties who
-# never coordinated with anyone. None of them consume a tag. What they run
-# against is what is deployed, and what is deployed tracks main.
-#
-# So: the authenticated surface answers "does this break what was released?",
-# and the public surface answers "does this break what is deployed?". Same tool,
-# two questions, because two different populations of caller.
+# The public surface answers "does this break what is deployed?" rather than
+# "what was released?", because its callers are browsers holding a build of the
+# SPA nobody can redeploy, and none of them consume a tag. See README.md,
+# "Versioning the public surface".
 PUBLIC_PROTO_DIR         := $(PROTO)/metacensus/public
 # The same directory as buf sees it, i.e. relative to the module root.
 PUBLIC_PACKAGE_PATH      := metacensus/public
@@ -100,36 +91,34 @@ breaking: $(BIN)/buf
 
 ## breaking-public — the public surface against what is deployed, not what is tagged
 #
-# `--path` scopes the comparison to the public package: one buf module (one lint
-# config, one format pass, one import graph) with two breaking checks over it.
-# Splitting into two buf modules was the alternative and does not work — a v2
-# module's path is its import root, so `metacensus/v1/auth.proto` would become
-# `auth.proto` and every import in the schema would have to be rewritten.
+# `--path` scopes the comparison to the public package, so one buf module carries
+# two breaking checks. **This is the one buf invocation that does not run from
+# the repository root**, and it has to be: `--path` resolves against the input's
+# context directory, and the `--against` input is the module rooted at $(PROTO)
+# inside a git archive, so a root-relative path targets no files there and buf
+# answers "no .proto files were targeted" instead of failing usefully. $(BUF) is
+# absolute, so running from $(PROTO) is safe.
 #
-# **This is the one buf invocation that does not run from the repository root**,
-# and it has to be. `--path` resolves against the input's context directory, and
-# the `--against` input is the module rooted at `proto/` inside a git archive —
-# so a path written from the root ("proto/metacensus/public") is not a path that
-# exists in it, and buf answers "no .proto files were targeted" rather than
-# failing usefully. Running from $(PROTO) makes one spelling correct for both
-# inputs. $(BUF) is absolute, so this is safe; nothing else here is relative.
+# The rule set is FILE for both checks because FILE is buf's strictest. What is
+# breaking here and invisible to any schema differ — a narrowed length cap, a
+# newly-required field — lives in comments and in the server, and is held by
+# review and by README.md rather than by a flag that would only claim to.
 #
-# The rule set is FILE, the same as above, and deliberately so: FILE is already
-# buf's strictest category, so there is no stricter setting to reach for. The
-# extra things that are breaking *here* and not to buf — a narrowed length cap,
-# a newly-required field, a reordered meaning — are invisible to any schema
-# differ, because they live in comments and in the server. Those are held by
-# review and by the policy written down in README.md, and pretending a config
-# flag catches them would be worse than saying so.
+# The baseline is echoed because it is a local remote-tracking ref: `make check`
+# does not fetch, so a stale one would otherwise compare against the wrong
+# commit, or skip, without saying so.
 breaking-public: $(BIN)/buf
 	@if ! git rev-parse --verify -q '$(PUBLIC_BREAKING_AGAINST)^{commit}' >/dev/null; then \
 		echo "no $(PUBLIC_BREAKING_AGAINST) to compare against; skipping"; \
-	elif [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
-		echo "no public package at $(PUBLIC_BREAKING_AGAINST) yet; nothing deployed to break"; \
 	else \
-		cd $(PROTO) && $(BUF) breaking . \
-			--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
-			--path '$(PUBLIC_PACKAGE_PATH)'; \
+		echo "public surface against $(PUBLIC_BREAKING_AGAINST) @ $$(git log -1 --format='%h %cs' '$(PUBLIC_BREAKING_AGAINST)')"; \
+		if [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
+			echo "  no public package there yet; nothing deployed to break"; \
+		else \
+			cd $(PROTO) && $(BUF) breaking . \
+				--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
+				--path '$(PUBLIC_PACKAGE_PATH)'; \
+		fi; \
 	fi
 
 ## test — the schema and route invariants

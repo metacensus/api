@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/metacensus/api/go/internal/protoscan"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
@@ -17,37 +18,26 @@ import (
 // .proto is not checked here: it needs documents, and inventing them proved
 // worse than waiting for real ones. https://github.com/metacensus/ui/issues/49.
 
-// contractPackages is every proto package these invariants govern.
+// Every proto package these invariants govern. TestEveryPackageIsGoverned
+// makes a package missing from this list a failure rather than a silence.
 //
-// It used to be one constant, and the checks below then read "for the one
-// package there is". A second package would simply not have been visited: every
-// test would still have passed, over a smaller schema than the one that ships.
-// A set makes them read "for every package", which is what they always meant,
-// and TestEveryPackageIsGoverned makes forgetting to add to the set a failure
-// rather than a silence.
-//
-// The packages are separate because the surfaces are: different callers,
-// different threat models and — the one that decides it — different
-// compatibility owed. What they share is these invariants, which are about how
-// a schema meets JSON and are not a policy either surface gets to opt out of.
+// The invariants are about how a schema meets JSON, so neither surface gets to
+// opt out of them, however much else the two differ.
 var contractPackages = []string{
 	"metacensus.v1",
 	"metacensus.public.v1",
 }
 
-// packageRoot is the namespace every contract package sits under.
-const packageRoot = "metacensus."
+// protoDir is relative to this package's directory, where `go test` runs.
+const protoDir = "../proto"
 
-// isContractPackage reports whether a package is one of the governed ones.
 func isContractPackage(pkg string) bool {
 	return slices.Contains(contractPackages, pkg)
 }
 
-// sharedFileOf is the one file in each package whose messages any file in that
-// package may be typed from. Deriving it from the package name rather than
-// listing it keeps a new package from needing a second edit here — and keeps
-// "shared" meaning shared *within a surface*, which is the point: nothing makes
-// metacensus.v1's common.proto shared with the public surface.
+// sharedFileOf is the one file in a package whose messages any file in that
+// package may be typed from. Shared within a surface: nothing makes
+// metacensus.v1's common.proto shared with the public one.
 func sharedFileOf(pkg string) string {
 	return strings.ReplaceAll(pkg, ".", "/") + "/common.proto"
 }
@@ -179,14 +169,9 @@ func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 
 // A message may be typed only from its own file or its own package's
 // common.proto, so one resource's shape cannot be bent by another's needs — and
-// never from another contract package at all.
-//
-// The cross-package half is new with the public package, and is the stronger
-// rule. A field typed across the boundary would make the public surface's wire
-// shape a function of the authenticated schema, so a change made under the
-// authenticated surface's "no compatibility owed yet" stance would silently
-// become a breaking change to browsers nobody can redeploy. Two packages exist
-// to keep those policies apart; one shared field quietly rejoins them.
+// never from another contract package, because the two surfaces owe different
+// compatibility and a shared field would put one policy in charge of the
+// other's wire shape.
 //
 // Fields, not imports: an rpc naming another resource as its return type adds no
 // field and shapes no message.
@@ -233,36 +218,34 @@ func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 }
 
 // TestEveryPackageIsGoverned is the check that makes every other check in this
-// file honest.
+// file honest: each one iterates contractPackages, so a package absent from it
+// is not exempt but invisible, and the suite stays green over a schema smaller
+// than the one that ships.
 //
-// Each one iterates contractPackages. A third metacensus package added without
-// an entry there would be invisible to all of them — JSON naming, enum casing,
-// presence, id types, cross-package typing — and the suite would stay green
-// over a schema it never opened. Exempting a package from these invariants has
-// to be a deliberate edit to a list, with this test naming what was left out.
+// It reads the .proto tree rather than protoregistry, which holds only what
+// this binary imported — a package nobody blank-imported in registered_test.go
+// would be missing from both the registry and the check.
 func TestEveryPackageIsGoverned(t *testing.T) {
-	var ungoverned []string
-	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		pkg := string(fd.Package())
-		if strings.HasPrefix(pkg, packageRoot) && !isContractPackage(pkg) {
-			ungoverned = append(ungoverned, pkg+" ("+fd.Path()+")")
-		}
-		return true
-	})
+	onDisk, err := protoscan.Packages(protoDir)
+	if err != nil {
+		t.Fatalf("scanning %s: %v", protoDir, err)
+	}
+	if len(onDisk) == 0 {
+		t.Fatalf("no .proto files under %s", protoDir)
+	}
 
-	slices.Sort(ungoverned)
-	for _, pkg := range slices.Compact(ungoverned) {
-		t.Errorf("%s is not in contractPackages, so none of the schema invariants in "+
-			"this file are checked against it. Add it — or, if it genuinely should be "+
-			"exempt, record here which invariant it cannot satisfy and why.", pkg)
+	for _, pkg := range onDisk {
+		if !isContractPackage(pkg) {
+			t.Errorf("%s is not in contractPackages, so none of the schema invariants in "+
+				"this file are checked against it. Add it — or, if it genuinely should be "+
+				"exempt, record here which invariant it cannot satisfy and why.", pkg)
+		}
 	}
 }
 
-// Each package's shared file is shared within that package only, so every
-// package needs one under the name sharedFileOf derives. A package whose
-// common.proto were named otherwise would silently lose the "or the shared
-// file" exemption above, and the resulting failures would point at the wrong
-// thing.
+// A package whose shared file is not named where sharedFileOf looks would
+// silently lose the exemption above, and the resulting failures would point at
+// the wrong thing.
 func TestSharedFileNamingHolds(t *testing.T) {
 	present := map[string]bool{}
 	forEachContractFile(t, func(fd protoreflect.FileDescriptor) {
@@ -292,10 +275,8 @@ func forEachContractFile(t *testing.T, visit func(protoreflect.FileDescriptor)) 
 		return true
 	})
 
-	// Per package, not in total. A misspelled entry, or a package whose
-	// generated Go is not linked into this test binary, would otherwise leave
-	// every check over it vacuously green while the other package kept the
-	// count non-zero — a suite that passes by not looking.
+	// Per package, not in total: one package's files must not vouch for
+	// another's absence.
 	for _, pkg := range contractPackages {
 		if seen[pkg] == 0 {
 			t.Fatalf("no files registered for package %s. Either the name is wrong, or "+

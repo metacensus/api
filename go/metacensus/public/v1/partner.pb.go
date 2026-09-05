@@ -26,21 +26,15 @@ const (
 
 // Interest is the set of checkboxes the form offers.
 //
-// **This enum is the point of the contract.** The set used to live twice —
-// as `PartnerInterests` in the service and as `partnerInterests` in the SPA
-// — with a test asserting them equal. That test needed both trees checked
-// out at once and did not survive the repository split, so adding a checkbox
-// became a two-repository change that failed at runtime, for users, rather
-// than in CI. Here the set is declared once and both sides generate from it.
+// **The set is a contract; the wording is copy.** A value's display label
+// ("Fund the work") stays in the SPA, because a copy edit should not become a
+// schema change, a release and a service deploy. The two also fail
+// differently: a stale label renders an odd string, a stale set rejects every
+// submission carrying the new value.
 //
-// **The wording is not here, and that is deliberate.** A value's display
-// label is marketing copy: "Fund the work" may become "Fund this work"
-// because someone rewrote a paragraph. If the label were in the contract,
-// that edit would be a schema change, a regeneration, a release and a service
-// deploy. The set and the wording also fail differently — a stale label
-// renders an odd string somewhere, a stale set 400s every submission
-// carrying the new value — and only the second is worth a build failure. The
-// set is a contract; the wording is copy.
+// **Unspecified is not an offered choice.** It is the proto3 zero value and
+// exists only so the enum has one; a form built from this enum must filter it
+// out. See ts/README.md for the TypeScript spelling.
 type PartnerSubmission_Interest int32
 
 const (
@@ -106,15 +100,12 @@ func (PartnerSubmission_Interest) EnumDescriptor() ([]byte, []int) {
 
 // PartnerSubmission is one express-interest form post.
 //
-// The length caps below are part of what makes a submission succeed or fail,
-// and the failure is opaque — a client cannot learn from the response which
-// field it got wrong, so it has to know the limits in advance. They are
-// comments rather than constraints because the two generators cannot both read
-// them: ts-proto runs with `onlyTypes=true` and drops field options entirely,
-// so a protovalidate annotation would reach the server and never the form,
-// while protovalidate-es on the TypeScript side would put a runtime dependency
-// into a package whose whole claim is that it has none. See README.md,
-// "What the public contract does and does not mechanise".
+// The length caps below decide whether a submission succeeds, and the failure
+// is opaque — a client cannot learn from the response which field it got wrong,
+// so it has to know the limits in advance. They are comments rather than
+// protovalidate constraints because ts-proto runs with `onlyTypes=true` and
+// drops field options, so an annotation would reach the server and never the
+// form. See README.md, "What the public contract does and does not mechanise".
 type PartnerSubmission struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. Whitespace-collapsed, then capped at 120 characters.
@@ -127,7 +118,8 @@ type PartnerSubmission struct {
 	Interests []PartnerSubmission_Interest `protobuf:"varint,3,rep,packed,name=interests,proto3,enum=metacensus.public.v1.PartnerSubmission_Interest" json:"interests,omitempty"`
 	// Optional. Trimmed, capped at 2000 characters.
 	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Must be empty.
+	// Honeypot. Must be empty; a filled one receives an ordinary receipt and is
+	// never delivered.
 	Website       string `protobuf:"bytes,5,opt,name=website,proto3" json:"website,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -201,8 +193,8 @@ func (x *PartnerSubmission) GetWebsite() string {
 // PartnerReceipt is the 200 answer. `submissionId` correlates a submission with
 // the service's logs; it is not a handle, and nothing can be fetched with it.
 //
-// A honeypot submission receives an ordinary receipt and is never delivered.
-// Telling the two apart is the point of not telling them apart.
+// The `ok` envelope is this surface's alone — `metacensus.v1` returns bare
+// resources. See README.md, "Errors on the two surfaces".
 type PartnerReceipt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Always true. Present so success and failure share one discriminator.

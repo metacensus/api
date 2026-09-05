@@ -21,10 +21,16 @@ every property a contract encodes:
 | compatibility owed | none yet, by stated stance | to whatever is deployed |
 | breaking baseline | the latest release tag | `origin/main` |
 | threat model | authenticated abuse | spam, floods, forged origins |
+| error body | not in the contract | `Failure`, with the status vocabulary |
+| success body | the bare resource | `{ok: true, ...}` |
+
+The last two rows are the ones that are *not* settled design; see "Errors on the
+two surfaces". Everything else on this list is a difference the two surfaces
+genuinely have, rather than a difference in how they were written down.
 
 They are separate packages rather than a corner of one, and a schema test
 (`TestNoMessageFieldCrossesResourceFiles`) refuses a field typed across the
-boundary. That is not tidiness. The compatibility policies below differ, and a
+boundary. That is not tidiness: the compatibility policies below differ, and a
 message shared between the two would put the laxer policy in charge of the
 stricter one's wire shape.
 
@@ -35,6 +41,42 @@ the same argument that put the authenticated contract here. It takes one Go
 module and one npm package. What it does not have to take is one *namespace*:
 Go already separates them, since `go/metacensus/public/v1` is a package of its
 own that pulls nothing else in, and npm separates them with a subpath export.
+
+## Errors on the two surfaces
+
+The public surface declares `Failure` — `{ok: false, error}` — as the body of
+every non-2xx answer, and wraps success in `{ok: true, ...}`. The authenticated
+surface declares no error type at all and returns bare resources. **This is a
+real asymmetry, and it is not yet a settled design.**
+
+It is not arbitrary. `metacensus.v1` had `Error {string error}` and
+[dropped it deliberately](https://github.com/metacensus/api/commit/da9db64): a
+single free-text string buys a client nothing it can act on, the HTTP status
+already carries the category, and the version that earns its place is
+`{code, error}` — which no authenticated backend emits. The public surface
+reaches the opposite conclusion from the same premise for two reasons the
+authenticated one does not have:
+
+- it has **one** implementation, and that implementation really does answer
+  `{ok, error}` on every path, including ones no route claims. A contract that
+  omitted it would not describe the response.
+- `Failure` is the only place `google.api.http` leaves for the status
+  vocabulary, which a browser client has to code against.
+
+So both surfaces agree that **the status is the machine-readable signal**; they
+disagree only about whether the body around it is worth writing down. That is
+defensible today and should not stay indefinitely. **The trigger for converging
+is the authenticated backends agreeing on an error body** — at which point the
+shape to reach for is this one, not a third.
+
+Two details worth recording so a future reinstatement does not diverge further:
+
+- **`Failure`, not `Error`.** `Error` shadows the TypeScript global, so
+  `import type { Error }` breaks `throw new Error(...)` in the importing module.
+  Reinstating the authenticated one should reuse this name.
+- **The `ok` discriminator is the public surface's alone.** It exists because
+  its callers parse a body before they can trust a status (a CDN or proxy can
+  answer for the origin), not because envelopes are the house style.
 
 ## Versioning the public surface
 
@@ -151,6 +193,7 @@ SPA calls a relative path with `fetch`.
 ```
 proto/           .proto sources and buf config — the definition
 go/              generated Go, the wire encoder, the manifest generator, tests
+go/internal/     helpers shared by the generator and the tests, unexported
 ts/              generated TypeScript interfaces, the npm package
 internal/tools/  the pinned code generators, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
@@ -269,14 +312,11 @@ The prefixes are not expressed in the `.proto`: `google.api.http` carries a path
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and full path.
 
-**They run over both packages, and that took work rather than a wildcard.** Each check used to close over a single `protoPkg` constant, so a second package would not have been *exempted* — it would have been invisible, and every test would have gone on passing over a schema smaller than the one that ships. Three things changed:
+**They run over every package, and nothing can drop out of that set quietly.** Each check iterates `contractPackages`; a package missing from it would not be exempt but invisible, and the suite would pass over a schema smaller than the one that ships. Two checks close that:
 
-- the checks iterate `contractPackages`, and `forEachContractFile` fails **per package** when one registers no files, so a typo or a missing import cannot make a package's coverage vacuous while the other keeps the count non-zero
-- `TestEveryPackageIsGoverned` fails on any registered `metacensus.*` package absent from that list, so exempting one has to be a deliberate edit that says which invariant it cannot satisfy
-- the shared-file exemption became per-package (`sharedFileOf`), and typing a field across the package boundary is now an error in its own right — the two surfaces owe different compatibility, and a field spanning them would put one policy in charge of the other's wire shape
+- `TestEveryPackageIsGoverned` reads the `.proto` tree — not `protoregistry`, which holds only what the test binary imported — and fails on any package on disk that `contractPackages` does not name. `cmd/routegen` checks its own prefix table the same way, so a new package fails `make gen` before it fails anything else.
+- `forEachContractFile` fails **per package** when one registers no files, so a typo or a missing blank import in `go/registered_test.go` cannot leave a package vacuously green while the other keeps the count non-zero.
 
-Route identity is the **full** path now, prefix included. With one prefix, "the path" and "the URL" were the same question; with two they are not, in both directions — a public `/partner` and an authenticated `/partner` are different URLs and must not be reported as a clash, while two routes that genuinely resolve to the same URL must be, whichever packages they came from.
+Route identity is the **full** path, prefix included: a public `/partner` and an authenticated `/partner` are different URLs and must not be reported as a clash, while two routes that genuinely resolve to one URL must be.
 
-Registration is explicit in `go/registered_test.go`. It used to be a side effect of one test file importing one package for another reason, which would have kept working and kept covering only that package.
-
-`ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.
+`ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, and no value imports in anything that ships — the generated files under `src/` and both entry points.

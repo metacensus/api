@@ -1,21 +1,15 @@
-// The public, unauthenticated MetaCensus surface, as TypeScript.
+// The public, unauthenticated MetaCensus surface (/metacensus/public), as
+// TypeScript. Types only, no runtime.
 //
-// Imported as `@metacensus/api/public`. It is the same package as the root
-// entry point, deliberately: the SPA calls both surfaces from one build and
-// should take one dependency. What the subpath buys is that a consumer of only
-// the public surface — a third party integrating against
-// `/metacensus/public/*`, who never had an authenticated session — does not
-// pull the authenticated types into their editor's completions or their
-// bundle's type graph.
+// One package with the authenticated surface, because the SPA calls both from
+// one build and should take one dependency; a separate entry point, so a third
+// party integrating only against /metacensus/public does not pull the
+// authenticated types into their completions or their type graph. Go needs no
+// equivalent — its packages were already separate.
 //
-// The Go side needs no equivalent: `go/metacensus/public/v1` is already a
-// package of its own, and importing it pulls nothing else in. This file is the
-// TypeScript half of a separation Go got for free.
-//
-// The route manifest is exported whole rather than filtered to the public
-// routes. That is on purpose: "every MetaCensus route on one screen" is the
-// stated reason the contract lives in one repository, and the manifest is
-// string literals, not a type surface — reading it costs a consumer nothing.
+// The route manifest is exported whole rather than filtered: "every MetaCensus
+// route on one screen" is why the contract lives in one repository, and the
+// manifest is string literals, not a type surface.
 
 export * from "./src/metacensus/public/v1/common.js";
 export * from "./src/metacensus/public/v1/partner.js";

@@ -12,10 +12,7 @@ import (
 )
 
 // declaredRPCs is every rpc across every contract package, as
-// "Service.Method". Registration is the blank imports in registered_test.go;
-// this used to reference one file symbol of one package to force it, which
-// would have kept working — and kept covering only that package — after a
-// second one arrived.
+// "Service.Method". Registration is the blank imports in registered_test.go.
 func declaredRPCs(t *testing.T) map[string]bool {
 	t.Helper()
 
@@ -38,10 +35,9 @@ func declaredRPCs(t *testing.T) map[string]bool {
 	return out
 }
 
-// fullPath is what a client actually requests: the route's prefix joined with
-// its path. It is the route's identity wherever uniqueness or conflict is the
-// question, because two surfaces can each declare a "/partner" and mean
-// different URLs.
+// fullPath is what a client actually requests, and so the route's identity
+// wherever uniqueness is the question: two surfaces can each declare a
+// "/partner" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
 
 // The manifest and the services disagreeing is what a silently dropped
@@ -61,14 +57,8 @@ func TestManifestCoversEveryRPC(t *testing.T) {
 	}
 }
 
-// Two routes sharing a method and path is something no implementation could
-// dispatch.
-//
-// The comparison is on the full path, not the relative one. With one prefix the
-// two were the same question; with two they are not, in both directions — the
-// public "/partner" and a hypothetical authenticated "/partner" are different
-// URLs and must not be reported as a clash, while two routes that genuinely
-// resolve to the same URL must be, whichever packages they came from.
+// Two routes sharing a method and full path is something no implementation
+// could dispatch.
 func TestRoutesAreUnique(t *testing.T) {
 	seen := map[string]string{}
 	for _, r := range routes.Routes {
@@ -144,14 +134,10 @@ func TestNonConformingRoutes(t *testing.T) {
 	}
 }
 
-// TestPrefix pins the shape of each declared prefix and its relationship to
-// the paths it prefixes. The point of generating the constants beside the
-// manifest is that the two cannot drift; this is what "cannot drift" means
-// concretely.
-//
-// It reads the prefixes off the routes rather than naming the constants, so a
-// third prefix is covered the day it appears — the earlier version named
-// routes.Prefix and would have gone on checking only that one.
+// TestPrefix pins the shape of each declared prefix and its relationship to the
+// paths it prefixes: what "the constants cannot drift from the manifest" means
+// concretely. It reads the prefixes off the routes, so a third is covered the
+// day it appears.
 func TestPrefix(t *testing.T) {
 	declared := map[string]bool{}
 	for _, r := range routes.Routes {
@@ -161,8 +147,7 @@ func TestPrefix(t *testing.T) {
 		t.Fatal("no route declares a prefix")
 	}
 
-	// Both generated constants must be among them: a constant no route uses is
-	// a prefix nothing serves, which is the drift this test exists to catch.
+	// A constant no route uses is a prefix nothing serves.
 	for name, prefix := range map[string]string{
 		"routes.Prefix":       routes.Prefix,
 		"routes.PublicPrefix": routes.PublicPrefix,
@@ -186,17 +171,11 @@ func TestPrefix(t *testing.T) {
 		}
 	}
 
-	// No prefix may contain another. The reverse proxy in front of both
-	// services routes by longest prefix match, so a nested pair makes which
-	// service answers a request depend on rule order in a config file that
-	// lives in a third repository. Today /metacensus/api/v1 and
-	// /metacensus/public are siblings and the question does not arise.
-	//
-	// This is where that stops being true. A versioned public prefix
-	// (/metacensus/public/v1, the shape read-only public data would want) nests
-	// inside /metacensus/public and fails here — deliberately. The fix then is
-	// not to delete this test but to decide, and record, how the proxy tells
-	// the two apart.
+	// No prefix may contain another: the reverse proxy routes by longest prefix
+	// match, so a nested pair moves "which service answers this" into rule
+	// order in a config file in a third repository. A versioned public prefix
+	// would nest, and failing here is how that decision gets taken rather than
+	// discovered.
 	for outer := range declared {
 		for inner := range declared {
 			if outer == inner {
@@ -215,8 +194,8 @@ func TestPrefix(t *testing.T) {
 		if !strings.HasPrefix(r.Path, "/") {
 			t.Errorf("%s.%s: path %q does not start with /", r.Service, r.RPC, r.Path)
 		}
-		// Paths are relative to their prefix. One that already carries it would
-		// be served at Prefix+Prefix once joined.
+		// A path that already carries its prefix would be served at
+		// Prefix+Prefix once joined.
 		if strings.HasPrefix(r.Path, r.Prefix) {
 			t.Errorf("%s.%s: path %q already includes the prefix %q; paths are "+
 				"declared relative to it", r.Service, r.RPC, r.Path, r.Prefix)
@@ -224,16 +203,11 @@ func TestPrefix(t *testing.T) {
 	}
 }
 
-// Every route belongs to a surface a reverse proxy can route to, and the
-// manifest is where a consumer looks to find out which. A route whose prefix is
-// not one of the two would be one nothing routes.
+// A route whose prefix is neither declared constant is one nothing routes.
 //
-// This is also the concrete answer to whether /healthz belongs here: it could
-// not be expressed. It hangs off no prefix — the container runtime probes the
-// service directly, never through the proxy — so it would have to be either an
-// absolute path in a manifest whose paths are relative, or a third, empty
-// prefix that makes "prefix" mean nothing. See README.md, "Why /healthz is not
-// in the contract".
+// This is also why /healthz is not in the contract: it hangs off no prefix, so
+// it could only be an absolute path in a manifest of relative ones, or a third,
+// empty prefix that makes "prefix" mean nothing. See README.md.
 func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 	known := map[string]bool{
 		routes.Prefix:       true,

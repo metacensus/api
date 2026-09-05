@@ -66,44 +66,21 @@ jobs:
       - name: Check proto formatting
         run: make format-check
 
-      - name: Check for breaking changes
-        # Compare against the latest release tag, not the merge base.
-        #
-        # The contract is what has been published; unreleased main is not a
-        # promise to anyone. This asks a question about state — "does the
-        # schema as it stands break the released contract?" — rather than
-        # about a diff, so the answer does not depend on which base the PR
-        # happens to have, and it is the question consumers actually care
-        # about. With no tags yet, nothing is released, so there is nothing to
-        # break and the target no-ops. On a tag push, compare against the tag
-        # immediately preceding this one, so the release itself is checked.
-        run: |
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            against="$(git tag -l 'v*' --sort=v:refname \
-              | awk -v cur="${{ github.ref_name }}" \
-                    '$0 == cur { exit } { last = $0 } END { print last }')"
-          else
-            against="$(git tag -l 'v*' --sort=v:refname | tail -1)"
-          fi
-          echo "comparing against ${against:-<nothing released yet>}"
-          make breaking BREAKING_AGAINST="$against"
-
       - name: Check for breaking changes to the public surface
-        # A second comparison, over metacensus.public.v1 only, against a
-        # different baseline: origin/main rather than the latest release tag.
+        # Not a tag: this asks whether the change breaks what is *deployed*,
+        # because the public surface's callers are browsers holding a build of
+        # the SPA nobody can redeploy, and none of them consume a tag. The step
+        # below asks the released-contract question instead.
         #
-        # The step above asks whether the schema breaks what was *released*,
-        # because that is what a consumer of the Go module or the npm package
-        # has. This one asks whether it breaks what is *deployed*, because the
-        # public surface's callers are browsers holding a build of the SPA
-        # nobody can redeploy, and a CDN cache, and eventually third parties
-        # who never coordinated with us. None of them consume a tag; all of
-        # them talk to whatever is running, which tracks main.
+        # Skipped on a tag, where the comparison would run backwards: the tagged
+        # commit can be behind origin/main, and anything added to the public
+        # surface after the tag would read as a deletion and block the release.
         #
-        # It is enforcing, not advisory. Failing it means the change breaks
-        # live callers, and the answer is a deliberate decision recorded in
-        # the PR — not a rerun. Before the public package exists at the
-        # baseline the target says so and passes.
+        # Enforcing, not advisory. Failing it means the change breaks live
+        # callers, and the answer is a deliberate decision recorded in the PR.
+        # Before the public package exists at the baseline the target says so
+        # and passes.
+        if: github.ref_type != 'tag'
         run: |
           git fetch -q --no-tags origin main
           make breaking-public PUBLIC_BREAKING_AGAINST=origin/main
@@ -144,3 +121,29 @@ jobs:
         # broken build fails on the PR rather than at release time.
         working-directory: ts
         run: npm run build
+
+      - name: Check for breaking changes
+        # Last, because it is the only step whose result is not a property of
+        # the change under review: it compares the whole schema against the
+        # latest release tag, so a break inherited from main fails every PR
+        # until the next tag ships. Running it here means such a break does not
+        # mask the checks that *are* about this diff.
+        #
+        # The contract is what has been published; unreleased main is not a
+        # promise to anyone. This asks a question about state — "does the
+        # schema as it stands break the released contract?" — rather than
+        # about a diff, so the answer does not depend on which base the PR
+        # happens to have, and it is the question consumers actually care
+        # about. With no tags yet, nothing is released, so there is nothing to
+        # break and the target no-ops. On a tag push, compare against the tag
+        # immediately preceding this one, so the release itself is checked.
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            against="$(git tag -l 'v*' --sort=v:refname \
+              | awk -v cur="${{ github.ref_name }}" \
+                    '$0 == cur { exit } { last = $0 } END { print last }')"
+          else
+            against="$(git tag -l 'v*' --sort=v:refname | tail -1)"
+          fi
+          echo "comparing against ${against:-<nothing released yet>}"
+          make breaking BREAKING_AGAINST="$against"

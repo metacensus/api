@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/metacensus/api/go/internal/protoscan"
 	_ "github.com/metacensus/api/go/metacensus/public/v1"
 	_ "github.com/metacensus/api/go/metacensus/v1"
 	"google.golang.org/genproto/googleapis/api/annotations"
@@ -21,33 +22,22 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// Output paths are relative to the repository root, which is where the
-// Makefile runs this. Everything else in the build — buf, the generator
-// plugins — is rooted there too.
+// Paths are relative to the repository root, which is where the Makefile runs
+// this. Everything else in the build — buf, the generator plugins — is rooted
+// there too.
 const (
-	goOut = "go/routes/manifest.go"
-	tsOut = "ts/src/route-manifest.ts"
-
-	// packageRoot is the namespace every contract package sits under. A
-	// registered file inside it that `packages` below does not name is an error
-	// rather than a package silently generating no routes.
-	packageRoot = "metacensus."
+	protoDir = "proto"
+	goOut    = "go/routes/manifest.go"
+	tsOut    = "ts/src/route-manifest.ts"
 )
 
-// packages is every contract package and the path prefix its routes hang off.
-// This table is the only place either prefix is written down. Both generated
-// manifests take theirs from here, including their prose, so a constant and the
-// paths it describes cannot drift apart — which is the reason the prefix is
-// generated at all rather than retyped in each consumer.
+// packages is the only place either prefix is written down; the manifests take
+// theirs from here so the constant and the paths it describes cannot drift.
+// They are not in the .proto because google.api.http carries a path per route
+// and protobuf has no string constant, so expressing them there would need a
+// custom FileOptions extension in a non-resource file.
 //
-// The prefixes are not in the .proto: google.api.http annotations carry a path
-// each and protobuf has no notion of a string constant, so expressing them
-// there would mean a custom FileOptions extension and a non-resource .proto
-// file inside a schema whose tests assert every file is a resource. Not worth
-// it for two strings the route generator is already the authority on.
-//
-// Order is the manifest's order, so the authenticated surface stays first and
-// adding a package does not reshuffle the existing rows.
+// Order is the manifest's order.
 var packages = []contractPackage{
 	{
 		Proto:   "metacensus.v1",
@@ -58,10 +48,7 @@ var packages = []contractPackage{
 	},
 	{
 		Proto: "metacensus.public.v1",
-		// No version segment, unlike the authenticated surface. See README.md,
-		// "Versioning the public surface": the intake routes commit to additive
-		// evolution instead, and read-only public data — if it ever arrives —
-		// gets its own versioned prefix rather than retrofitting one here.
+		// No version segment: see README.md, "Versioning the public surface".
 		Prefix:  "/metacensus/public",
 		GoConst: "PublicPrefix",
 		TSConst: "publicPrefix",
@@ -78,9 +65,8 @@ type contractPackage struct {
 }
 
 type route struct {
-	// Prefix is the package's prefix, carried on the route rather than left
-	// implicit. With one prefix a consumer could hard-code it; with two, a
-	// consumer holding a Route has no other way to know which one to join.
+	// Carried per route: with two prefixes, a consumer holding one has no
+	// other way to know which to join.
 	Prefix   string
 	Service  string
 	RPC      string
@@ -100,13 +86,12 @@ func main() {
 	}
 }
 
-// modulePath anchors the cwd check below.
 const modulePath = "module github.com/metacensus/api"
 
-// checkRoot fails loudly when routegen is run from anywhere but the repository
-// root. goOut and tsOut are relative, so a wrong cwd does not error — it writes
-// the manifests somewhere else and leaves the committed ones stale, which the
-// freshness check cannot see because nothing in the tree changed.
+// checkRoot fails when routegen runs from anywhere but the repository root.
+// The paths above are relative, so a wrong cwd writes the manifests elsewhere
+// and leaves the committed ones stale — a drift the freshness check cannot see,
+// because nothing in the tree changed.
 func checkRoot() error {
 	b, err := os.ReadFile("go.mod")
 	if err != nil || !strings.Contains(string(b), modulePath) {
@@ -121,7 +106,7 @@ func run() error {
 		return err
 	}
 
-	if err := checkEveryPackageIsNamed(); err != nil {
+	if err := checkPackages(); err != nil {
 		return err
 	}
 
@@ -149,42 +134,45 @@ func run() error {
 	return write(tsOut, renderTS(routes))
 }
 
-// checkEveryPackageIsNamed fails on a registered metacensus.* package that the
-// table above does not name. Without it, a new package's routes would be
-// missing from the manifest and the only symptom would be their absence —
-// which is precisely the failure the manifest exists to prevent. It also
-// catches the reverse, a package named here whose files never register,
-// because that would make every check over it silently vacuous.
-func checkEveryPackageIsNamed() error {
+// checkPackages fails when the table above does not name a package that exists
+// on disk, or names one whose generated Go is not imported here. Either way its
+// routes would be missing from the manifest with nothing to say so.
+//
+// On disk, not protoregistry: the registry holds only what this binary
+// imported, so a package nobody imported is absent from both the manifest and
+// the check that would have caught it.
+func checkPackages() error {
+	onDisk, err := protoscan.Packages(protoDir)
+	if err != nil {
+		return err
+	}
+
 	named := map[string]bool{}
 	for _, pkg := range packages {
-		named[pkg.Proto] = false
+		named[pkg.Proto] = true
 	}
 
 	var stray []string
+	for _, pkg := range onDisk {
+		if !named[pkg] {
+			stray = append(stray, pkg)
+		}
+	}
+	if len(stray) > 0 {
+		return fmt.Errorf("%s under %s/ but not in routegen's table, so their routes "+
+			"would be missing from the manifest. Add an entry with the prefix each one's "+
+			"routes hang off", strings.Join(stray, ", "), protoDir)
+	}
+
+	registered := map[string]bool{}
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		name := string(fd.Package())
-		if !strings.HasPrefix(name, packageRoot) {
-			return true
-		}
-		if _, ok := named[name]; !ok {
-			stray = append(stray, name+" ("+fd.Path()+")")
-			return true
-		}
-		named[name] = true
+		registered[string(fd.Package())] = true
 		return true
 	})
-
-	sort.Strings(stray)
-	if len(stray) > 0 {
-		return fmt.Errorf("package(s) not in routegen's table, so their routes would be "+
-			"missing from the manifest: %s. Add an entry with the prefix its routes hang off",
-			strings.Join(stray, ", "))
-	}
 	for _, pkg := range packages {
-		if !named[pkg.Proto] {
-			return fmt.Errorf("package %s is in routegen's table but no file registers it; "+
-				"is the name a typo, or is the generated Go package not imported here?", pkg.Proto)
+		if !registered[pkg.Proto] {
+			return fmt.Errorf("no file registers %s; add a blank import of its "+
+				"generated Go package here", pkg.Proto)
 		}
 	}
 	return nil
@@ -393,7 +381,6 @@ func goConstFor(prefix string) string {
 	panic("no constant for prefix " + prefix)
 }
 
-// tsConstFor is goConstFor for the TypeScript manifest.
 func tsConstFor(prefix string) string {
 	for _, pkg := range packages {
 		if pkg.Prefix == prefix {

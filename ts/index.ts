@@ -3,12 +3,10 @@
 //
 // Everything under ./src is generated; a new .proto file needs a line here.
 //
-// The public surface (/metacensus/public/*) is `@metacensus/api/public`, in
-// ./public.ts — one package, two entry points. It is not merged in here:
-// `protobufPackage` names a package, so a barrel spanning two of them could
-// only export one of the two values under that name, and the point of the
-// split entry point is that a consumer of one surface does not acquire the
-// other. The route manifest below covers both.
+// The public surface is `@metacensus/api/public`, in ./public.ts. It is not
+// merged in here: `protobufPackage` names a package, so a barrel spanning two
+// could only export one of them under that name, and the point of the second
+// entry point is that a consumer of one surface does not acquire the other.
 
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
