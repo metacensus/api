@@ -11,7 +11,7 @@ option go_package = "github.com/metacensus/api/go/metacensus/public/v1;metacensu
 //
 // Paths are relative to `/metacensus/public`, which cmd/routegen holds.
 service PartnerRoutes {
-  // Every rejection answers with Failure and a status; see common.proto.
+  // Rejections answer with a status and an untyped body; see common.proto.
   rpc SubmitPartnerInterest(PartnerSubmission) returns (PartnerReceipt) {
     option (google.api.http) = {
       post: "/partner"
@@ -80,11 +80,13 @@ message PartnerSubmission {
 
 // PartnerReceipt is the 200 answer. `submissionId` correlates a submission with
 // the service's logs; it is not a handle, and nothing can be fetched with it.
-//
-// The `ok` envelope is this surface's alone — `metacensus.v1` returns bare
-// resources. See README.md, "Errors on the two surfaces".
 message PartnerReceipt {
-  // Always true. Present so success and failure share one discriminator.
+  // Always true, and the one place this surface still differs in shape from
+  // `metacensus.v1`, which returns bare resources.
+  //
+  // It is here because the service sends it and contract.UnmarshalOptions
+  // rejects unknown fields, so a Go consumer decoding the real 200 body into a
+  // message without `ok` would fail. Dropping it is a service change first.
   bool ok = 1;
 
   string submission_id = 2;

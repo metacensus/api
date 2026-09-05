@@ -21,12 +21,13 @@ every property a contract encodes:
 | compatibility owed | none yet, by stated stance | to whatever is deployed |
 | breaking baseline | the latest release tag | `origin/main` |
 | threat model | authenticated abuse | spam, floods, forged origins |
-| error body | not in the contract | `Failure`, with the status vocabulary |
-| success body | the bare resource | `{ok: true, ...}` |
+| error body | not in the contract | not in the contract |
+| success body | the bare resource | the bare message, plus `ok` |
 
-The last two rows are the ones that are *not* settled design; see "Errors on the
-two surfaces". Everything else on this list is a difference the two surfaces
-genuinely have, rather than a difference in how they were written down.
+Every row is a difference the two surfaces genuinely have, rather than a
+difference in how they were written down. Where a difference turned out to be
+only the latter, the public surface follows `metacensus.v1`; see "Errors on the
+two surfaces".
 
 They are separate packages rather than a corner of one, and a schema test
 (`TestNoMessageFieldCrossesResourceFiles`) refuses a field typed across the
@@ -44,39 +45,45 @@ own that pulls nothing else in, and npm separates them with a subpath export.
 
 ## Errors on the two surfaces
 
-The public surface declares `Failure` — `{ok: false, error}` — as the body of
-every non-2xx answer, and wraps success in `{ok: true, ...}`. The authenticated
-surface declares no error type at all and returns bare resources. **This is a
-real asymmetry, and it is not yet a settled design.**
+**Neither surface types its failures.** On both, the HTTP status is the
+machine-readable signal, and the body around it is not in the contract.
 
-It is not arbitrary. `metacensus.v1` had `Error {string error}` and
-[dropped it deliberately](https://github.com/metacensus/api/commit/da9db64): a
-single free-text string buys a client nothing it can act on, the HTTP status
-already carries the category, and the version that earns its place is
-`{code, error}` — which no authenticated backend emits. The public surface
-reaches the opposite conclusion from the same premise for two reasons the
-authenticated one does not have:
+The public surface briefly had a `Failure` message — `{ok: false, error}` —
+because `metacensus/service-public-api` really does send one. It was dropped to
+match `metacensus.v1`, which had `Error {string error}` and
+[removed it deliberately](https://github.com/metacensus/api/commit/da9db64) on
+the argument that a single free-text string buys a client nothing it can act on:
+the status already carries the category, and the version that earns its place is
+`{code, error}`, which no implementation emits. That argument does not stop being
+true because the surface is public. `error` on the public surface is one sentence
+from a fixed vocabulary, never formatted from an error value, and its own comment
+said not to branch on it — so typing it would have bought a client the same
+nothing, at the cost of two answers to one question.
 
-- it has **one** implementation, and that implementation really does answer
-  `{ok, error}` on every path, including ones no route claims. A contract that
-  omitted it would not describe the response.
-- `Failure` is the only place `google.api.http` leaves for the status
-  vocabulary, which a browser client has to code against.
+What the public surface does keep is **prose**, in `public/v1/common.proto`: the
+statuses it answers with, on every route and on paths no route claims.
+`google.api.http` cannot express responses, so that list has nowhere else to
+live, and a browser client has to code against it. Documenting a status
+vocabulary and typing a body are different commitments; only the second was the
+divergence.
 
-So both surfaces agree that **the status is the machine-readable signal**; they
-disagree only about whether the body around it is worth writing down. That is
-defensible today and should not stay indefinitely. **The trigger for converging
-is the authenticated backends agreeing on an error body** — at which point the
-shape to reach for is this one, not a third.
+**The trigger for typing failures is an implementation emitting a `code`** — a
+stable, machine-readable discriminator the status does not already carry. When
+one does, both surfaces should gain the same message at the same time. Two notes
+so that reinstatement does not re-diverge:
 
-Two details worth recording so a future reinstatement does not diverge further:
-
-- **`Failure`, not `Error`.** `Error` shadows the TypeScript global, so
+- **Call it `Failure`, not `Error`.** `Error` shadows the TypeScript global, so
   `import type { Error }` breaks `throw new Error(...)` in the importing module.
-  Reinstating the authenticated one should reuse this name.
-- **The `ok` discriminator is the public surface's alone.** It exists because
-  its callers parse a body before they can trust a status (a CDN or proxy can
-  answer for the origin), not because envelopes are the house style.
+- **`ok` is not part of it.** See below.
+
+### The one shape that still differs
+
+`PartnerReceipt` carries `ok: true`; `metacensus.v1` returns bare resources. That
+is not a design position — it is that `contract.UnmarshalOptions` rejects unknown
+fields, and the service sends `ok` on the 200. A `PartnerReceipt` without it
+would fail to decode the real response, so removing it is a service change
+first, and a contract change second.
+
 
 ## Versioning the public surface
 
@@ -319,4 +326,7 @@ The prefixes are not expressed in the `.proto`: `google.api.http` carries a path
 
 Route identity is the **full** path, prefix included: a public `/partner` and an authenticated `/partner` are different URLs and must not be reported as a clash, while two routes that genuinely resolve to one URL must be.
 
-`ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, and no value imports in anything that ships — the generated files under `src/` and both entry points.
+Two scripts guard the npm package, both run by `npm run check`:
+
+- `check-no-runtime.mjs` asserts it is genuinely types: empty `dependencies`, and no value imports in anything that ships — the generated files under `src/` and both entry points.
+- `check-entry-points.mjs` asserts every generated module is exported by exactly one entry point. `index.ts` and `public.ts` list their exports by hand, so without it a new `.proto` file generates a module that ships in `dist/` and that no consumer can import — an absence, not a failure, and the same shape of hole as a proto package missing from `contractPackages`. Exactly one, because two entry points exist so that a consumer of one surface does not acquire the other.

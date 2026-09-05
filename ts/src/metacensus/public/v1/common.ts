@@ -9,26 +9,23 @@
 export const protobufPackage = "metacensus.public.v1";
 
 /**
- * Shared types for the public surface.
+ * Shared types for the public surface, and where the surface-wide answers live.
  *
  * `metacensus.public.v1` is a package of its own, not a corner of
  * `metacensus.v1`: the two surfaces differ in caller, in threat model and — the
  * one that decides it — in what compatibility they owe. See README.md, "The two
  * surfaces".
- */
-
-/**
- * Failure is the body of every non-2xx answer on this surface, on every route
- * and on paths no route claims (404, 405).
  *
- * **The HTTP status is the machine-readable signal**, and deliberately the only
- * one: `error` is one sentence from a fixed vocabulary, never formatted from an
- * error value, and not stable enough to branch on. An earlier revision of the
- * implementation carried a SCREAMING_SNAKE `code` and dropped it as a second,
- * non-standard encoding of what the status already said.
+ * **Failures are not typed here, following `metacensus.v1`.** The HTTP status
+ * is the machine-readable signal on both surfaces. The service does send a
+ * `{ok: false, error}` body, but `error` is one sentence from a fixed
+ * vocabulary, never formatted from an error value, and not stable enough to
+ * branch on — the same reasoning that removed `Error` from the authenticated
+ * surface. See README.md, "Errors on the two surfaces", for the trigger that
+ * would put a typed failure on both.
  *
- * The statuses this surface answers with, which `google.api.http` cannot
- * express and which are therefore prose:
+ * The statuses this surface answers with, on every route and on paths no route
+ * claims (404, 405). `google.api.http` cannot express these, so they are prose:
  *
  *   400  the submission was not valid, or the body was not JSON
  *   403  the `Origin` was absent or not allowlisted
@@ -40,12 +37,7 @@ export const protobufPackage = "metacensus.public.v1";
  * 400 and 403 carry the same sentence on purpose: which of "a field was wrong"
  * and "that Origin is not allowed" applies is not a caller's business.
  *
- * `metacensus.v1` declares no equivalent, and that asymmetry is deliberate but
- * unresolved. See README.md, "Errors on the two surfaces".
+ * The file has no messages yet. It stays because it is the one path the
+ * cross-file typing rule exempts, so it is where a type shared across this
+ * surface's resources would go.
  */
-export interface Failure {
-  /** Always false. Present so success and failure share one discriminator. */
-  ok: boolean;
-  /** A sentence, not a code. Display it or ignore it; do not branch on it. */
-  error: string;
-}

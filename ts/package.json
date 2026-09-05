@@ -35,7 +35,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "check": "tsc --noEmit && node scripts/check-no-runtime.mjs",
+    "check": "tsc --noEmit && node scripts/check-no-runtime.mjs && node scripts/check-entry-points.mjs",
     "prepack": "npm run build"
   },
   "dependencies": {},

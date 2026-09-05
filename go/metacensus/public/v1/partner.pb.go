@@ -192,12 +192,14 @@ func (x *PartnerSubmission) GetWebsite() string {
 
 // PartnerReceipt is the 200 answer. `submissionId` correlates a submission with
 // the service's logs; it is not a handle, and nothing can be fetched with it.
-//
-// The `ok` envelope is this surface's alone — `metacensus.v1` returns bare
-// resources. See README.md, "Errors on the two surfaces".
 type PartnerReceipt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Always true. Present so success and failure share one discriminator.
+	// Always true, and the one place this surface still differs in shape from
+	// `metacensus.v1`, which returns bare resources.
+	//
+	// It is here because the service sends it and contract.UnmarshalOptions
+	// rejects unknown fields, so a Go consumer decoding the real 200 body into a
+	// message without `ok` would fail. Dropping it is a service change first.
 	Ok            bool   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	SubmissionId  string `protobuf:"bytes,2,opt,name=submission_id,json=submissionId,proto3" json:"submission_id,omitempty"`
 	unknownFields protoimpl.UnknownFields

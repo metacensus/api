@@ -126,7 +126,8 @@ func TestListMetadataIsUnreferenced(t *testing.T) {
 		for i := 0; i < fields.Len(); i++ {
 			fd := fields.Get(i)
 			if fd.Kind() == protoreflect.MessageKind &&
-				fd.Message().FullName() == "metacensus.v1.ListMetadata" {
+				fd.Message().Name() == "ListMetadata" &&
+				isContractPackage(string(fd.Message().ParentFile().Package())) {
 				t.Errorf("%s.%s references ListMetadata. No route paginates yet; "+
 					"adopting it is a per-route decision, not a default.", md.FullName(), fd.Name())
 			}
