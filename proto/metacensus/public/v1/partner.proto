@@ -1,0 +1,93 @@
+// The partner / express-interest form the marketing site posts to.
+syntax = "proto3";
+
+package metacensus.public.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/metacensus/api/go/metacensus/public/v1;metacensuspublicv1";
+
+// Route declarations, not a gRPC commitment: see README.md.
+//
+// Paths are relative to `/metacensus/public`, which cmd/routegen holds.
+service PartnerRoutes {
+  // Rejections answer with a status and an untyped body; see common.proto.
+  rpc SubmitPartnerInterest(PartnerSubmission) returns (PartnerReceipt) {
+    option (google.api.http) = {
+      post: "/partner"
+      body: "*"
+    };
+  }
+}
+
+// PartnerSubmission is one express-interest form post.
+//
+// The length caps below decide whether a submission succeeds, and the failure
+// is opaque — a client cannot learn from the response which field it got wrong,
+// so it has to know the limits in advance. They are comments rather than
+// protovalidate constraints because ts-proto runs with `onlyTypes=true` and
+// drops field options, so an annotation would reach the server and never the
+// form. See README.md, "What the public contract does and does not mechanise".
+message PartnerSubmission {
+  // Interest is the set of checkboxes the form offers.
+  //
+  // **The set is a contract; the wording is copy.** A value's display label
+  // ("Fund the work") stays in the SPA, because a copy edit should not become a
+  // schema change, a release and a service deploy. The two also fail
+  // differently: a stale label renders an odd string, a stale set rejects every
+  // submission carrying the new value.
+  //
+  // **Unspecified is not an offered choice.** It is the proto3 zero value and
+  // exists only so the enum has one; a form built from this enum must filter it
+  // out. See ts/README.md for the TypeScript spelling.
+  enum Interest {
+    Unspecified = 0;
+
+    // "Partner or pilot with us"
+    PartnerOrPilot = 1;
+
+    // "Fund the work"
+    FundTheWork = 2;
+
+    // "Contribute expertise"
+    ContributeExpertise = 3;
+
+    // "Bring MetaCensus to my field"
+    BringToMyField = 4;
+
+    // "Request early access"
+    RequestEarlyAccess = 5;
+  }
+
+  // Required. Whitespace-collapsed, then capped at 120 characters.
+  string name = 1;
+
+  // Required. Trimmed, capped at 254 characters, and must contain an `@` with
+  // a dotted host after it. Deliberately a shape check, not RFC 5322.
+  string email = 2;
+
+  // May be empty. Duplicates are collapsed rather than rejected; an
+  // unrecognised value rejects the whole submission.
+  repeated Interest interests = 3;
+
+  // Optional. Trimmed, capped at 2000 characters.
+  string message = 4;
+
+  // Honeypot. Must be empty; a filled one receives an ordinary receipt and is
+  // never delivered.
+  string website = 5;
+}
+
+// PartnerReceipt is the 200 answer. `submissionId` correlates a submission with
+// the service's logs; it is not a handle, and nothing can be fetched with it.
+message PartnerReceipt {
+  // Always true, and the one place this surface still differs in shape from
+  // `metacensus.v1`, which returns bare resources.
+  //
+  // It is here because the service sends it and contract.UnmarshalOptions
+  // rejects unknown fields, so a Go consumer decoding the real 200 body into a
+  // message without `ok` would fail. Dropping it is a service change first.
+  bool ok = 1;
+
+  string submission_id = 2;
+}

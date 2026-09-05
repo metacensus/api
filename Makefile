@@ -16,7 +16,7 @@
 # changed between Go releases, so either one lands as generated-code drift in a
 # PR that never touched a .proto.
 
-.PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
+.PHONY: all gen lint format format-check breaking breaking-public test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
 GO_DIR    := go
@@ -35,6 +35,15 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 # The latest release tag: the published contract is what a breaking change
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
+
+# The public surface answers "does this break what is deployed?" rather than
+# "what was released?", because its callers are browsers holding a build of the
+# SPA nobody can redeploy, and none of them consume a tag. See README.md,
+# "Versioning the public surface".
+PUBLIC_PROTO_DIR         := $(PROTO)/metacensus/public
+# The same directory as buf sees it, i.e. relative to the module root.
+PUBLIC_PACKAGE_PATH      := metacensus/public
+PUBLIC_BREAKING_AGAINST  ?= origin/main
 
 all: check
 
@@ -80,12 +89,44 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
+## breaking-public — the public surface against what is deployed, not what is tagged
+#
+# `--path` scopes the comparison to the public package, so one buf module carries
+# two breaking checks. **This is the one buf invocation that does not run from
+# the repository root**, and it has to be: `--path` resolves against the input's
+# context directory, and the `--against` input is the module rooted at $(PROTO)
+# inside a git archive, so a root-relative path targets no files there and buf
+# answers "no .proto files were targeted" instead of failing usefully. $(BUF) is
+# absolute, so running from $(PROTO) is safe.
+#
+# The rule set is FILE for both checks because FILE is buf's strictest. What is
+# breaking here and invisible to any schema differ — a narrowed length cap, a
+# newly-required field — lives in comments and in the server, and is held by
+# review and by README.md rather than by a flag that would only claim to.
+#
+# The baseline is echoed because it is a local remote-tracking ref: `make check`
+# does not fetch, so a stale one would otherwise compare against the wrong
+# commit, or skip, without saying so.
+breaking-public: $(BIN)/buf
+	@if ! git rev-parse --verify -q '$(PUBLIC_BREAKING_AGAINST)^{commit}' >/dev/null; then \
+		echo "no $(PUBLIC_BREAKING_AGAINST) to compare against; skipping"; \
+	else \
+		echo "public surface against $(PUBLIC_BREAKING_AGAINST) @ $$(git log -1 --format='%h %cs' '$(PUBLIC_BREAKING_AGAINST)')"; \
+		if [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
+			echo "  no public package there yet; nothing deployed to break"; \
+		else \
+			cd $(PROTO) && $(BUF) breaking . \
+				--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
+				--path '$(PUBLIC_PACKAGE_PATH)'; \
+		fi; \
+	fi
+
 ## test — the schema and route invariants
 test:
 	go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check test
+check: lint format-check breaking-public test
 	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
 	# binary in the working directory.
 	go build -o /dev/null ./... && go vet ./...

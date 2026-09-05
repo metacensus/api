@@ -1,6 +1,12 @@
-// The MetaCensus API contract, as TypeScript. Types only, no runtime.
+// The authenticated MetaCensus API contract (/metacensus/api/v1), as
+// TypeScript. Types only, no runtime.
 //
 // Everything under ./src is generated; a new .proto file needs a line here.
+//
+// The public surface is `@metacensus/api/public`, in ./public.ts. It is not
+// merged in here: `protobufPackage` names a package, so a barrel spanning two
+// could only export one of them under that name, and the point of the second
+// entry point is that a consumer of one surface does not acquire the other.
 
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
