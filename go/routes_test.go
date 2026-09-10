@@ -69,7 +69,9 @@ func TestRoutesAreUnique(t *testing.T) {
 }
 
 // Reads are named for what they do, so the name is what to check the route
-// against.
+// against. A read this does not recognise reads as a write and belongs in
+// TestNonConformingRoutes's exceptions rather than in this list, which exists
+// to be small.
 func isRead(rpc string) bool {
 	for _, prefix := range []string{"List", "Get", "Lookup"} {
 		if strings.HasPrefix(rpc, prefix) {
@@ -89,24 +91,53 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the set of routes that break the route conventions. That set is empty:
-// the only three members were Paper's, and Paper left the contract with its
-// design unsettled (metacensus/api#8).
+// The conventions this contract holds routes to, and the routes that break
+// them anyway.
 //
-// The map stays rather than the check collapsing to "no route may break a
-// convention", because a deliberate exception is a thing this contract has had
-// and may have again. Empty, it says the exceptions are none — and any route
-// that starts breaking a convention fails here with the reason spelled out.
+//	request name	a route's request message is <RPC>Request
+//	method    	reads are GET, writes are POST
+//	verb-free path	the path names a resource; the rpc names the verb
+//
+// What is deliberately *not* here is as much of the point as what is. Response
+// naming is not checked: a bare read returning the resource — GetTopic
+// returning Topic, Login and SignUp both returning Session — is a decision this
+// contract took and wrote into buf.yaml's lint exceptions, and a <RPC>Response
+// rule would reverse it by wrapping every resource in a one-field envelope.
+// Path parameter naming is not checked either; GetMember binds {userId} on
+// purpose, because a membership has no id of its own. Both are judgement, and
+// judgement belongs with whoever is writing the route.
+//
+// The request rule is checked because it is the opposite: a request message is
+// one per rpc, never shared, and its name carries no design content, so
+// mechanically deriving it costs nothing and drift in it means nothing.
+//
+// want is the exceptions, and it is a map rather than a bare "no route may
+// break a convention" because a deliberate exception is a thing this contract
+// has had and may have again. A route that starts breaking a convention fails
+// here with the reason spelled out; one that stops fails until it is struck
+// off.
 func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{}
+	want := map[string]string{
+		// Healthcheck is a read, but nothing in its name says so — it predates
+		// the verb vocabulary isRead knows, and renaming it to GetHealth to
+		// satisfy a test would be the test wagging the contract. GET is right;
+		// the rule simply cannot see it.
+		"GET /healthcheck": "write over GET",
+	}
 
 	// Reasons accumulate: a route can break more than one convention, and
 	// overwriting would hide the second.
 	reasons := map[string][]string{}
 	for _, r := range routes.Routes {
 		key := r.Method + " " + r.Path
+		if want := r.RPC + "Request"; r.Request != want {
+			reasons[key] = append(reasons[key], "request is "+r.Request+", not "+want)
+		}
 		if isRead(r.RPC) && r.Method != "GET" {
 			reasons[key] = append(reasons[key], "read over "+r.Method)
+		}
+		if !isRead(r.RPC) && r.Method != "POST" {
+			reasons[key] = append(reasons[key], "write over "+r.Method)
 		}
 		if verb := verbSegment(r.Path); verb != "" {
 			reasons[key] = append(reasons[key], "verb in path: "+verb)

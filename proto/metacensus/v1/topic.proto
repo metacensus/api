@@ -11,30 +11,30 @@ option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
 // Route declarations, not a gRPC commitment: see contract/README.md.
 service TopicRoutes {
-  rpc ListTopics(TopicListRequest) returns (TopicList) {
+  rpc ListTopics(ListTopicsRequest) returns (TopicList) {
     option (google.api.http) = {get: "/topic"};
   }
 
-  rpc GetTopic(TopicGetRequest) returns (Topic) {
+  rpc GetTopic(GetTopicRequest) returns (Topic) {
     option (google.api.http) = {get: "/topic/{topic_id}"};
   }
 
-  rpc CreateTopic(TopicCreateRequest) returns (Topic) {
+  rpc CreateTopic(CreateTopicRequest) returns (Topic) {
     option (google.api.http) = {
       post: "/topic"
       body: "*"
     };
   }
 
-  rpc GetProtocol(TopicProtocolRequest) returns (Protocol) {
+  rpc GetProtocol(GetProtocolRequest) returns (Protocol) {
     option (google.api.http) = {get: "/topic/{topic_id}/protocol"};
   }
 
-  rpc ListMembers(MemberListRequest) returns (MemberList) {
+  rpc ListMembers(ListMembersRequest) returns (MemberList) {
     option (google.api.http) = {get: "/topic/{topic_id}/member"};
   }
 
-  rpc GetMember(MemberGetRequest) returns (Member) {
+  rpc GetMember(GetMemberRequest) returns (Member) {
     option (google.api.http) = {get: "/topic/{topic_id}/member/{user_id}"};
   }
 }
@@ -47,22 +47,22 @@ message Topic {
   string description = 4;
 }
 
-message TopicListRequest {}
+message ListTopicsRequest {}
 
 message TopicList {
   repeated Topic items = 1;
 }
 
-message TopicGetRequest {
+message GetTopicRequest {
   string topic_id = 1;
 }
 
-message TopicCreateRequest {
+message CreateTopicRequest {
   string name = 1;
   string description = 2;
 }
 
-message TopicProtocolRequest {
+message GetProtocolRequest {
   string topic_id = 1;
 }
 
@@ -76,7 +76,7 @@ message Member {
   google.protobuf.Timestamp joined = 2;
 }
 
-message MemberListRequest {
+message ListMembersRequest {
   string topic_id = 1;
 }
 
@@ -84,7 +84,7 @@ message MemberList {
   repeated Member items = 1;
 }
 
-message MemberGetRequest {
+message GetMemberRequest {
   string topic_id = 1;
   string user_id = 2;
 }
