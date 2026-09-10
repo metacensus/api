@@ -18,17 +18,17 @@ export interface User {
   created?: string | undefined;
 }
 
-export interface UserListRequest {
+export interface ListUsersRequest {
 }
 
 export interface UserList {
   items: User[];
 }
 
-export interface UserGetRequest {
+export interface GetUserRequest {
   userId: string;
 }
 
-/** SelfGetRequest is empty: the user is the authenticated one. */
-export interface SelfGetRequest {
+/** GetSelfRequest is empty: the user is the authenticated one. */
+export interface GetSelfRequest {
 }

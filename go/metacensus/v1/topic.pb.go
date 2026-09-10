@@ -94,26 +94,26 @@ func (x *Topic) GetDescription() string {
 	return ""
 }
 
-type TopicListRequest struct {
+type ListTopicsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TopicListRequest) Reset() {
-	*x = TopicListRequest{}
+func (x *ListTopicsRequest) Reset() {
+	*x = ListTopicsRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TopicListRequest) String() string {
+func (x *ListTopicsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TopicListRequest) ProtoMessage() {}
+func (*ListTopicsRequest) ProtoMessage() {}
 
-func (x *TopicListRequest) ProtoReflect() protoreflect.Message {
+func (x *ListTopicsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -125,8 +125,8 @@ func (x *TopicListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TopicListRequest.ProtoReflect.Descriptor instead.
-func (*TopicListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListTopicsRequest.ProtoReflect.Descriptor instead.
+func (*ListTopicsRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{1}
 }
 
@@ -174,27 +174,27 @@ func (x *TopicList) GetItems() []*Topic {
 	return nil
 }
 
-type TopicGetRequest struct {
+type GetTopicRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TopicGetRequest) Reset() {
-	*x = TopicGetRequest{}
+func (x *GetTopicRequest) Reset() {
+	*x = GetTopicRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TopicGetRequest) String() string {
+func (x *GetTopicRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TopicGetRequest) ProtoMessage() {}
+func (*GetTopicRequest) ProtoMessage() {}
 
-func (x *TopicGetRequest) ProtoReflect() protoreflect.Message {
+func (x *GetTopicRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -206,19 +206,19 @@ func (x *TopicGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TopicGetRequest.ProtoReflect.Descriptor instead.
-func (*TopicGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetTopicRequest.ProtoReflect.Descriptor instead.
+func (*GetTopicRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *TopicGetRequest) GetTopicId() string {
+func (x *GetTopicRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-type TopicCreateRequest struct {
+type CreateTopicRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
@@ -226,20 +226,20 @@ type TopicCreateRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TopicCreateRequest) Reset() {
-	*x = TopicCreateRequest{}
+func (x *CreateTopicRequest) Reset() {
+	*x = CreateTopicRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TopicCreateRequest) String() string {
+func (x *CreateTopicRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TopicCreateRequest) ProtoMessage() {}
+func (*CreateTopicRequest) ProtoMessage() {}
 
-func (x *TopicCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateTopicRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -251,46 +251,46 @@ func (x *TopicCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TopicCreateRequest.ProtoReflect.Descriptor instead.
-func (*TopicCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateTopicRequest.ProtoReflect.Descriptor instead.
+func (*CreateTopicRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *TopicCreateRequest) GetName() string {
+func (x *CreateTopicRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *TopicCreateRequest) GetDescription() string {
+func (x *CreateTopicRequest) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-type TopicProtocolRequest struct {
+type GetProtocolRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TopicProtocolRequest) Reset() {
-	*x = TopicProtocolRequest{}
+func (x *GetProtocolRequest) Reset() {
+	*x = GetProtocolRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TopicProtocolRequest) String() string {
+func (x *GetProtocolRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TopicProtocolRequest) ProtoMessage() {}
+func (*GetProtocolRequest) ProtoMessage() {}
 
-func (x *TopicProtocolRequest) ProtoReflect() protoreflect.Message {
+func (x *GetProtocolRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -302,12 +302,12 @@ func (x *TopicProtocolRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TopicProtocolRequest.ProtoReflect.Descriptor instead.
-func (*TopicProtocolRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetProtocolRequest.ProtoReflect.Descriptor instead.
+func (*GetProtocolRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *TopicProtocolRequest) GetTopicId() string {
+func (x *GetProtocolRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
@@ -370,27 +370,27 @@ func (x *Member) GetJoined() *timestamppb.Timestamp {
 	return nil
 }
 
-type MemberListRequest struct {
+type ListMembersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *MemberListRequest) Reset() {
-	*x = MemberListRequest{}
+func (x *ListMembersRequest) Reset() {
+	*x = ListMembersRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *MemberListRequest) String() string {
+func (x *ListMembersRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MemberListRequest) ProtoMessage() {}
+func (*ListMembersRequest) ProtoMessage() {}
 
-func (x *MemberListRequest) ProtoReflect() protoreflect.Message {
+func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -402,12 +402,12 @@ func (x *MemberListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MemberListRequest.ProtoReflect.Descriptor instead.
-func (*MemberListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListMembersRequest.ProtoReflect.Descriptor instead.
+func (*ListMembersRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *MemberListRequest) GetTopicId() string {
+func (x *ListMembersRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
@@ -458,7 +458,7 @@ func (x *MemberList) GetItems() []*Member {
 	return nil
 }
 
-type MemberGetRequest struct {
+type GetMemberRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -466,20 +466,20 @@ type MemberGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *MemberGetRequest) Reset() {
-	*x = MemberGetRequest{}
+func (x *GetMemberRequest) Reset() {
+	*x = GetMemberRequest{}
 	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *MemberGetRequest) String() string {
+func (x *GetMemberRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MemberGetRequest) ProtoMessage() {}
+func (*GetMemberRequest) ProtoMessage() {}
 
-func (x *MemberGetRequest) ProtoReflect() protoreflect.Message {
+func (x *GetMemberRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_topic_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -491,19 +491,19 @@ func (x *MemberGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MemberGetRequest.ProtoReflect.Descriptor instead.
-func (*MemberGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetMemberRequest.ProtoReflect.Descriptor instead.
+func (*GetMemberRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *MemberGetRequest) GetTopicId() string {
+func (x *GetMemberRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *MemberGetRequest) GetUserId() string {
+func (x *GetMemberRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
@@ -519,36 +519,36 @@ const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
 	"\acreated\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\"\x12\n" +
-	"\x10TopicListRequest\"7\n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\"\x13\n" +
+	"\x11ListTopicsRequest\"7\n" +
 	"\tTopicList\x12*\n" +
 	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\",\n" +
-	"\x0fTopicGetRequest\x12\x19\n" +
+	"\x0fGetTopicRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"J\n" +
-	"\x12TopicCreateRequest\x12\x12\n" +
+	"\x12CreateTopicRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"1\n" +
-	"\x14TopicProtocolRequest\x12\x19\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"/\n" +
+	"\x12GetProtocolRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"L\n" +
 	"\x06Member\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
-	"\x06joined\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x06joined\".\n" +
-	"\x11MemberListRequest\x12\x19\n" +
+	"\x06joined\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x06joined\"/\n" +
+	"\x12ListMembersRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"9\n" +
 	"\n" +
 	"MemberList\x12+\n" +
 	"\x05items\x18\x01 \x03(\v2\x15.metacensus.v1.MemberR\x05items\"F\n" +
-	"\x10MemberGetRequest\x12\x19\n" +
+	"\x10GetMemberRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId2\xee\x04\n" +
-	"\vTopicRoutes\x12W\n" +
+	"\vTopicRoutes\x12X\n" +
 	"\n" +
-	"ListTopics\x12\x1f.metacensus.v1.TopicListRequest\x1a\x18.metacensus.v1.TopicList\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/topic\x12[\n" +
-	"\bGetTopic\x12\x1e.metacensus.v1.TopicGetRequest\x1a\x14.metacensus.v1.Topic\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/topic/{topic_id}\x12Y\n" +
-	"\vCreateTopic\x12!.metacensus.v1.TopicCreateRequest\x1a\x14.metacensus.v1.Topic\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12o\n" +
-	"\vGetProtocol\x12#.metacensus.v1.TopicProtocolRequest\x1a\x17.metacensus.v1.Protocol\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/topic/{topic_id}/protocol\x12l\n" +
-	"\vListMembers\x12 .metacensus.v1.MemberListRequest\x1a\x19.metacensus.v1.MemberList\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/topic/{topic_id}/member\x12o\n" +
-	"\tGetMember\x12\x1f.metacensus.v1.MemberGetRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}B9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"ListTopics\x12 .metacensus.v1.ListTopicsRequest\x1a\x18.metacensus.v1.TopicList\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/topic\x12[\n" +
+	"\bGetTopic\x12\x1e.metacensus.v1.GetTopicRequest\x1a\x14.metacensus.v1.Topic\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/topic/{topic_id}\x12Y\n" +
+	"\vCreateTopic\x12!.metacensus.v1.CreateTopicRequest\x1a\x14.metacensus.v1.Topic\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12m\n" +
+	"\vGetProtocol\x12!.metacensus.v1.GetProtocolRequest\x1a\x17.metacensus.v1.Protocol\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/topic/{topic_id}/protocol\x12m\n" +
+	"\vListMembers\x12!.metacensus.v1.ListMembersRequest\x1a\x19.metacensus.v1.MemberList\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/topic/{topic_id}/member\x12o\n" +
+	"\tGetMember\x12\x1f.metacensus.v1.GetMemberRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}B9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_topic_proto_rawDescOnce sync.Once
@@ -565,15 +565,15 @@ func file_metacensus_v1_topic_proto_rawDescGZIP() []byte {
 var file_metacensus_v1_topic_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_metacensus_v1_topic_proto_goTypes = []any{
 	(*Topic)(nil),                 // 0: metacensus.v1.Topic
-	(*TopicListRequest)(nil),      // 1: metacensus.v1.TopicListRequest
+	(*ListTopicsRequest)(nil),     // 1: metacensus.v1.ListTopicsRequest
 	(*TopicList)(nil),             // 2: metacensus.v1.TopicList
-	(*TopicGetRequest)(nil),       // 3: metacensus.v1.TopicGetRequest
-	(*TopicCreateRequest)(nil),    // 4: metacensus.v1.TopicCreateRequest
-	(*TopicProtocolRequest)(nil),  // 5: metacensus.v1.TopicProtocolRequest
+	(*GetTopicRequest)(nil),       // 3: metacensus.v1.GetTopicRequest
+	(*CreateTopicRequest)(nil),    // 4: metacensus.v1.CreateTopicRequest
+	(*GetProtocolRequest)(nil),    // 5: metacensus.v1.GetProtocolRequest
 	(*Member)(nil),                // 6: metacensus.v1.Member
-	(*MemberListRequest)(nil),     // 7: metacensus.v1.MemberListRequest
+	(*ListMembersRequest)(nil),    // 7: metacensus.v1.ListMembersRequest
 	(*MemberList)(nil),            // 8: metacensus.v1.MemberList
-	(*MemberGetRequest)(nil),      // 9: metacensus.v1.MemberGetRequest
+	(*GetMemberRequest)(nil),      // 9: metacensus.v1.GetMemberRequest
 	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 	(*Protocol)(nil),              // 11: metacensus.v1.Protocol
 }
@@ -582,12 +582,12 @@ var file_metacensus_v1_topic_proto_depIdxs = []int32{
 	0,  // 1: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
 	10, // 2: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
 	6,  // 3: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
-	1,  // 4: metacensus.v1.TopicRoutes.ListTopics:input_type -> metacensus.v1.TopicListRequest
-	3,  // 5: metacensus.v1.TopicRoutes.GetTopic:input_type -> metacensus.v1.TopicGetRequest
-	4,  // 6: metacensus.v1.TopicRoutes.CreateTopic:input_type -> metacensus.v1.TopicCreateRequest
-	5,  // 7: metacensus.v1.TopicRoutes.GetProtocol:input_type -> metacensus.v1.TopicProtocolRequest
-	7,  // 8: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.MemberListRequest
-	9,  // 9: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.MemberGetRequest
+	1,  // 4: metacensus.v1.TopicRoutes.ListTopics:input_type -> metacensus.v1.ListTopicsRequest
+	3,  // 5: metacensus.v1.TopicRoutes.GetTopic:input_type -> metacensus.v1.GetTopicRequest
+	4,  // 6: metacensus.v1.TopicRoutes.CreateTopic:input_type -> metacensus.v1.CreateTopicRequest
+	5,  // 7: metacensus.v1.TopicRoutes.GetProtocol:input_type -> metacensus.v1.GetProtocolRequest
+	7,  // 8: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.ListMembersRequest
+	9,  // 9: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.GetMemberRequest
 	2,  // 10: metacensus.v1.TopicRoutes.ListTopics:output_type -> metacensus.v1.TopicList
 	0,  // 11: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.Topic
 	0,  // 12: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.Topic

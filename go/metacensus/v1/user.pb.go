@@ -101,26 +101,26 @@ func (x *User) GetCreated() *timestamppb.Timestamp {
 	return nil
 }
 
-type UserListRequest struct {
+type ListUsersRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserListRequest) Reset() {
-	*x = UserListRequest{}
+func (x *ListUsersRequest) Reset() {
+	*x = ListUsersRequest{}
 	mi := &file_metacensus_v1_user_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserListRequest) String() string {
+func (x *ListUsersRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserListRequest) ProtoMessage() {}
+func (*ListUsersRequest) ProtoMessage() {}
 
-func (x *UserListRequest) ProtoReflect() protoreflect.Message {
+func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_user_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -132,8 +132,8 @@ func (x *UserListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserListRequest.ProtoReflect.Descriptor instead.
-func (*UserListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListUsersRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{1}
 }
 
@@ -181,27 +181,27 @@ func (x *UserList) GetItems() []*User {
 	return nil
 }
 
-type UserGetRequest struct {
+type GetUserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserGetRequest) Reset() {
-	*x = UserGetRequest{}
+func (x *GetUserRequest) Reset() {
+	*x = GetUserRequest{}
 	mi := &file_metacensus_v1_user_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserGetRequest) String() string {
+func (x *GetUserRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserGetRequest) ProtoMessage() {}
+func (*GetUserRequest) ProtoMessage() {}
 
-func (x *UserGetRequest) ProtoReflect() protoreflect.Message {
+func (x *GetUserRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_user_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -213,39 +213,39 @@ func (x *UserGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserGetRequest.ProtoReflect.Descriptor instead.
-func (*UserGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetUserRequest.ProtoReflect.Descriptor instead.
+func (*GetUserRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *UserGetRequest) GetUserId() string {
+func (x *GetUserRequest) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-// SelfGetRequest is empty: the user is the authenticated one.
-type SelfGetRequest struct {
+// GetSelfRequest is empty: the user is the authenticated one.
+type GetSelfRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SelfGetRequest) Reset() {
-	*x = SelfGetRequest{}
+func (x *GetSelfRequest) Reset() {
+	*x = GetSelfRequest{}
 	mi := &file_metacensus_v1_user_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SelfGetRequest) String() string {
+func (x *GetSelfRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SelfGetRequest) ProtoMessage() {}
+func (*GetSelfRequest) ProtoMessage() {}
 
-func (x *SelfGetRequest) ProtoReflect() protoreflect.Message {
+func (x *GetSelfRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_user_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -257,8 +257,8 @@ func (x *SelfGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SelfGetRequest.ProtoReflect.Descriptor instead.
-func (*SelfGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetSelfRequest.ProtoReflect.Descriptor instead.
+func (*GetSelfRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{4}
 }
 
@@ -272,18 +272,18 @@ const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x18\n" +
 	"\acountry\x18\x04 \x01(\tR\acountry\x124\n" +
-	"\acreated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"\x11\n" +
-	"\x0fUserListRequest\"5\n" +
+	"\acreated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"\x12\n" +
+	"\x10ListUsersRequest\"5\n" +
 	"\bUserList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
-	"\x0eUserGetRequest\x12\x17\n" +
+	"\x0eGetUserRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x10\n" +
-	"\x0eSelfGetRequest2\x87\x02\n" +
+	"\x0eGetSelfRequest2\x88\x02\n" +
 	"\n" +
-	"UserRoutes\x12S\n" +
-	"\tListUsers\x12\x1e.metacensus.v1.UserListRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12V\n" +
-	"\aGetUser\x12\x1d.metacensus.v1.UserGetRequest\x1a\x13.metacensus.v1.User\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12L\n" +
-	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"UserRoutes\x12T\n" +
+	"\tListUsers\x12\x1f.metacensus.v1.ListUsersRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12V\n" +
+	"\aGetUser\x12\x1d.metacensus.v1.GetUserRequest\x1a\x13.metacensus.v1.User\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12L\n" +
+	"\aGetSelf\x12\x1d.metacensus.v1.GetSelfRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_user_proto_rawDescOnce sync.Once
@@ -300,18 +300,18 @@ func file_metacensus_v1_user_proto_rawDescGZIP() []byte {
 var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_user_proto_goTypes = []any{
 	(*User)(nil),                  // 0: metacensus.v1.User
-	(*UserListRequest)(nil),       // 1: metacensus.v1.UserListRequest
+	(*ListUsersRequest)(nil),      // 1: metacensus.v1.ListUsersRequest
 	(*UserList)(nil),              // 2: metacensus.v1.UserList
-	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
-	(*SelfGetRequest)(nil),        // 4: metacensus.v1.SelfGetRequest
+	(*GetUserRequest)(nil),        // 3: metacensus.v1.GetUserRequest
+	(*GetSelfRequest)(nil),        // 4: metacensus.v1.GetSelfRequest
 	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
 	5, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
 	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
-	1, // 2: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
-	3, // 3: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
-	4, // 4: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
+	1, // 2: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.ListUsersRequest
+	3, // 3: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.GetUserRequest
+	4, // 4: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.GetSelfRequest
 	2, // 5: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
 	0, // 6: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.User
 	0, // 7: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.User

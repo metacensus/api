@@ -69,7 +69,8 @@ func TestRoutesAreUnique(t *testing.T) {
 }
 
 // Reads are named for what they do, so the name is what to check the route
-// against.
+// against. A read this does not recognise belongs in the exceptions above
+// rather than in this list, which exists to be small.
 func isRead(rpc string) bool {
 	for _, prefix := range []string{"List", "Get", "Lookup"} {
 		if strings.HasPrefix(rpc, prefix) {
@@ -89,24 +90,34 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the set of routes that break the route conventions. That set is empty:
-// the only three members were Paper's, and Paper left the contract with its
-// design unsettled (metacensus/api#8).
+// Holds routes to the naming standard in README.md, "The naming standard",
+// which says which rules are checked here and why the rest are not.
 //
-// The map stays rather than the check collapsing to "no route may break a
-// convention", because a deliberate exception is a thing this contract has had
-// and may have again. Empty, it says the exceptions are none — and any route
-// that starts breaking a convention fails here with the reason spelled out.
+// want is the exceptions. It is a map rather than a bare "no route may break a
+// convention" because a deliberate exception is a thing this contract has had
+// and may have again: a route that starts breaking a convention fails here, and
+// one that stops fails until it is struck off.
 func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{}
+	want := map[string]string{
+		// A read whose name does not say so, so isRead cannot see it. GET is
+		// right; renaming it to GetHealth would be the test wagging the
+		// contract.
+		"GET /healthcheck": "write over GET",
+	}
 
 	// Reasons accumulate: a route can break more than one convention, and
 	// overwriting would hide the second.
 	reasons := map[string][]string{}
 	for _, r := range routes.Routes {
 		key := r.Method + " " + r.Path
+		if want := r.RPC + "Request"; r.Request != want {
+			reasons[key] = append(reasons[key], "request is "+r.Request+", not "+want)
+		}
 		if isRead(r.RPC) && r.Method != "GET" {
 			reasons[key] = append(reasons[key], "read over "+r.Method)
+		}
+		if !isRead(r.RPC) && r.Method != "POST" {
+			reasons[key] = append(reasons[key], "write over "+r.Method)
 		}
 		if verb := verbSegment(r.Path); verb != "" {
 			reasons[key] = append(reasons[key], "verb in path: "+verb)

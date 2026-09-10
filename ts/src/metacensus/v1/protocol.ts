@@ -47,8 +47,8 @@ export interface ProtocolElementOption {
   value: string;
 }
 
-/** ProtocolCreateRequest ignores the ids on its sections and elements. */
-export interface ProtocolCreateRequest {
+/** CreateProtocolRequest ignores the ids on its sections and elements. */
+export interface CreateProtocolRequest {
   topicId: string;
   title: string;
   sections: ProtocolSection[];

@@ -10,26 +10,26 @@ option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
 // Route declarations, not a gRPC commitment: see contract/README.md.
 service PropRoutes {
-  rpc ListProps(PropListRequest) returns (PropList) {
+  rpc ListProps(ListPropsRequest) returns (PropList) {
     option (google.api.http) = {get: "/topic/{topic_id}/prop"};
   }
 
-  rpc GetProp(PropGetRequest) returns (Prop) {
+  rpc GetProp(GetPropRequest) returns (Prop) {
     option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}"};
   }
 
-  rpc CreateProp(PropCreateRequest) returns (Prop) {
+  rpc CreateProp(CreatePropRequest) returns (Prop) {
     option (google.api.http) = {
       post: "/topic/{topic_id}/prop"
       body: "*"
     };
   }
 
-  rpc ListVotes(VoteListRequest) returns (VoteList) {
+  rpc ListVotes(ListVotesRequest) returns (VoteList) {
     option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}/vote"};
   }
 
-  rpc SetVote(VoteSetRequest) returns (Vote) {
+  rpc SetVote(SetVoteRequest) returns (Vote) {
     option (google.api.http) = {
       post: "/topic/{topic_id}/prop/{prop_id}/vote"
       body: "*"
@@ -92,7 +92,7 @@ message PropCitation {
   uint32 end = 2;
 }
 
-message PropListRequest {
+message ListPropsRequest {
   string topic_id = 1;
 }
 
@@ -100,19 +100,19 @@ message PropList {
   repeated Prop items = 1;
 }
 
-message PropGetRequest {
+message GetPropRequest {
   string topic_id = 1;
   string prop_id = 2;
 }
 
-// PropCreateRequest takes no author: it is the authenticated user.
-message PropCreateRequest {
+// CreatePropRequest takes no author: it is the authenticated user.
+message CreatePropRequest {
   string topic_id = 1;
   Prop.Type type = 2;
   string description = 3;
 }
 
-message VoteListRequest {
+message ListVotesRequest {
   string topic_id = 1;
   string prop_id = 2;
 }
@@ -122,9 +122,9 @@ message VoteList {
   repeated Vote items = 1;
 }
 
-// VoteSetRequest sets rather than creates: it replaces the caller's previous
+// SetVoteRequest sets rather than creates: it replaces the caller's previous
 // vote on this prop.
-message VoteSetRequest {
+message SetVoteRequest {
   string topic_id = 1;
   string prop_id = 2;
   Vote.Position position = 3;

@@ -364,27 +364,27 @@ func (x *PropCitation) GetEnd() uint32 {
 	return 0
 }
 
-type PropListRequest struct {
+type ListPropsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PropListRequest) Reset() {
-	*x = PropListRequest{}
+func (x *ListPropsRequest) Reset() {
+	*x = ListPropsRequest{}
 	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PropListRequest) String() string {
+func (x *ListPropsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PropListRequest) ProtoMessage() {}
+func (*ListPropsRequest) ProtoMessage() {}
 
-func (x *PropListRequest) ProtoReflect() protoreflect.Message {
+func (x *ListPropsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -396,12 +396,12 @@ func (x *PropListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PropListRequest.ProtoReflect.Descriptor instead.
-func (*PropListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListPropsRequest.ProtoReflect.Descriptor instead.
+func (*ListPropsRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *PropListRequest) GetTopicId() string {
+func (x *ListPropsRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
@@ -452,7 +452,7 @@ func (x *PropList) GetItems() []*Prop {
 	return nil
 }
 
-type PropGetRequest struct {
+type GetPropRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	PropId        string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
@@ -460,20 +460,20 @@ type PropGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PropGetRequest) Reset() {
-	*x = PropGetRequest{}
+func (x *GetPropRequest) Reset() {
+	*x = GetPropRequest{}
 	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PropGetRequest) String() string {
+func (x *GetPropRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PropGetRequest) ProtoMessage() {}
+func (*GetPropRequest) ProtoMessage() {}
 
-func (x *PropGetRequest) ProtoReflect() protoreflect.Message {
+func (x *GetPropRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_prop_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -485,27 +485,27 @@ func (x *PropGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PropGetRequest.ProtoReflect.Descriptor instead.
-func (*PropGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetPropRequest.ProtoReflect.Descriptor instead.
+func (*GetPropRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *PropGetRequest) GetTopicId() string {
+func (x *GetPropRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *PropGetRequest) GetPropId() string {
+func (x *GetPropRequest) GetPropId() string {
 	if x != nil {
 		return x.PropId
 	}
 	return ""
 }
 
-// PropCreateRequest takes no author: it is the authenticated user.
-type PropCreateRequest struct {
+// CreatePropRequest takes no author: it is the authenticated user.
+type CreatePropRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	Type          Prop_Type              `protobuf:"varint,2,opt,name=type,proto3,enum=metacensus.v1.Prop_Type" json:"type,omitempty"`
@@ -514,20 +514,20 @@ type PropCreateRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PropCreateRequest) Reset() {
-	*x = PropCreateRequest{}
+func (x *CreatePropRequest) Reset() {
+	*x = CreatePropRequest{}
 	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PropCreateRequest) String() string {
+func (x *CreatePropRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PropCreateRequest) ProtoMessage() {}
+func (*CreatePropRequest) ProtoMessage() {}
 
-func (x *PropCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *CreatePropRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_prop_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -539,33 +539,33 @@ func (x *PropCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PropCreateRequest.ProtoReflect.Descriptor instead.
-func (*PropCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreatePropRequest.ProtoReflect.Descriptor instead.
+func (*CreatePropRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *PropCreateRequest) GetTopicId() string {
+func (x *CreatePropRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *PropCreateRequest) GetType() Prop_Type {
+func (x *CreatePropRequest) GetType() Prop_Type {
 	if x != nil {
 		return x.Type
 	}
 	return Prop_Unspecified
 }
 
-func (x *PropCreateRequest) GetDescription() string {
+func (x *CreatePropRequest) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-type VoteListRequest struct {
+type ListVotesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	PropId        string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
@@ -573,20 +573,20 @@ type VoteListRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *VoteListRequest) Reset() {
-	*x = VoteListRequest{}
+func (x *ListVotesRequest) Reset() {
+	*x = ListVotesRequest{}
 	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *VoteListRequest) String() string {
+func (x *ListVotesRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*VoteListRequest) ProtoMessage() {}
+func (*ListVotesRequest) ProtoMessage() {}
 
-func (x *VoteListRequest) ProtoReflect() protoreflect.Message {
+func (x *ListVotesRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_prop_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -598,19 +598,19 @@ func (x *VoteListRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use VoteListRequest.ProtoReflect.Descriptor instead.
-func (*VoteListRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListVotesRequest.ProtoReflect.Descriptor instead.
+func (*ListVotesRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *VoteListRequest) GetTopicId() string {
+func (x *ListVotesRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *VoteListRequest) GetPropId() string {
+func (x *ListVotesRequest) GetPropId() string {
 	if x != nil {
 		return x.PropId
 	}
@@ -662,9 +662,9 @@ func (x *VoteList) GetItems() []*Vote {
 	return nil
 }
 
-// VoteSetRequest sets rather than creates: it replaces the caller's previous
+// SetVoteRequest sets rather than creates: it replaces the caller's previous
 // vote on this prop.
-type VoteSetRequest struct {
+type SetVoteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	PropId        string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
@@ -675,20 +675,20 @@ type VoteSetRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *VoteSetRequest) Reset() {
-	*x = VoteSetRequest{}
+func (x *SetVoteRequest) Reset() {
+	*x = SetVoteRequest{}
 	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *VoteSetRequest) String() string {
+func (x *SetVoteRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*VoteSetRequest) ProtoMessage() {}
+func (*SetVoteRequest) ProtoMessage() {}
 
-func (x *VoteSetRequest) ProtoReflect() protoreflect.Message {
+func (x *SetVoteRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_prop_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -700,40 +700,40 @@ func (x *VoteSetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use VoteSetRequest.ProtoReflect.Descriptor instead.
-func (*VoteSetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SetVoteRequest.ProtoReflect.Descriptor instead.
+func (*SetVoteRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *VoteSetRequest) GetTopicId() string {
+func (x *SetVoteRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *VoteSetRequest) GetPropId() string {
+func (x *SetVoteRequest) GetPropId() string {
 	if x != nil {
 		return x.PropId
 	}
 	return ""
 }
 
-func (x *VoteSetRequest) GetPosition() Vote_Position {
+func (x *SetVoteRequest) GetPosition() Vote_Position {
 	if x != nil {
 		return x.Position
 	}
 	return Vote_Unspecified
 }
 
-func (x *VoteSetRequest) GetExplanation() string {
+func (x *SetVoteRequest) GetExplanation() string {
 	if x != nil {
 		return x.Explanation
 	}
 	return ""
 }
 
-func (x *VoteSetRequest) GetCitations() []*PropCitation {
+func (x *SetVoteRequest) GetCitations() []*PropCitation {
 	if x != nil {
 		return x.Citations
 	}
@@ -774,37 +774,37 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\aAbstain\x10\x03\"6\n" +
 	"\fPropCitation\x12\x14\n" +
 	"\x05start\x18\x01 \x01(\rR\x05start\x12\x10\n" +
-	"\x03end\x18\x02 \x01(\rR\x03end\",\n" +
-	"\x0fPropListRequest\x12\x19\n" +
+	"\x03end\x18\x02 \x01(\rR\x03end\"-\n" +
+	"\x10ListPropsRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\"5\n" +
 	"\bPropList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.PropR\x05items\"D\n" +
-	"\x0ePropGetRequest\x12\x19\n" +
+	"\x0eGetPropRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\"~\n" +
-	"\x11PropCreateRequest\x12\x19\n" +
+	"\x11CreatePropRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12,\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x18.metacensus.v1.Prop.TypeR\x04type\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\"E\n" +
-	"\x0fVoteListRequest\x12\x19\n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"F\n" +
+	"\x10ListVotesRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\"5\n" +
 	"\bVoteList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.VoteR\x05items\"\xdb\x01\n" +
-	"\x0eVoteSetRequest\x12\x19\n" +
+	"\x0eSetVoteRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x128\n" +
 	"\bposition\x18\x03 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
 	"\vexplanation\x18\x04 \x01(\tR\vexplanation\x129\n" +
-	"\tcitations\x18\x05 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations2\xa9\x04\n" +
+	"\tcitations\x18\x05 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations2\xab\x04\n" +
 	"\n" +
-	"PropRoutes\x12d\n" +
-	"\tListProps\x12\x1e.metacensus.v1.PropListRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12g\n" +
-	"\aGetProp\x12\x1d.metacensus.v1.PropGetRequest\x1a\x13.metacensus.v1.Prop\"(\x82\xd3\xe4\x93\x02\"\x12 /topic/{topic_id}/prop/{prop_id}\x12f\n" +
+	"PropRoutes\x12e\n" +
+	"\tListProps\x12\x1f.metacensus.v1.ListPropsRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12g\n" +
+	"\aGetProp\x12\x1d.metacensus.v1.GetPropRequest\x1a\x13.metacensus.v1.Prop\"(\x82\xd3\xe4\x93\x02\"\x12 /topic/{topic_id}/prop/{prop_id}\x12f\n" +
 	"\n" +
-	"CreateProp\x12 .metacensus.v1.PropCreateRequest\x1a\x13.metacensus.v1.Prop\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12s\n" +
-	"\tListVotes\x12\x1e.metacensus.v1.VoteListRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12o\n" +
-	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"CreateProp\x12 .metacensus.v1.CreatePropRequest\x1a\x13.metacensus.v1.Prop\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12t\n" +
+	"\tListVotes\x12\x1f.metacensus.v1.ListVotesRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12o\n" +
+	"\aSetVote\x12\x1d.metacensus.v1.SetVoteRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_prop_proto_rawDescOnce sync.Once
@@ -826,13 +826,13 @@ var file_metacensus_v1_prop_proto_goTypes = []any{
 	(*Prop)(nil),                  // 2: metacensus.v1.Prop
 	(*Vote)(nil),                  // 3: metacensus.v1.Vote
 	(*PropCitation)(nil),          // 4: metacensus.v1.PropCitation
-	(*PropListRequest)(nil),       // 5: metacensus.v1.PropListRequest
+	(*ListPropsRequest)(nil),      // 5: metacensus.v1.ListPropsRequest
 	(*PropList)(nil),              // 6: metacensus.v1.PropList
-	(*PropGetRequest)(nil),        // 7: metacensus.v1.PropGetRequest
-	(*PropCreateRequest)(nil),     // 8: metacensus.v1.PropCreateRequest
-	(*VoteListRequest)(nil),       // 9: metacensus.v1.VoteListRequest
+	(*GetPropRequest)(nil),        // 7: metacensus.v1.GetPropRequest
+	(*CreatePropRequest)(nil),     // 8: metacensus.v1.CreatePropRequest
+	(*ListVotesRequest)(nil),      // 9: metacensus.v1.ListVotesRequest
 	(*VoteList)(nil),              // 10: metacensus.v1.VoteList
-	(*VoteSetRequest)(nil),        // 11: metacensus.v1.VoteSetRequest
+	(*SetVoteRequest)(nil),        // 11: metacensus.v1.SetVoteRequest
 	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
 }
 var file_metacensus_v1_prop_proto_depIdxs = []int32{
@@ -842,15 +842,15 @@ var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	4,  // 3: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
 	12, // 4: metacensus.v1.Vote.last_cast:type_name -> google.protobuf.Timestamp
 	2,  // 5: metacensus.v1.PropList.items:type_name -> metacensus.v1.Prop
-	0,  // 6: metacensus.v1.PropCreateRequest.type:type_name -> metacensus.v1.Prop.Type
+	0,  // 6: metacensus.v1.CreatePropRequest.type:type_name -> metacensus.v1.Prop.Type
 	3,  // 7: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
-	1,  // 8: metacensus.v1.VoteSetRequest.position:type_name -> metacensus.v1.Vote.Position
-	4,  // 9: metacensus.v1.VoteSetRequest.citations:type_name -> metacensus.v1.PropCitation
-	5,  // 10: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.PropListRequest
-	7,  // 11: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.PropGetRequest
-	8,  // 12: metacensus.v1.PropRoutes.CreateProp:input_type -> metacensus.v1.PropCreateRequest
-	9,  // 13: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.VoteListRequest
-	11, // 14: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.VoteSetRequest
+	1,  // 8: metacensus.v1.SetVoteRequest.position:type_name -> metacensus.v1.Vote.Position
+	4,  // 9: metacensus.v1.SetVoteRequest.citations:type_name -> metacensus.v1.PropCitation
+	5,  // 10: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.ListPropsRequest
+	7,  // 11: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.GetPropRequest
+	8,  // 12: metacensus.v1.PropRoutes.CreateProp:input_type -> metacensus.v1.CreatePropRequest
+	9,  // 13: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.ListVotesRequest
+	11, // 14: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.SetVoteRequest
 	6,  // 15: metacensus.v1.PropRoutes.ListProps:output_type -> metacensus.v1.PropList
 	2,  // 16: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.Prop
 	2,  // 17: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.Prop

@@ -96,14 +96,40 @@ Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `pr
 
 It is not expressed in the `.proto`: `google.api.http` carries a path per route and protobuf has no string constant, so putting it there would mean a custom `FileOptions` extension and a non-resource `.proto` inside a schema whose tests assert every file is a resource. `TestPrefix` pins the invariant instead — the prefix is absolute, has no trailing slash, and no route path already contains it.
 
-**To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `PropCreateRequest` carries `topic_id` although `topic_id` never travels in a body.
+**To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `CreatePropRequest` carries `topic_id` although `topic_id` never travels in a body.
 
 **They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
 
-**Every route conforms to the conventions.** It did not always: three routes on `Paper` broke them — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `TestNonConformingRoutes` still runs, pinning the set of deliberate exceptions at empty, so a route that starts breaking a convention fails the build.
+### The naming standard
+
+A route on a resource:
+
+```proto
+rpc <Verb><Noun(s)>(<Rpc>Request) returns (<Response>) {
+  option (google.api.http) = {<method>: "/<resource>/{<resource>Id}" body: "*"};
+}
+```
+
+with `/topic/{topicId}/<resource>/{<resource>Id}` for resources that belong to a topic, and deeper nesting where the ownership is deeper — votes hang off a prop, so `ListVotes` is at `/topic/{topicId}/prop/{propId}/vote`. A route that acts on no resource drops the http path convention and keeps the rest: `Login`, `SignUp`, `Logout`.
+
+| | rule | enforced |
+| --- | --- | --- |
+| service | `<Domain>Routes`, named for the file | no |
+| rpc | `<Verb><Noun(s)>`, plural for `List` | no |
+| request | `<Rpc>Request` | **yes** |
+| response | the resource, `<Noun>List`, or `<Rpc>Response` | no |
+| method | reads GET, writes POST | **yes** |
+| path | names a resource; the rpc names the verb | **yes** |
+| ids | own id is `id`, a reference is `<noun>_id` | no |
+
+**Three of seven are enforced, and the split is deliberate.** A request message is one per rpc, never shared, and its name carries no design content — so deriving it mechanically costs nothing and drift in it means nothing. A *response* name is the opposite: `GetTopic` returning `Topic`, and `Login` and `SignUp` both returning `Session`, is a decision this contract took and wrote into `buf.yaml`'s lint exceptions, and a `<Rpc>Response` rule would reverse it by wrapping every resource in a one-field envelope. Path parameter naming is judgement too — `GetMember` binds `{userId}` because a membership has no id of its own. The rules that are checked are the ones with one right answer.
+
+**Every route conforms, with one recorded exception.** It did not always: three routes on `Paper` broke the conventions — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `Data extraction` left for the same kind of reason ([#16](https://github.com/metacensus/api/issues/16)). The exception that remains is `GET /healthcheck`: it is a read, but nothing in its name says so, and renaming it to `GetHealth` to satisfy a test would be the test wagging the contract. `TestNonConformingRoutes` pins that set, so a route that starts breaking a convention fails the build — and one that stops fails until it is struck off.
 
 ## What the tests check
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path.
+
+`TestNonConformingRoutes` holds the route conventions above, with `want` as the exceptions map. It checks the three rules with one right answer — request message named `<Rpc>Request`, reads over GET and writes over POST, no verb in a path — and deliberately leaves response naming and path parameter naming alone.
 
 `ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.
