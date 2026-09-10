@@ -13,7 +13,7 @@ npm install @metacensus/api
 ```
 
 ```ts
-import type { Topic, PropCreateRequest } from "@metacensus/api";
+import type { Topic, CreatePropRequest } from "@metacensus/api";
 import { routes } from "@metacensus/api";
 ```
 

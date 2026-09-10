@@ -67,7 +67,7 @@ export interface PropCitation {
   end: number;
 }
 
-export interface PropListRequest {
+export interface ListPropsRequest {
   topicId: string;
 }
 
@@ -75,19 +75,19 @@ export interface PropList {
   items: Prop[];
 }
 
-export interface PropGetRequest {
+export interface GetPropRequest {
   topicId: string;
   propId: string;
 }
 
-/** PropCreateRequest takes no author: it is the authenticated user. */
-export interface PropCreateRequest {
+/** CreatePropRequest takes no author: it is the authenticated user. */
+export interface CreatePropRequest {
   topicId: string;
   type: Prop_Type;
   description: string;
 }
 
-export interface VoteListRequest {
+export interface ListVotesRequest {
   topicId: string;
   propId: string;
 }
@@ -98,10 +98,10 @@ export interface VoteList {
 }
 
 /**
- * VoteSetRequest sets rather than creates: it replaces the caller's previous
+ * SetVoteRequest sets rather than creates: it replaces the caller's previous
  * vote on this prop.
  */
-export interface VoteSetRequest {
+export interface SetVoteRequest {
   topicId: string;
   propId: string;
   position: Vote_Position;

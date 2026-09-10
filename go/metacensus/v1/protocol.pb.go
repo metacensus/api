@@ -310,8 +310,8 @@ func (x *ProtocolElementOption) GetValue() string {
 	return ""
 }
 
-// ProtocolCreateRequest ignores the ids on its sections and elements.
-type ProtocolCreateRequest struct {
+// CreateProtocolRequest ignores the ids on its sections and elements.
+type CreateProtocolRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
@@ -320,20 +320,20 @@ type ProtocolCreateRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ProtocolCreateRequest) Reset() {
-	*x = ProtocolCreateRequest{}
+func (x *CreateProtocolRequest) Reset() {
+	*x = CreateProtocolRequest{}
 	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ProtocolCreateRequest) String() string {
+func (x *CreateProtocolRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ProtocolCreateRequest) ProtoMessage() {}
+func (*CreateProtocolRequest) ProtoMessage() {}
 
-func (x *ProtocolCreateRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateProtocolRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_protocol_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -345,26 +345,26 @@ func (x *ProtocolCreateRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ProtocolCreateRequest.ProtoReflect.Descriptor instead.
-func (*ProtocolCreateRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateProtocolRequest.ProtoReflect.Descriptor instead.
+func (*CreateProtocolRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_protocol_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ProtocolCreateRequest) GetTopicId() string {
+func (x *CreateProtocolRequest) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *ProtocolCreateRequest) GetTitle() string {
+func (x *CreateProtocolRequest) GetTitle() string {
 	if x != nil {
 		return x.Title
 	}
 	return ""
 }
 
-func (x *ProtocolCreateRequest) GetSections() []*ProtocolSection {
+func (x *CreateProtocolRequest) GetSections() []*ProtocolSection {
 	if x != nil {
 		return x.Sections
 	}
@@ -399,12 +399,12 @@ const file_metacensus_v1_protocol_proto_rawDesc = "" +
 	"\x15ProtocolElementOption\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\"\x84\x01\n" +
-	"\x15ProtocolCreateRequest\x12\x19\n" +
+	"\x15CreateProtocolRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12:\n" +
 	"\bsections\x18\x03 \x03(\v2\x1e.metacensus.v1.ProtocolSectionR\bsections2w\n" +
 	"\x0eProtocolRoutes\x12e\n" +
-	"\x0eCreateProtocol\x12$.metacensus.v1.ProtocolCreateRequest\x1a\x17.metacensus.v1.Protocol\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/protocolB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x0eCreateProtocol\x12$.metacensus.v1.CreateProtocolRequest\x1a\x17.metacensus.v1.Protocol\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/protocolB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_protocol_proto_rawDescOnce sync.Once
@@ -424,14 +424,14 @@ var file_metacensus_v1_protocol_proto_goTypes = []any{
 	(*ProtocolSection)(nil),       // 1: metacensus.v1.ProtocolSection
 	(*ProtocolElement)(nil),       // 2: metacensus.v1.ProtocolElement
 	(*ProtocolElementOption)(nil), // 3: metacensus.v1.ProtocolElementOption
-	(*ProtocolCreateRequest)(nil), // 4: metacensus.v1.ProtocolCreateRequest
+	(*CreateProtocolRequest)(nil), // 4: metacensus.v1.CreateProtocolRequest
 }
 var file_metacensus_v1_protocol_proto_depIdxs = []int32{
 	1, // 0: metacensus.v1.Protocol.protocol_sections:type_name -> metacensus.v1.ProtocolSection
 	2, // 1: metacensus.v1.ProtocolSection.protocol_elements:type_name -> metacensus.v1.ProtocolElement
 	3, // 2: metacensus.v1.ProtocolElement.options:type_name -> metacensus.v1.ProtocolElementOption
-	1, // 3: metacensus.v1.ProtocolCreateRequest.sections:type_name -> metacensus.v1.ProtocolSection
-	4, // 4: metacensus.v1.ProtocolRoutes.CreateProtocol:input_type -> metacensus.v1.ProtocolCreateRequest
+	1, // 3: metacensus.v1.CreateProtocolRequest.sections:type_name -> metacensus.v1.ProtocolSection
+	4, // 4: metacensus.v1.ProtocolRoutes.CreateProtocol:input_type -> metacensus.v1.CreateProtocolRequest
 	0, // 5: metacensus.v1.ProtocolRoutes.CreateProtocol:output_type -> metacensus.v1.Protocol
 	5, // [5:6] is the sub-list for method output_type
 	4, // [4:5] is the sub-list for method input_type
