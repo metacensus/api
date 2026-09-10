@@ -23,6 +23,17 @@ export interface ListMetadata {
   total: number;
 }
 
+/**
+ * Error is the body of any failed request. `code` is a stable PascalCase
+ * identifier for the specific failure; the HTTP status carries the category and
+ * this does not restate it. Codes are added over time, so a client that does not
+ * recognise one falls back to the status.
+ */
+export interface Error {
+  code: string;
+  error: string;
+}
+
 export interface HealthcheckRequest {
 }
 

@@ -8,6 +8,24 @@ plugins:
     opt:
       - paths=source_relative
 
+  # protoc-gen-go-grpc emits the service interfaces grpc-gateway calls.
+  # require_unimplemented_servers=false is load-bearing: with the default, a
+  # server embeds UnimplementedXServer and a missing method compiles, failing
+  # at runtime with codes.Unimplemented instead. That embedding is exactly the
+  # compile-time completeness this generation depth is being adopted for.
+  - local: bin/protoc-gen-go-grpc
+    out: go
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false
+
+  # protoc-gen-grpc-gateway transcodes HTTP to those interfaces from the same
+  # google.api.http annotations the manifest is generated from.
+  - local: bin/protoc-gen-grpc-gateway
+    out: go
+    opt:
+      - paths=source_relative
+
   - local: ts/node_modules/.bin/protoc-gen-ts_proto
     out: ts/src
     opt:
@@ -21,8 +39,9 @@ plugins:
       # Message fields optional, scalars required — pairs with EmitDefaultValues
       # in go/wire.go.
       - useOptionals=messages
-      # The rpcs declare HTTP routes; a generated client interface would read as
-      # a gRPC commitment.
+      # The server transcodes through gRPC; the SPA does not. A generated client
+      # here would pull a runtime into a package whose defining property is
+      # having none.
       - outputServices=none
       # Nothing references the imported files' types: Timestamp is a string here,
       # and google.api.http is read from the descriptor, not the wire.

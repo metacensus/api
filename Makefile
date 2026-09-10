@@ -27,9 +27,17 @@ BIN       := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# The exact Go that builds the generators. Keep in step with the `go` directive
-# in go.mod, which is what CI's setup-go reads.
-GOTOOLCHAIN_PIN ?= go1.24.0
+# The exact Go that builds the generators, and only them: TOOLENV is used by the
+# $(BIN)/* rules and nothing else. It is deliberately ahead of the `go` directive
+# in go.mod, which is what consumers see and what CI's setup-go reads -- the
+# generators are built from internal/tools, a module that is never published and
+# never imported, so what compiles them is a build-time choice with no reach.
+#
+# Pinning it is about reproducibility, not about staying old. Holding it back
+# means taking older releases of every generator, which is the more expensive
+# trade and the wrong one: bumping this from go1.24.0 to go1.25.5 was verified to
+# leave every generated file byte-identical.
+GOTOOLCHAIN_PIN ?= go1.25.5
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # The latest release tag: the published contract is what a breaking change
@@ -39,7 +47,7 @@ BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 all: check
 
 ## tools — build the pinned code generators out of internal/tools
-tools: $(BIN)/buf $(BIN)/protoc-gen-go
+tools: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-go-grpc $(BIN)/protoc-gen-grpc-gateway
 
 $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
@@ -47,6 +55,12 @@ $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(BIN)/protoc-gen-go-grpc: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go-grpc google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+$(BIN)/protoc-gen-grpc-gateway: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-grpc-gateway github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
 
 ## deps — install the TypeScript toolchain
 deps:
