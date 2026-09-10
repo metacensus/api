@@ -23,8 +23,6 @@ func TestNoPaginationFields(t *testing.T) {
 		"metacensus.v1.ListMetadata.page":  true,
 		"metacensus.v1.ListMetadata.limit": true,
 		"metacensus.v1.ListMetadata.total": true,
-		// Where in a PDF a reviewer highlighted an extracted value.
-		"metacensus.v1.SourceLocationPage.page": true,
 		// A character range in a prop's description.
 		"metacensus.v1.PropCitation.start": true,
 		"metacensus.v1.PropCitation.end":   true,

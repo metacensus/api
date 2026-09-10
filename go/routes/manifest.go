@@ -34,8 +34,6 @@ var Routes = []Route{
 	{Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Request: "SignUpRequest", Response: "Session"},
 	{Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "", Request: "LogoutRequest", Response: "LogoutResponse"},
 	{Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
-	{Service: "ExtractionRoutes", RPC: "GetExtraction", Method: "GET", Path: "/extraction", Params: nil, Query: []string{"topicId", "paperId", "protocolId"}, Body: "", Request: "DataExtractionGetRequest", Response: "DataExtraction"},
-	{Service: "ExtractionRoutes", RPC: "UpsertExtraction", Method: "POST", Path: "/extraction", Params: nil, Query: nil, Body: "*", Request: "DataExtraction", Response: "DataExtraction"},
 	{Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Request: "PropListRequest", Response: "PropList"},
 	{Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Request: "PropGetRequest", Response: "Prop"},
 	{Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Request: "PropCreateRequest", Response: "Prop"},

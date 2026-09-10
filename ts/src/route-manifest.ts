@@ -30,8 +30,6 @@ export const routes: readonly Route[] = [
   { service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], query: [], body: "*", request: "SignUpRequest", response: "Session" },
   { service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "", request: "LogoutRequest", response: "LogoutResponse" },
   { service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], query: [], body: "", request: "HealthcheckRequest", response: "HealthcheckResponse" },
-  { service: "ExtractionRoutes", rpc: "GetExtraction", method: "GET", path: "/extraction", params: [], query: ["topicId", "paperId", "protocolId"], body: "", request: "DataExtractionGetRequest", response: "DataExtraction" },
-  { service: "ExtractionRoutes", rpc: "UpsertExtraction", method: "POST", path: "/extraction", params: [], query: [], body: "*", request: "DataExtraction", response: "DataExtraction" },
   { service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "", request: "PropListRequest", response: "PropList" },
   { service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], query: [], body: "", request: "PropGetRequest", response: "Prop" },
   { service: "PropRoutes", rpc: "CreateProp", method: "POST", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "*", request: "PropCreateRequest", response: "Prop" },
