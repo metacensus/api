@@ -22,14 +22,23 @@
 GO_DIR    := go
 TS_DIR    := ts
 PROTO     := proto
+OPENAPI   := openapi
 TOOLS_DIR := internal/tools
 BIN       := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# The exact Go that builds the generators. Keep in step with the `go` directive
-# in go.mod, which is what CI's setup-go reads.
-GOTOOLCHAIN_PIN ?= go1.24.0
+# The exact Go that builds the generators, and only them: TOOLENV is used by the
+# $(BIN)/* rules and nothing else. It is deliberately ahead of the `go` directive
+# in go.mod, which is what consumers see and what CI's setup-go reads -- the
+# generators are built from internal/tools, a module that is never published and
+# never imported, so what compiles them is a build-time choice with no reach.
+#
+# Pinning it is about reproducibility, not about staying old. Holding it back
+# means taking older releases of every generator, which is the more expensive
+# trade and the wrong one: bumping this from go1.24.0 to go1.25.5 was verified to
+# leave every generated file byte-identical.
+GOTOOLCHAIN_PIN ?= go1.25.5
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # The latest release tag: the published contract is what a breaking change
@@ -39,7 +48,7 @@ BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 all: check
 
 ## tools — build the pinned code generators out of internal/tools
-tools: $(BIN)/buf $(BIN)/protoc-gen-go
+tools: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-openapiv2 $(BIN)/oapi-codegen
 
 $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
@@ -47,6 +56,12 @@ $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(BIN)/protoc-gen-openapiv2: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-openapiv2 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+
+$(BIN)/oapi-codegen: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/oapi-codegen github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 ## deps — install the TypeScript toolchain
 deps:
@@ -56,6 +71,14 @@ deps:
 gen: tools
 	$(BUF) generate --template $(PROTO)/buf.gen.yaml
 	go run ./$(GO_DIR)/cmd/routegen
+	# protoc-gen-openapiv2 emits Swagger 2.0, the only version it produces, and
+	# every Go server generator reads OpenAPI 3. The difference is real rather
+	# than cosmetic: 2.0 puts `type` on a non-body parameter, 3.x nests it under
+	# `schema`, and oapi-codegen fails on the former.
+	$(TS_DIR)/node_modules/.bin/swagger2openapi \
+		$(OPENAPI)/metacensus.swagger.json -o $(OPENAPI)/metacensus.openapi.json
+	$(BIN)/oapi-codegen -config $(GO_DIR)/server/oapi-codegen.yaml \
+		$(OPENAPI)/metacensus.openapi.json
 
 ## lint — buf's STANDARD rules
 lint: $(BIN)/buf
@@ -98,7 +121,7 @@ hooks:
 
 ## clean — remove generated output and built tools; `make gen` puts them back
 clean:
-	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(BIN)
+	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(OPENAPI) $(BIN)
 
 # ---------------------------------------------------------------------------
 # Release

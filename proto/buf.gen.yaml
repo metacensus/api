@@ -8,6 +8,22 @@ plugins:
     opt:
       - paths=source_relative
 
+  # protoc-gen-openapiv2 reads the same google.api.http annotations and emits
+  # one OpenAPI document for the whole surface.
+  - local: bin/protoc-gen-openapiv2
+    out: openapi
+    opt:
+      - allow_merge=true
+      - merge_file_name=metacensus
+      # The wire is lowerCamelCase, so the document has to describe that and
+      # not the proto's snake_case.
+      - json_names_for_fields=true
+      # Without this every operation advertises a `default` response of
+      # rpcStatus -- {code: int32, message, details} -- which is gRPC's error
+      # shape and not the one this contract serves.
+      - disable_default_errors=true
+      - openapi_configuration=proto/openapi.yaml
+
   - local: ts/node_modules/.bin/protoc-gen-ts_proto
     out: ts/src
     opt:
