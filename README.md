@@ -13,6 +13,7 @@ The four issues in ui that tracked this work — adoption, what the contract del
 ```
 proto/           .proto sources and buf config — the definition
 go/              generated Go, the wire encoder, the manifest generator, tests
+go/server/       the server side: one interface per resource, plus routing and binding
 ts/              generated TypeScript interfaces, the npm package
 internal/tools/  the pinned code generators, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
@@ -98,9 +99,34 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 **To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `PropCreateRequest` carries `topic_id` although `topic_id` never travels in a body.
 
-**They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
+**They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. `go/server` generates plain Go interfaces over `net/http`, and ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
 
 **Every route conforms to the conventions.** It did not always: three routes on `Paper` broke them — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `TestNonConformingRoutes` still runs, pinning the set of deliberate exceptions at empty, so a route that starts breaking a convention fails the build.
+
+## Serving it
+
+`go/server` generates one interface per resource. An implementation that misses a route, or carries the wrong request or response type, does not compile — which is the whole reason it exists: the manifest is a definition, and nothing compares a hand-written router to it.
+
+```go
+mux := server.Mux{
+	Router:    r,                 // chi.Router satisfies this as it stands
+	PathParam: chi.URLParam,
+	OnError:   server.NewErrorHandler(logErr),
+}
+mux.RegisterTopicRoutes(store)    // store is a server.TopicRoutes or it does not build
+```
+
+**It names no router.** `Router` is one method and `PathParamFunc` is one function, so nothing here reaches `go.mod` and the published module still requires two things. chi satisfies both without an adapter; so does `net/http`'s own `ServeMux`, which is what the tests use.
+
+**`encoding/json` is not reachable from it.** Responses go through a `proto.Message`, never an `any`, so the second and wrong encoding described above is unavailable rather than discouraged.
+
+**Errors are exposed only on purpose.** A handler returning a `*server.Error` gets its status, `code` and message on the wire. Any other error becomes `500` with `code: "Internal"` and a fixed message, and the original goes to the logger. `code` is an open PascalCase string, not an enum: the HTTP status carries the category, `code` distinguishes instances within it, and a backend adds the codes it emits without a contract change.
+
+**Auth is the server's decision, not the contract's.** The contract does not model which routes are public, so `Mux.Wrap` sees every route before it is registered and the server decides. `AuthRoutes` is why it is per route rather than per service: `Login` and `SignUp` are unauthenticated and `Logout` is not.
+
+**Unknown fields are rejected by default**, which is right for policing conformance and wrong while a sender that is ahead of the contract migrates onto it. `Mux.DiscardUnknownFields` is that decision, made per side and deliberately.
+
+Nothing consumes this yet. Generated binding assigns strings, so a path or query parameter that is not a singular string fails generation rather than being dropped.
 
 ## What the tests check
 
