@@ -306,3 +306,32 @@ func TestEveryManifestRouteIsServed(t *testing.T) {
 		}
 	}
 }
+
+// An *Error built as a composite literal can leave Status out and still
+// compile; net/http panics on WriteHeader(0), so the whole request used to
+// take the connection down instead of answering. The same for a typed-nil
+// *Error, which reaches writeError as a non-nil error interface.
+func TestErrorWithNoUsableStatusIs500(t *testing.T) {
+	topics := &fakeTopics{}
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
+
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"status left out", &server.Error{Code: "not_found", Message: "no such topic"}},
+		{"status out of range", &server.Error{Status: 42, Code: "nonsense", Message: "m"}},
+		{"typed-nil *Error", (*server.Error)(nil)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			topics.err = tc.err
+			rec := do(t, mux, "GET", "/topic/x", "")
+			if rec.Code != http.StatusInternalServerError {
+				t.Fatalf("status %d, want 500: %s", rec.Code, rec.Body.String())
+			}
+			if _, _ = errorBody(t, rec); rec.Header().Get("Content-Type") != "application/json" {
+				t.Errorf("Content-Type %q", rec.Header().Get("Content-Type"))
+			}
+		})
+	}
+}

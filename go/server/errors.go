@@ -8,11 +8,24 @@ import (
 // Error is what a handler returns to choose the response status. Message is
 // what the client sees; Err, if set, is for the server's own logs and never
 // crosses the wire.
+//
+// Status is the one field a composite literal can leave out and still
+// compile, so status() treats anything outside 100..599 as 500 rather than
+// letting net/http panic on it: a handler that mis-fills an error should
+// answer badly, not take the connection down.
 type Error struct {
 	Status  int
 	Code    string
 	Message string
 	Err     error
+}
+
+// status is the code writeError puts on the wire.
+func (e *Error) status() int {
+	if e.Status < 100 || e.Status > 599 {
+		return http.StatusInternalServerError
+	}
+	return e.Status
 }
 
 func (e *Error) Error() string {

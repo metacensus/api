@@ -37,21 +37,24 @@ func (rt *Runtime) respond(w http.ResponseWriter, resp proto.Message, err error)
 // contract itself declares no error message; whether it should grow one is an
 // open question recorded in the repository README rather than answered here.
 func (rt *Runtime) writeError(w http.ResponseWriter, err error) {
-	e, ok := err.(*Error)
-	if !ok && !errors.As(err, &e) {
+	var e *Error
+	// A nil *Error in a non-nil error interface reaches here as ok-and-nil,
+	// which is the other way this used to take the connection down.
+	if !errors.As(err, &e) || e == nil {
 		e = &Error{Status: http.StatusInternalServerError, Code: "internal", Message: "internal error", Err: err}
 	}
+	status := e.status()
 	s, serr := structpb.NewStruct(map[string]any{"error": e.Message, "code": e.Code})
 	if serr != nil {
-		http.Error(w, e.Message, e.Status)
+		http.Error(w, e.Message, status)
 		return
 	}
 	body, serr := contract.Marshal(s)
 	if serr != nil {
-		http.Error(w, e.Message, e.Status)
+		http.Error(w, e.Message, status)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(e.Status)
+	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }
