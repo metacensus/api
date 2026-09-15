@@ -17,7 +17,7 @@ import (
 // package asks of a router, so everything a router decides before a handler
 // runs is the router's answer, not this package's. Measured against
 // net/http's ServeMux and github.com/go-chi/chi/v5 v5.1.0 — the two routers
-// internal/chitest exercises against real chi:
+// go/server/chitest exercises against real chi:
 //
 //   - Path-parameter escaping. ServeMux percent-decodes a segment before
 //     r.PathValue returns it; chi does not. This one is not left to the
@@ -65,7 +65,7 @@ func StdPathValue(r *http.Request, name string) (string, error) {
 //	server.Runtime{PathValue: server.EscapedPathValue}
 //
 // Choosing wrong is silent for an id that contains nothing worth escaping,
-// which is why internal/chitest asserts both halves against real chi rather
+// which is why go/server/chitest asserts both halves against real chi rather
 // than leaving this to a comment.
 //
 // The error is unreachable behind net/http, which rejects a request URI with

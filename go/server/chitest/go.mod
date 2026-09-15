@@ -8,11 +8,17 @@
 //
 // The replace is what keeps this honest — the test runs against the working
 // tree, not against a published version.
-module github.com/metacensus/api/internal/chitest
+//
+// It lives at go/server/chitest, beside the package it tests, rather than
+// under internal/: a nested module is invisible to the parent module's own
+// `go test ./...` and `go list -m all` regardless of which directory holds
+// it, so nothing about being a separate module required internal/, and
+// go/server is where a reader looking for server's tests would already be.
+module github.com/metacensus/api/go/server/chitest
 
 go 1.24.0
 
-replace github.com/metacensus/api => ../..
+replace github.com/metacensus/api => ../../..
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0

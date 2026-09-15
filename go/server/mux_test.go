@@ -11,7 +11,7 @@ import (
 
 // fakeChiRouter carries chi v5's chi.Router.Method signature and nothing
 // else, so a divergence fails to compile here without chi in this module's
-// go.mod. What the routes actually do on a real chi.Router is internal/chitest.
+// go.mod. What the routes actually do on a real chi.Router is go/server/chitest.
 type fakeChiRouter struct {
 	registered []string
 }

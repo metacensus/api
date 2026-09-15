@@ -29,7 +29,7 @@ GO_DIR      := go
 TS_DIR      := ts
 PROTO       := proto
 TOOLS_DIR   := internal/tools
-CHITEST_DIR := internal/chitest
+CHITEST_DIR := go/server/chitest
 BIN         := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
@@ -120,7 +120,7 @@ breaking: $(BIN)/buf
 
 ## test — the schema and route invariants, then the chi conformance module
 #
-# internal/chitest is a module of its own so chi stays out of the published
+# go/server/chitest is a module of its own so chi stays out of the published
 # go.mod, which means ./... above cannot see it and it needs its own line.
 test:
 	go test ./...

@@ -16,10 +16,10 @@ The four issues in ui that tracked this work — adoption, what the contract del
 proto/           .proto sources and buf config — the definition
 go/              generated Go, the wire encoder, the manifest generator, tests
 go/server/       generated handler interfaces + registration, and the hand-written runtime beside them
+go/server/chitest/ the generated routes run against real chi, a nested module of its own
 ts/              generated TypeScript interfaces, the npm package
 ts/src/client.ts generated typed client, over a caller-supplied transport
 internal/tools/  the pinned code generators, a module of its own
-internal/chitest/ the generated routes run against real chi, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
 go.mod           the published Go module, rooted here
 ```
@@ -50,9 +50,9 @@ make hooks   # optional: lint, format and freshness checks on commit
 | `buf`, `protoc-gen-go` | `internal/tools/go.mod` `tool` directives | `make tools`, which rebuilds whenever that module's `go.mod` or `go.sum` moves |
 | `ts-proto`, `typescript` | `ts/package.json` + `ts/package-lock.json` | `npm ci`, which `make gen` runs as a prerequisite when the lockfile is newer than the installed plugin |
 | Node | `ts/.nvmrc` (and a floor in `engines`) | `nvm use`, and CI's `setup-node` (`node-version-file`) |
-| `chi`, for the conformance test only | `internal/chitest/go.mod` | `make test`; never the published module |
+| `chi`, for the conformance test only | `go/server/chitest/go.mod` | `make test`; never the published module |
 
-`buf` and `protoc-gen-go` live in **`internal/tools`, a module of its own**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module requires two things. `internal/chitest` is a second such module, for chi.
+`buf` and `protoc-gen-go` live in **`internal/tools`, a module of its own**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module requires two things. `go/server/chitest` is a second such module, for chi.
 
 `make tools` builds the generators with `GOWORK=off` and the pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a pull request that never touched a `.proto`. The binaries land in `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root.
 
@@ -127,7 +127,7 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 **`go/server`'s own comments are the account of itself**: `runtime.go`'s package comment says what the package is, `Mux`'s doc comment says what it leaves to the router and why, and every other constraint — `Unimplemented<Service>`, the error envelope, `Prefix` — is a comment beside the declaration it constrains. It is not repeated here. Two facts belong in a README because they decide how you mount:
 
 - **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix — chi's `Route`, `http.StripPrefix` — wants the zero value. A router at the origin root wants `routes.Prefix`.
-- **A `chi.Router` also needs `PathValue: server.EscapedPathValue`.** `net/http`'s `ServeMux` percent-decodes a path segment and chi does not, and the generated client percent-encodes every one of them, so the wrong choice silently binds a wrong id. `internal/chitest` runs the generated routes against real chi v5.1.0 in a module of its own, so chi stays out of the published `go.mod`.
+- **A `chi.Router` also needs `PathValue: server.EscapedPathValue`.** `net/http`'s `ServeMux` percent-decodes a path segment and chi does not, and the generated client percent-encodes every one of them, so the wrong choice silently binds a wrong id. `go/server/chitest` runs the generated routes against real chi v5.1.0 in a module of its own, so chi stays out of the published `go.mod`.
 
 **Deliberately excluded:** persistence or a store of any kind. `Unimplemented<Service>` is the whole default implementation; wiring a real one to a database, a cache, or another service is entirely the implementer's, and nothing here assumes a shape for it.
 
@@ -196,7 +196,7 @@ A `bytes` field anywhere in a request **or** response tree is refused at generat
 
 ## What the tests check
 
-`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path. `go/cmd/routegen/internal/model/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, the `X-Signature` seam seeing raw octets, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `internal/chitest` re-runs the routes on real chi, which is where every claim `server.Mux`'s doc comment makes about router-owned behaviour is checked rather than asserted.
+`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path. `go/cmd/routegen/internal/model/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, the `X-Signature` seam seeing raw octets, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `go/server/chitest` re-runs the routes on real chi, which is where every claim `server.Mux`'s doc comment makes about router-owned behaviour is checked rather than asserted.
 
 `ts/scripts/check-no-runtime.mjs` asserts the package ships no runtime: empty `dependencies`, no value imports under `src/`. `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the client, including driving every method the manifest declares and comparing what reaches the transport against the route it says it is.
 

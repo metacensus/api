@@ -42,7 +42,7 @@ jobs:
           cache-dependency-path: |
             go.sum
             internal/tools/go.sum
-            internal/chitest/go.sum
+            go/server/chitest/go.sum
 
       - name: Restore the built code generators
         # Building buf from source is 54s of a ~78s job, and it only changes
@@ -143,9 +143,9 @@ jobs:
         run: go test ./...
 
       - name: Run the generated routes against a real chi router
-        # internal/chitest is a module of its own so chi stays out of the
+        # go/server/chitest is a module of its own so chi stays out of the
         # published go.mod, which is why ./... above does not reach it.
-        working-directory: internal/chitest
+        working-directory: go/server/chitest
         run: go test ./...
 
       - name: Type-check the TypeScript and assert it ships no runtime
