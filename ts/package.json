@@ -1,7 +1,7 @@
 {
   "name": "@metacensus/api",
   "version": "0.0.0",
-  "description": "TypeScript interfaces generated from the MetaCensus API contract (/metacensus/api/v1). Types only, no runtime dependencies.",
+  "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1): generated types, a route manifest, and a typed transport-agnostic client. No runtime dependencies.",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -32,6 +32,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "check": "tsc --noEmit && node scripts/check-no-runtime.mjs",
+    "test": "npm run build && node --test \"test/**/*.test.mjs\"",
     "prepack": "npm run build"
   },
   "dependencies": {},

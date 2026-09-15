@@ -149,3 +149,8 @@ jobs:
         # broken build fails on the PR rather than at release time.
         working-directory: ts
         run: npm run build
+
+      - name: Run the generated client's tests
+        # node --test against the built dist; no test-runner devDependency.
+        working-directory: ts
+        run: node --test "test/**/*.test.mjs"
