@@ -16,8 +16,14 @@
 # changed between Go releases, so either one lands as generated-code drift in a
 # PR that never touched a .proto.
 
-.PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
+.PHONY: help all gen generated-paths lint format format-check breaking test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
+
+# `make` with no target lists the targets rather than running the whole suite,
+# matching metacensus/infra. The listing is generated from the `## name — what
+# it does` comments below, so a target and its description cannot drift; infra
+# hand-writes its help text, which is the same information twice.
+.DEFAULT_GOAL := help
 
 GO_DIR      := go
 TS_DIR      := ts
@@ -28,15 +34,38 @@ BIN         := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# The exact Go that builds the generators. Keep in step with the `go` directive
-# in go.mod, which is what CI's setup-go reads.
-GOTOOLCHAIN_PIN ?= go1.24.0
+# Every path `gen` writes, named once. `clean` removes exactly these and the
+# pre-commit hook asks git about exactly these, so the three cannot disagree.
+# go/server/routes_gen.go is the one generated file sharing a directory with
+# hand-written source (runtime.go, doc.go, the tests), which is why the list is
+# of paths rather than of directories.
+GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
+
+# The exact Go that builds the generators, read out of go.mod rather than
+# written here: go.mod is what CI's setup-go reads, and a second copy would
+# have to agree with it forever with nothing making it. `toolchain` wins when
+# present, since Go omits it only when it matches `go`. Lifted from
+# metacensus/infra's Makefile, error guard included — GOTOOLCHAIN= with an
+# empty value is silently accepted, so an unpinned build must fail loudly here
+# rather than produce drifted generated code later.
+GOTOOLCHAIN_PIN ?= $(shell awk '/^toolchain /{t=$$2} /^go /{if (g == "") g = "go" $$2} END{print (t != "" ? t : g)}' go.mod)
+ifeq ($(GOTOOLCHAIN_PIN),)
+$(error could not read the Go toolchain from go.mod; refusing to build the generators unpinned)
+endif
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # The latest release tag: the published contract is what a breaking change
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
+help:
+	@echo "MetaCensus API contract. Run from the repository root."
+	@echo ""
+	@awk -F' — ' '/^## /{ sub(/^## /, ""); printf "  make %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "  A fresh clone needs nothing first: gen and check install what they need."
+
+## all — an alias for check
 all: check
 
 ## tools — build the pinned code generators out of internal/tools
@@ -49,12 +78,20 @@ $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
 
-## deps — install the TypeScript toolchain
+## deps — reinstall the TypeScript toolchain from the lockfile
 deps:
 	cd $(TS_DIR) && npm ci
 
+# The ts-proto plugin buf.gen.yaml invokes, as a prerequisite rather than as a
+# step someone has to know to run first: `make gen` on a fresh clone used to
+# fail inside buf with a missing-plugin path. Re-runs when the lockfile moves.
+TS_PLUGIN := $(TS_DIR)/node_modules/.bin/protoc-gen-ts_proto
+
+$(TS_PLUGIN): $(TS_DIR)/package-lock.json
+	cd $(TS_DIR) && npm ci
+
 ## gen — regenerate Go and TypeScript from the .proto sources
-gen: tools
+gen: tools $(TS_PLUGIN)
 	$(BUF) generate --template $(PROTO)/buf.gen.yaml
 	go run ./$(GO_DIR)/cmd/routegen
 
@@ -90,7 +127,7 @@ test:
 	cd $(CHITEST_DIR) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check test
+check: lint format-check test $(TS_PLUGIN)
 	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
 	# binary in the working directory.
 	go build -o /dev/null ./... && go vet ./...
@@ -103,12 +140,12 @@ hooks:
 	@echo "core.hooksPath set to .githooks"
 
 ## clean — remove generated output and built tools; `make gen` puts them back
-#
-# go/server/routes_gen.go is the one generated file that shares a directory
-# with hand-written source (runtime.go, the tests): it is named, not swept up
-# by directory, so clean cannot take runtime.go with it.
 clean:
-	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src $(BIN)
+	rm -rf $(GENERATED) $(BIN)
+
+## generated-paths — print what `gen` writes; the pre-commit hook reads this
+generated-paths:
+	@echo $(GENERATED)
 
 # ---------------------------------------------------------------------------
 # Release
@@ -128,6 +165,7 @@ VERSION ?=
 TYPE    ?=
 MESSAGE ?=
 
+## release — tag and push a version; prompts, and refuses a dirty tree
 release: scripts/version.sh
 	@set -e; \
 	VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
@@ -171,21 +209,27 @@ release: scripts/version.sh
 	git push origin "$$TAG" && \
 	echo "Released: $$TAG"
 
+## release-major — release, bumping the major
 release-major:
 	@$(MAKE) release TYPE=major
 
+## release-minor — release, bumping the minor
 release-minor:
 	@$(MAKE) release TYPE=minor
 
+## release-patch — release, bumping the patch
 release-patch:
 	@$(MAKE) release TYPE=patch
 
+## latest — print the most recent version tag
 latest:
 	@git tag -l "v*" | grep -E "^v[0-9]" | sort -V | tail -1
 
+## list — print every version tag
 list:
 	@git tag -l "v*" | grep -E "^v[0-9]" | sort -V
 
+## delete-tag — delete TAG=vX.Y.Z locally and on the remote
 delete-tag:
 	@if [ -z "$(TAG)" ]; then \
 		echo "Usage: make delete-tag TAG=v1.2.3"; \

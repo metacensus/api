@@ -30,18 +30,31 @@ go.mod           the published Go module, rooted here
 
 ## Working on it
 
+`make` on its own lists every target. From a fresh clone nothing has to be installed first — `gen` and `check` build the pinned generators and install the npm toolchain as prerequisites.
+
 ```bash
-make deps    # npm ci in ts/ (Go needs no install step)
-make gen     # regenerate Go, TypeScript and the route manifest
+make gen     # regenerate Go, TypeScript, the route manifest, the server and the client
 make check   # everything CI runs, bar the freshness diff
-make hooks   # optional: lint and format-check .proto on commit
+make hooks   # optional: lint, format and freshness checks on commit
 ```
 
-Generated code is committed; CI regenerates and fails on any diff.
+**Generated code is committed, and `make gen` is the only way to write it.** CI regenerates and fails on any diff, and on any file generation produced that is not committed. The paths `gen` writes are named once, in the Makefile's `GENERATED`; `make clean` removes exactly those and `make generated-paths` prints them, which is how the pre-commit hook asks git the same question CI asks. `routegen` refuses to run outside the repository root: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
 
-`buf` and `protoc-gen-go` are `tool` dependencies of **`internal/tools`, a separate module**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module now requires two things.
+`make hooks` is opt-in and does nothing unless a `.proto` or a file under `go/cmd/routegen/` is staged, in which case it lints, format-checks and regenerates, and refuses the commit if regeneration produced anything unstaged. Warm, that is about a second; it is the failure this repository actually has.
 
-`make tools` builds those generators with `GOWORK=off` and a pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a PR that never touched a `.proto`. It builds them into `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root. `routegen` refuses to run anywhere else: its output paths are relative, so a wrong working directory would quietly write the manifests elsewhere and leave the committed ones stale — which the freshness check cannot see, because nothing in the tree changed.
+### Where each version is pinned, and where it is read
+
+| Thing | Pinned in | Read by |
+|---|---|---|
+| Go, for the module and for building the generators | `go.mod` | CI's `setup-go` (`go-version-file`), and the Makefile, which derives `GOTOOLCHAIN_PIN` from the same line with `awk` rather than repeating it |
+| `buf`, `protoc-gen-go` | `internal/tools/go.mod` `tool` directives | `make tools`, which rebuilds whenever that module's `go.mod` or `go.sum` moves |
+| `ts-proto`, `typescript` | `ts/package.json` + `ts/package-lock.json` | `npm ci`, which `make gen` runs as a prerequisite when the lockfile is newer than the installed plugin |
+| Node | `ts/.nvmrc` (and a floor in `engines`) | `nvm use`, and CI's `setup-node` (`node-version-file`) |
+| `chi`, for the conformance test only | `internal/chitest/go.mod` | `make test`; never the published module |
+
+`buf` and `protoc-gen-go` live in **`internal/tools`, a module of its own**. Under Go 1.24 a `tool` directive is a real module requirement: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. The published module requires two things. `internal/chitest` is a second such module, for chi.
+
+`make tools` builds the generators with `GOWORK=off` and the pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a pull request that never touched a `.proto`. The binaries land in `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `cmd/routegen` is relative to the root.
 
 ## Consuming it
 

@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1): generated types, a route manifest, and a typed transport-agnostic client. No runtime dependencies.",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

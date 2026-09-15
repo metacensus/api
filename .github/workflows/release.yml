@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: ts/.nvmrc
           cache: npm
           cache-dependency-path: ts/package-lock.json
           # Public npm, not npm.pkg.github.com. GITHUB_TOKEN authenticates only

@@ -6,10 +6,10 @@
 
 set -e
 
-staged_protos=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*')
-[ -n "$staged_protos" ] || exit 0
+inputs=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*' 'go/cmd/routegen/*')
+[ -n "$inputs" ] || exit 0
 
-echo "pre-commit: .proto staged — checking lint and formatting"
+echo "pre-commit: a generator input is staged — checking lint, formatting and freshness"
 
 # `make lint` builds buf from source if bin/buf is missing, which is about a
 # minute of silence on a fresh clone. Say so rather than looking hung.
@@ -24,5 +24,20 @@ if ! make lint format-check; then
 	echo >&2
 	echo "pre-commit: 'make format' fixes formatting." >&2
 	echo "Run 'make check' before pushing." >&2
+	exit 1
+fi
+
+# The freshness question CI asks, asked while it is still cheap to answer.
+# Editing a .proto or a renderer and committing without regenerating is the
+# failure this repository actually has; it costs about a second warm, and the
+# paths come from the Makefile so this cannot drift from what `gen` writes.
+generated=$(make -s generated-paths)
+make gen >/dev/null
+if ! git diff --quiet -- $generated; then
+	echo >&2
+	echo "pre-commit: regenerating changed the committed output:" >&2
+	git diff --name-only -- $generated | sed 's/^/  /' >&2
+	echo >&2
+	echo "'make gen' has already run. Stage the result and commit again." >&2
 	exit 1
 fi
