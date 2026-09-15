@@ -31,12 +31,8 @@ type Unimplemented{{.Name}} struct{}
 }
 
 {{end}}
-{{define "registerOpen"}}// Register{{.Name}} registers every {{.Name}} route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+{{define "registerOpen"}}// Register{{.Name}} registers every {{.Name}} route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 	rt.checkPathValue(mux)
 {{end}}

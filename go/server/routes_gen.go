@@ -37,12 +37,8 @@ func (UnimplementedAuthRoutes) Logout(context.Context, *v1.LogoutRequest) (*v1.L
 	return nil, errNotImplemented("AuthRoutes.Logout")
 }
 
-// RegisterAuthRoutes registers every AuthRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterAuthRoutes registers every AuthRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("POST", rt.prefix()+"/login", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,12 +112,8 @@ func (UnimplementedHealthRoutes) Healthcheck(context.Context, *v1.HealthcheckReq
 	return nil, errNotImplemented("HealthRoutes.Healthcheck")
 }
 
-// RegisterHealthRoutes registers every HealthRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterHealthRoutes registers every HealthRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("GET", rt.prefix()+"/healthcheck", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -175,12 +167,8 @@ func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1
 	return nil, errNotImplemented("PropRoutes.SetVote")
 }
 
-// RegisterPropRoutes registers every PropRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterPropRoutes registers every PropRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("GET", rt.prefix()+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -307,12 +295,8 @@ func (UnimplementedProtocolRoutes) CreateProtocol(context.Context, *v1.ProtocolC
 	return nil, errNotImplemented("ProtocolRoutes.CreateProtocol")
 }
 
-// RegisterProtocolRoutes registers every ProtocolRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterProtocolRoutes registers every ProtocolRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("POST", rt.prefix()+"/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -385,12 +369,8 @@ func (UnimplementedTopicRoutes) GetMember(context.Context, *v1.MemberGetRequest)
 	return nil, errNotImplemented("TopicRoutes.GetMember")
 }
 
-// RegisterTopicRoutes registers every TopicRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterTopicRoutes registers every TopicRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("GET", rt.prefix()+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -514,12 +494,8 @@ func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1
 	return nil, errNotImplemented("UserRoutes.GetSelf")
 }
 
-// RegisterUserRoutes registers every UserRoutes route on mux, under rt.Prefix,
-// which is "" — no prefix — for a router already mounted at the contract's
-// prefix and routes.Prefix for one at the origin root. mux needs only
-// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
-// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
+// RegisterUserRoutes registers every UserRoutes route on mux, under rt.Prefix.
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 	rt.checkPathValue(mux)
 	mux.Method("GET", rt.prefix()+"/user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
