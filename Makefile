@@ -48,7 +48,7 @@ BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 all: check
 
 ## tools — build the pinned code generators out of internal/tools
-tools: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-openapiv2 $(BIN)/oapi-codegen
+tools: $(BIN)/buf $(BIN)/protoc-gen-go $(BIN)/protoc-gen-openapi $(BIN)/oapi-codegen
 
 $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
@@ -57,8 +57,8 @@ $(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 $(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
 
-$(BIN)/protoc-gen-openapiv2: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
-	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-openapiv2 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+$(BIN)/protoc-gen-openapi: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-openapi github.com/google/gnostic/cmd/protoc-gen-openapi
 
 $(BIN)/oapi-codegen: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/oapi-codegen github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
@@ -71,14 +71,11 @@ deps:
 gen: tools
 	$(BUF) generate --template $(PROTO)/buf.gen.yaml
 	go run ./$(GO_DIR)/cmd/routegen
-	# protoc-gen-openapiv2 emits Swagger 2.0, the only version it produces, and
-	# every Go server generator reads OpenAPI 3. The difference is real rather
-	# than cosmetic: 2.0 puts `type` on a non-body parameter, 3.x nests it under
-	# `schema`, and oapi-codegen fails on the former.
-	$(TS_DIR)/node_modules/.bin/swagger2openapi \
-		$(OPENAPI)/metacensus.swagger.json -o $(OPENAPI)/metacensus.openapi.json
+	# protoc-gen-openapi emits OpenAPI 3.0.3, which oapi-codegen reads as it
+	# stands. The document's name is the plugin's, not ours: it always writes
+	# openapi.yaml into the directory buf.gen.yaml gives it.
 	$(BIN)/oapi-codegen -config $(GO_DIR)/server/oapi-codegen.yaml \
-		$(OPENAPI)/metacensus.openapi.json
+		$(OPENAPI)/openapi.yaml
 
 ## lint — buf's STANDARD rules
 lint: $(BIN)/buf

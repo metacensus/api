@@ -15,18 +15,22 @@
 // changed. Every generator here is on its current release, and the `go`
 // directive below is ahead of the published module's on purpose: this module is
 // never published and never imported, so its Go requirement reaches nobody.
+// protoc-gen-openapi needs at least go1.24.6, which is one thing that directive
+// pays for.
 //
-// Holding protobuf at 1.36.9 was tried and rejected. It drags grpc-gateway back
-// to v2.27.2 and grpc to a v1.77.0-dev pseudo-version, and all it buys is
-// avoiding a one-line version-stamp comment in each .pb.go. Taking older
-// releases of the toolchain to protect a generated comment is the wrong trade.
+// Holding protobuf at 1.36.9 was tried and rejected, and retried after
+// protoc-gen-openapiv2 left the tool list: it still drags grpc-gateway -- now
+// reached through buf rather than directly -- back to v2.27.2, and grpc to a
+// v1.77.0-dev pseudo-version. All it buys is avoiding a one-line version-stamp
+// comment in each .pb.go. Taking older releases of the toolchain to protect a
+// generated comment is the wrong trade.
 module github.com/metacensus/api/internal/tools
 
 go 1.25.5
 
 tool (
 	github.com/bufbuild/buf/cmd/buf
-	github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+	github.com/google/gnostic/cmd/protoc-gen-openapi
 	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
@@ -74,6 +78,8 @@ require (
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
+	github.com/google/gnostic v0.7.1 // indirect
+	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect

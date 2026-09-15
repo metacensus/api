@@ -35,7 +35,6 @@
     "prepack": "npm run build"
   },
   "devDependencies": {
-    "swagger2openapi": "7.0.8",
     "ts-proto": "2.7.7",
     "typescript": "5.5.4"
   }

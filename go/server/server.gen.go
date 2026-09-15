@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -15,6 +14,78 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for PropType.
+const (
+	PropTypePaperExtractionComplete  PropType = "PaperExtractionComplete"
+	PropTypePaperIncludeMetaAnalysis PropType = "PaperIncludeMetaAnalysis"
+	PropTypeStatement                PropType = "Statement"
+	PropTypeTopicChange              PropType = "TopicChange"
+	PropTypeTopicQuestion            PropType = "TopicQuestion"
+	PropTypeUnspecified              PropType = "Unspecified"
+	PropTypeUserAdmit                PropType = "UserAdmit"
+	PropTypeUserExpulse              PropType = "UserExpulse"
+)
+
+// Valid indicates whether the value is a known member of the PropType enum.
+func (e PropType) Valid() bool {
+	switch e {
+	case PropTypePaperExtractionComplete:
+		return true
+	case PropTypePaperIncludeMetaAnalysis:
+		return true
+	case PropTypeStatement:
+		return true
+	case PropTypeTopicChange:
+		return true
+	case PropTypeTopicQuestion:
+		return true
+	case PropTypeUnspecified:
+		return true
+	case PropTypeUserAdmit:
+		return true
+	case PropTypeUserExpulse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PropCreateRequestType.
+const (
+	PropCreateRequestTypePaperExtractionComplete  PropCreateRequestType = "PaperExtractionComplete"
+	PropCreateRequestTypePaperIncludeMetaAnalysis PropCreateRequestType = "PaperIncludeMetaAnalysis"
+	PropCreateRequestTypeStatement                PropCreateRequestType = "Statement"
+	PropCreateRequestTypeTopicChange              PropCreateRequestType = "TopicChange"
+	PropCreateRequestTypeTopicQuestion            PropCreateRequestType = "TopicQuestion"
+	PropCreateRequestTypeUnspecified              PropCreateRequestType = "Unspecified"
+	PropCreateRequestTypeUserAdmit                PropCreateRequestType = "UserAdmit"
+	PropCreateRequestTypeUserExpulse              PropCreateRequestType = "UserExpulse"
+)
+
+// Valid indicates whether the value is a known member of the PropCreateRequestType enum.
+func (e PropCreateRequestType) Valid() bool {
+	switch e {
+	case PropCreateRequestTypePaperExtractionComplete:
+		return true
+	case PropCreateRequestTypePaperIncludeMetaAnalysis:
+		return true
+	case PropCreateRequestTypeStatement:
+		return true
+	case PropCreateRequestTypeTopicChange:
+		return true
+	case PropCreateRequestTypeTopicQuestion:
+		return true
+	case PropCreateRequestTypeUnspecified:
+		return true
+	case PropCreateRequestTypeUserAdmit:
+		return true
+	case PropCreateRequestTypeUserExpulse:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for VotePosition.
 const (
@@ -40,99 +111,48 @@ func (e VotePosition) Valid() bool {
 	}
 }
 
-// Defines values for V1PropType.
+// Defines values for VoteSetRequestPosition.
 const (
-	V1PropTypePaperExtractionComplete  V1PropType = "PaperExtractionComplete"
-	V1PropTypePaperIncludeMetaAnalysis V1PropType = "PaperIncludeMetaAnalysis"
-	V1PropTypeStatement                V1PropType = "Statement"
-	V1PropTypeTopicChange              V1PropType = "TopicChange"
-	V1PropTypeTopicQuestion            V1PropType = "TopicQuestion"
-	V1PropTypeUnspecified              V1PropType = "Unspecified"
-	V1PropTypeUserAdmit                V1PropType = "UserAdmit"
-	V1PropTypeUserExpulse              V1PropType = "UserExpulse"
+	VoteSetRequestPositionAbstain     VoteSetRequestPosition = "Abstain"
+	VoteSetRequestPositionAgainst     VoteSetRequestPosition = "Against"
+	VoteSetRequestPositionFor         VoteSetRequestPosition = "For"
+	VoteSetRequestPositionUnspecified VoteSetRequestPosition = "Unspecified"
 )
 
-// Valid indicates whether the value is a known member of the V1PropType enum.
-func (e V1PropType) Valid() bool {
+// Valid indicates whether the value is a known member of the VoteSetRequestPosition enum.
+func (e VoteSetRequestPosition) Valid() bool {
 	switch e {
-	case V1PropTypePaperExtractionComplete:
+	case VoteSetRequestPositionAbstain:
 		return true
-	case V1PropTypePaperIncludeMetaAnalysis:
+	case VoteSetRequestPositionAgainst:
 		return true
-	case V1PropTypeStatement:
+	case VoteSetRequestPositionFor:
 		return true
-	case V1PropTypeTopicChange:
-		return true
-	case V1PropTypeTopicQuestion:
-		return true
-	case V1PropTypeUnspecified:
-		return true
-	case V1PropTypeUserAdmit:
-		return true
-	case V1PropTypeUserExpulse:
+	case VoteSetRequestPositionUnspecified:
 		return true
 	default:
 		return false
 	}
 }
 
-// PropRoutesCreatePropBody PropCreateRequest takes no author: it is the authenticated user.
-type PropRoutesCreatePropBody struct {
-	Description *string `json:"description,omitempty"`
-
-	// Type Type is what the proposition would do if it passed.
-	Type *V1PropType `json:"type,omitempty"`
-}
-
-// PropRoutesSetVoteBody VoteSetRequest sets rather than creates: it replaces the caller's previous
-// vote on this prop.
-type PropRoutesSetVoteBody struct {
-	Citations   *[]V1PropCitation `json:"citations,omitempty"`
-	Explanation *string           `json:"explanation,omitempty"`
-	Position    *VotePosition     `json:"position,omitempty"`
-}
-
-// VotePosition defines model for VotePosition.
-type VotePosition string
-
-// V1DataExtraction DataExtraction is the values extracted from one paper against one protocol,
-// identified by the three ids together. Upserted and read back as-is.
-type V1DataExtraction struct {
-	Data       *[]V1DatumExtraction `json:"data,omitempty"`
-	PaperId    *string              `json:"paperId,omitempty"`
-	ProtocolId *string              `json:"protocolId,omitempty"`
-	TopicId    *string              `json:"topicId,omitempty"`
-}
-
-// V1DatumExtraction DatumExtraction is one answered protocol element.
-type V1DatumExtraction struct {
-	// Datum The extracted value. A string for every element type the contract
-	// describes; multi-select elements have no representation yet.
-	Datum             *string `json:"datum,omitempty"`
-	ProtocolElementId *string `json:"protocolElementId,omitempty"`
-
-	// SourceLocation Where in the PDF the value was read from. Empty when the value was typed
-	// rather than selected.
-	SourceLocation *[]V1SourceLocationPage `json:"sourceLocation,omitempty"`
-}
-
-// V1HealthcheckResponse defines model for v1HealthcheckResponse.
-type V1HealthcheckResponse struct {
+// HealthcheckResponse defines model for HealthcheckResponse.
+type HealthcheckResponse struct {
 	Status *string `json:"status,omitempty"`
 }
 
-// V1LoginRequest defines model for v1LoginRequest.
-type V1LoginRequest struct {
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
 	Email    *string `json:"email,omitempty"`
 	Password *string `json:"password,omitempty"`
 }
 
-// V1LogoutResponse defines model for v1LogoutResponse.
-type V1LogoutResponse = map[string]interface{}
+// LogoutResponse defines model for LogoutResponse.
+type LogoutResponse = map[string]interface{}
 
-// V1Member Member is a user's membership of a topic. No backend implements the member
-// routes yet.
-type V1Member struct {
+// Member Member is a user's membership of a topic. No backend implements the member
+//
+//	routes yet.
+type Member struct {
 	// Id The member's user id, not an id of the membership itself.
 	Id *string `json:"id,omitempty"`
 
@@ -140,133 +160,128 @@ type V1Member struct {
 	Joined *time.Time `json:"joined,omitempty"`
 }
 
-// V1MemberList defines model for v1MemberList.
-type V1MemberList struct {
-	Items *[]V1Member `json:"items,omitempty"`
+// MemberList defines model for MemberList.
+type MemberList struct {
+	Items *[]Member `json:"items,omitempty"`
 }
 
-// V1Prop Prop is a motion a topic's members vote on. It can be functional, changing
-// the topic, or simply establish consensus.
-type V1Prop struct {
+// Prop Prop is a motion a topic's members vote on. It can be functional, changing
+//
+//	the topic, or simply establish consensus.
+type Prop struct {
 	AuthorId *string    `json:"authorId,omitempty"`
 	Created  *time.Time `json:"created,omitempty"`
 
 	// Description The text of the proposition, and the text `Vote.citations` index into.
-	Description *string `json:"description,omitempty"`
-	Id          *string `json:"id,omitempty"`
-
-	// Type Type is what the proposition would do if it passed.
-	Type *V1PropType `json:"type,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	Id          *string   `json:"id,omitempty"`
+	Type        *PropType `json:"type,omitempty"`
 }
 
-// V1PropCitation PropCitation is a half-open character range in a prop's `description`.
-type V1PropCitation struct {
-	End   *int64 `json:"end,omitempty"`
-	Start *int64 `json:"start,omitempty"`
+// PropType defines model for Prop.Type.
+type PropType string
+
+// PropCitation PropCitation is a half-open character range in a prop's `description`.
+type PropCitation struct {
+	End   *uint32 `json:"end,omitempty"`
+	Start *uint32 `json:"start,omitempty"`
 }
 
-// V1PropList defines model for v1PropList.
-type V1PropList struct {
-	Items *[]V1Prop `json:"items,omitempty"`
+// PropCreateRequest PropCreateRequest takes no author: it is the authenticated user.
+type PropCreateRequest struct {
+	Description *string                `json:"description,omitempty"`
+	TopicId     *string                `json:"topicId,omitempty"`
+	Type        *PropCreateRequestType `json:"type,omitempty"`
 }
 
-// V1PropType Type is what the proposition would do if it passed.
-type V1PropType string
+// PropCreateRequestType defines model for PropCreateRequest.Type.
+type PropCreateRequestType string
 
-// V1Protocol Protocol is an ordered set of sections, each an ordered set of elements.
-type V1Protocol struct {
-	Id               *string              `json:"id,omitempty"`
-	ProtocolSections *[]V1ProtocolSection `json:"protocolSections,omitempty"`
-	Title            *string              `json:"title,omitempty"`
+// PropList defines model for PropList.
+type PropList struct {
+	Items *[]Prop `json:"items,omitempty"`
 }
 
-// V1ProtocolCreateRequest ProtocolCreateRequest ignores the ids on its sections and elements.
-type V1ProtocolCreateRequest struct {
-	Sections *[]V1ProtocolSection `json:"sections,omitempty"`
-	Title    *string              `json:"title,omitempty"`
-	TopicId  *string              `json:"topicId,omitempty"`
+// Protocol Protocol is an ordered set of sections, each an ordered set of elements.
+type Protocol struct {
+	Id               *string            `json:"id,omitempty"`
+	ProtocolSections *[]ProtocolSection `json:"protocolSections,omitempty"`
+	Title            *string            `json:"title,omitempty"`
 }
 
-// V1ProtocolElement defines model for v1ProtocolElement.
-type V1ProtocolElement struct {
+// ProtocolCreateRequest ProtocolCreateRequest ignores the ids on its sections and elements.
+type ProtocolCreateRequest struct {
+	Sections *[]ProtocolSection `json:"sections,omitempty"`
+	Title    *string            `json:"title,omitempty"`
+	TopicId  *string            `json:"topicId,omitempty"`
+}
+
+// ProtocolElement defines model for ProtocolElement.
+type ProtocolElement struct {
 	Id    *string `json:"id,omitempty"`
 	Label *string `json:"label,omitempty"`
 	Name  *string `json:"name,omitempty"`
 
 	// Options Only meaningful for `radio` and `checkbox`.
-	Options     *[]V1ProtocolElementOption `json:"options,omitempty"`
-	Placeholder *string                    `json:"placeholder,omitempty"`
-	Required    *bool                      `json:"required,omitempty"`
-	SortOrder   *int32                     `json:"sortOrder,omitempty"`
+	Options     *[]ProtocolElementOption `json:"options,omitempty"`
+	Placeholder *string                  `json:"placeholder,omitempty"`
+	Required    *bool                    `json:"required,omitempty"`
+	SortOrder   *int32                   `json:"sortOrder,omitempty"`
 
 	// Type An HTML input type, used verbatim as `<input type=…>`: `text`, `number`,
-	// `date`, `textarea`, `radio` or `checkbox`.
+	//  `date`, `textarea`, `radio` or `checkbox`.
 	Type *string `json:"type,omitempty"`
 }
 
-// V1ProtocolElementOption ProtocolElementOption is one choice of a radio or checkbox element.
-type V1ProtocolElementOption struct {
+// ProtocolElementOption ProtocolElementOption is one choice of a radio or checkbox element.
+type ProtocolElementOption struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
 }
 
-// V1ProtocolSection ProtocolSection is a titled group of elements, ordered by `sort_order`.
-type V1ProtocolSection struct {
-	Id               *string              `json:"id,omitempty"`
-	ProtocolElements *[]V1ProtocolElement `json:"protocolElements,omitempty"`
-	SortOrder        *int32               `json:"sortOrder,omitempty"`
-	Title            *string              `json:"title,omitempty"`
+// ProtocolSection ProtocolSection is a titled group of elements, ordered by `sort_order`.
+type ProtocolSection struct {
+	Id               *string            `json:"id,omitempty"`
+	ProtocolElements *[]ProtocolElement `json:"protocolElements,omitempty"`
+	SortOrder        *int32             `json:"sortOrder,omitempty"`
+	Title            *string            `json:"title,omitempty"`
 }
 
-// V1Session defines model for v1Session.
-type V1Session struct {
+// Session defines model for Session.
+type Session struct {
 	// Token Bearer token, sent back as `Authorization: Bearer <token>`.
 	Token *string `json:"token,omitempty"`
 }
 
-// V1SignUpRequest defines model for v1SignUpRequest.
-type V1SignUpRequest struct {
+// SignUpRequest defines model for SignUpRequest.
+type SignUpRequest struct {
 	Country  *string `json:"country,omitempty"`
 	Email    *string `json:"email,omitempty"`
 	Name     *string `json:"name,omitempty"`
 	Password *string `json:"password,omitempty"`
 }
 
-// V1SourceLocationPage SourceLocationPage is the highlighted rectangles on one page of a PDF.
-type V1SourceLocationPage struct {
-	Page  *int32          `json:"page,omitempty"`
-	Rects *[]V1SourceRect `json:"rects,omitempty"`
-}
-
-// V1SourceRect SourceRect is one highlight rectangle, in the PDF viewer's coordinate space.
-type V1SourceRect struct {
-	H *float64 `json:"h,omitempty"`
-	W *float64 `json:"w,omitempty"`
-	X *float64 `json:"x,omitempty"`
-	Y *float64 `json:"y,omitempty"`
-}
-
-// V1Topic Topic is a systematic review in progress.
-type V1Topic struct {
+// Topic Topic is a systematic review in progress.
+type Topic struct {
 	Created     *time.Time `json:"created,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	Id          *string    `json:"id,omitempty"`
 	Name        *string    `json:"name,omitempty"`
 }
 
-// V1TopicCreateRequest defines model for v1TopicCreateRequest.
-type V1TopicCreateRequest struct {
+// TopicCreateRequest defines model for TopicCreateRequest.
+type TopicCreateRequest struct {
 	Description *string `json:"description,omitempty"`
 	Name        *string `json:"name,omitempty"`
 }
 
-// V1TopicList defines model for v1TopicList.
-type V1TopicList struct {
-	Items *[]V1Topic `json:"items,omitempty"`
+// TopicList defines model for TopicList.
+type TopicList struct {
+	Items *[]Topic `json:"items,omitempty"`
 }
 
-// V1User defines model for v1User.
-type V1User struct {
+// User defines model for User.
+type User struct {
 	Country *string    `json:"country,omitempty"`
 	Created *time.Time `json:"created,omitempty"`
 	Email   *string    `json:"email,omitempty"`
@@ -274,17 +289,18 @@ type V1User struct {
 	Name    *string    `json:"name,omitempty"`
 }
 
-// V1UserList defines model for v1UserList.
-type V1UserList struct {
-	Items *[]V1User `json:"items,omitempty"`
+// UserList defines model for UserList.
+type UserList struct {
+	Items *[]User `json:"items,omitempty"`
 }
 
-// V1Vote Vote is one member's position on one prop, keyed by `(propId, userId)`: a
-// second vote from the same user replaces the first rather than adding to it.
-type V1Vote struct {
+// Vote Vote is one member's position on one prop, keyed by `(propId, userId)`: a
+//
+//	second vote from the same user replaces the first rather than adding to it.
+type Vote struct {
 	// Citations Spans of the prop's `description` the voter highlighted. Meaningful only
-	// for an `Against` vote; cleared when the position changes to any other.
-	Citations *[]V1PropCitation `json:"citations,omitempty"`
+	//  for an `Against` vote; cleared when the position changes to any other.
+	Citations *[]PropCitation `json:"citations,omitempty"`
 
 	// Explanation Free-text rationale.
 	Explanation *string `json:"explanation,omitempty"`
@@ -296,47 +312,48 @@ type V1Vote struct {
 	UserId   *string       `json:"userId,omitempty"`
 }
 
-// V1VoteList VoteList is the only way to read a prop's votes.
-type V1VoteList struct {
-	Items *[]V1Vote `json:"items,omitempty"`
+// VotePosition defines model for Vote.Position.
+type VotePosition string
+
+// VoteList VoteList is the only way to read a prop's votes.
+type VoteList struct {
+	Items *[]Vote `json:"items,omitempty"`
 }
 
-// ExtractionRoutesGetExtractionParams defines parameters for ExtractionRoutesGetExtraction.
-type ExtractionRoutesGetExtractionParams struct {
-	TopicId    *string `form:"topicId,omitempty" json:"topicId,omitempty"`
-	PaperId    *string `form:"paperId,omitempty" json:"paperId,omitempty"`
-	ProtocolId *string `form:"protocolId,omitempty" json:"protocolId,omitempty"`
+// VoteSetRequest VoteSetRequest sets rather than creates: it replaces the caller's previous
+//
+//	vote on this prop.
+type VoteSetRequest struct {
+	Citations   *[]PropCitation         `json:"citations,omitempty"`
+	Explanation *string                 `json:"explanation,omitempty"`
+	Position    *VoteSetRequestPosition `json:"position,omitempty"`
+	PropId      *string                 `json:"propId,omitempty"`
+	TopicId     *string                 `json:"topicId,omitempty"`
 }
 
-// ExtractionRoutesUpsertExtractionJSONRequestBody defines body for ExtractionRoutesUpsertExtraction for application/json ContentType.
-type ExtractionRoutesUpsertExtractionJSONRequestBody = V1DataExtraction
+// VoteSetRequestPosition defines model for VoteSetRequest.Position.
+type VoteSetRequestPosition string
 
 // AuthRoutesLoginJSONRequestBody defines body for AuthRoutesLogin for application/json ContentType.
-type AuthRoutesLoginJSONRequestBody = V1LoginRequest
+type AuthRoutesLoginJSONRequestBody = LoginRequest
 
 // ProtocolRoutesCreateProtocolJSONRequestBody defines body for ProtocolRoutesCreateProtocol for application/json ContentType.
-type ProtocolRoutesCreateProtocolJSONRequestBody = V1ProtocolCreateRequest
+type ProtocolRoutesCreateProtocolJSONRequestBody = ProtocolCreateRequest
 
 // AuthRoutesSignUpJSONRequestBody defines body for AuthRoutesSignUp for application/json ContentType.
-type AuthRoutesSignUpJSONRequestBody = V1SignUpRequest
+type AuthRoutesSignUpJSONRequestBody = SignUpRequest
 
 // TopicRoutesCreateTopicJSONRequestBody defines body for TopicRoutesCreateTopic for application/json ContentType.
-type TopicRoutesCreateTopicJSONRequestBody = V1TopicCreateRequest
+type TopicRoutesCreateTopicJSONRequestBody = TopicCreateRequest
 
 // PropRoutesCreatePropJSONRequestBody defines body for PropRoutesCreateProp for application/json ContentType.
-type PropRoutesCreatePropJSONRequestBody = PropRoutesCreatePropBody
+type PropRoutesCreatePropJSONRequestBody = PropCreateRequest
 
 // PropRoutesSetVoteJSONRequestBody defines body for PropRoutesSetVote for application/json ContentType.
-type PropRoutesSetVoteJSONRequestBody = PropRoutesSetVoteBody
+type PropRoutesSetVoteJSONRequestBody = VoteSetRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-
-	// (GET /extraction)
-	ExtractionRoutesGetExtraction(w http.ResponseWriter, r *http.Request, params ExtractionRoutesGetExtractionParams)
-
-	// (POST /extraction)
-	ExtractionRoutesUpsertExtraction(w http.ResponseWriter, r *http.Request)
 
 	// (GET /healthcheck)
 	HealthRoutesHealthcheck(w http.ResponseWriter, r *http.Request)
@@ -399,16 +416,6 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
-
-// (GET /extraction)
-func (_ Unimplemented) ExtractionRoutesGetExtraction(w http.ResponseWriter, r *http.Request, params ExtractionRoutesGetExtractionParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (POST /extraction)
-func (_ Unimplemented) ExtractionRoutesUpsertExtraction(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
 
 // (GET /healthcheck)
 func (_ Unimplemented) HealthRoutesHealthcheck(w http.ResponseWriter, r *http.Request) {
@@ -513,79 +520,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
-
-// ExtractionRoutesGetExtraction operation middleware
-func (siw *ServerInterfaceWrapper) ExtractionRoutesGetExtraction(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ExtractionRoutesGetExtractionParams
-
-	// ------------- Optional query parameter "topicId" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "topicId", r.URL.Query(), &params.TopicId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "topicId"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "topicId", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "paperId" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "paperId", r.URL.Query(), &params.PaperId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "paperId"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paperId", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "protocolId" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "protocolId", r.URL.Query(), &params.ProtocolId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "protocolId"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "protocolId", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ExtractionRoutesGetExtraction(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ExtractionRoutesUpsertExtraction operation middleware
-func (siw *ServerInterfaceWrapper) ExtractionRoutesUpsertExtraction(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ExtractionRoutesUpsertExtraction(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
 
 // HealthRoutesHealthcheck operation middleware
 func (siw *ServerInterfaceWrapper) HealthRoutesHealthcheck(w http.ResponseWriter, r *http.Request) {
@@ -1123,12 +1057,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/extraction", wrapper.ExtractionRoutesGetExtraction)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/extraction", wrapper.ExtractionRoutesUpsertExtraction)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthcheck", wrapper.HealthRoutesHealthcheck)
 	})
 	r.Group(func(r chi.Router) {
@@ -1189,50 +1117,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	return r
 }
 
-type ExtractionRoutesGetExtractionRequestObject struct {
-	Params ExtractionRoutesGetExtractionParams
-}
-
-type ExtractionRoutesGetExtractionResponseObject interface {
-	VisitExtractionRoutesGetExtractionResponse(w http.ResponseWriter) error
-}
-
-type ExtractionRoutesGetExtraction200JSONResponse V1DataExtraction
-
-func (response ExtractionRoutesGetExtraction200JSONResponse) VisitExtractionRoutesGetExtractionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ExtractionRoutesUpsertExtractionRequestObject struct {
-	Body *ExtractionRoutesUpsertExtractionJSONRequestBody
-}
-
-type ExtractionRoutesUpsertExtractionResponseObject interface {
-	VisitExtractionRoutesUpsertExtractionResponse(w http.ResponseWriter) error
-}
-
-type ExtractionRoutesUpsertExtraction200JSONResponse V1DataExtraction
-
-func (response ExtractionRoutesUpsertExtraction200JSONResponse) VisitExtractionRoutesUpsertExtractionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type HealthRoutesHealthcheckRequestObject struct {
 }
 
@@ -1240,7 +1124,7 @@ type HealthRoutesHealthcheckResponseObject interface {
 	VisitHealthRoutesHealthcheckResponse(w http.ResponseWriter) error
 }
 
-type HealthRoutesHealthcheck200JSONResponse V1HealthcheckResponse
+type HealthRoutesHealthcheck200JSONResponse HealthcheckResponse
 
 func (response HealthRoutesHealthcheck200JSONResponse) VisitHealthRoutesHealthcheckResponse(w http.ResponseWriter) error {
 
@@ -1262,7 +1146,7 @@ type AuthRoutesLoginResponseObject interface {
 	VisitAuthRoutesLoginResponse(w http.ResponseWriter) error
 }
 
-type AuthRoutesLogin200JSONResponse V1Session
+type AuthRoutesLogin200JSONResponse Session
 
 func (response AuthRoutesLogin200JSONResponse) VisitAuthRoutesLoginResponse(w http.ResponseWriter) error {
 
@@ -1283,7 +1167,7 @@ type AuthRoutesLogoutResponseObject interface {
 	VisitAuthRoutesLogoutResponse(w http.ResponseWriter) error
 }
 
-type AuthRoutesLogout200JSONResponse V1LogoutResponse
+type AuthRoutesLogout200JSONResponse LogoutResponse
 
 func (response AuthRoutesLogout200JSONResponse) VisitAuthRoutesLogoutResponse(w http.ResponseWriter) error {
 
@@ -1305,7 +1189,7 @@ type ProtocolRoutesCreateProtocolResponseObject interface {
 	VisitProtocolRoutesCreateProtocolResponse(w http.ResponseWriter) error
 }
 
-type ProtocolRoutesCreateProtocol200JSONResponse V1Protocol
+type ProtocolRoutesCreateProtocol200JSONResponse Protocol
 
 func (response ProtocolRoutesCreateProtocol200JSONResponse) VisitProtocolRoutesCreateProtocolResponse(w http.ResponseWriter) error {
 
@@ -1326,7 +1210,7 @@ type UserRoutesGetSelfResponseObject interface {
 	VisitUserRoutesGetSelfResponse(w http.ResponseWriter) error
 }
 
-type UserRoutesGetSelf200JSONResponse V1User
+type UserRoutesGetSelf200JSONResponse User
 
 func (response UserRoutesGetSelf200JSONResponse) VisitUserRoutesGetSelfResponse(w http.ResponseWriter) error {
 
@@ -1348,7 +1232,7 @@ type AuthRoutesSignUpResponseObject interface {
 	VisitAuthRoutesSignUpResponse(w http.ResponseWriter) error
 }
 
-type AuthRoutesSignUp200JSONResponse V1Session
+type AuthRoutesSignUp200JSONResponse Session
 
 func (response AuthRoutesSignUp200JSONResponse) VisitAuthRoutesSignUpResponse(w http.ResponseWriter) error {
 
@@ -1369,7 +1253,7 @@ type TopicRoutesListTopicsResponseObject interface {
 	VisitTopicRoutesListTopicsResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesListTopics200JSONResponse V1TopicList
+type TopicRoutesListTopics200JSONResponse TopicList
 
 func (response TopicRoutesListTopics200JSONResponse) VisitTopicRoutesListTopicsResponse(w http.ResponseWriter) error {
 
@@ -1391,7 +1275,7 @@ type TopicRoutesCreateTopicResponseObject interface {
 	VisitTopicRoutesCreateTopicResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesCreateTopic200JSONResponse V1Topic
+type TopicRoutesCreateTopic200JSONResponse Topic
 
 func (response TopicRoutesCreateTopic200JSONResponse) VisitTopicRoutesCreateTopicResponse(w http.ResponseWriter) error {
 
@@ -1413,7 +1297,7 @@ type TopicRoutesGetTopicResponseObject interface {
 	VisitTopicRoutesGetTopicResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesGetTopic200JSONResponse V1Topic
+type TopicRoutesGetTopic200JSONResponse Topic
 
 func (response TopicRoutesGetTopic200JSONResponse) VisitTopicRoutesGetTopicResponse(w http.ResponseWriter) error {
 
@@ -1435,7 +1319,7 @@ type TopicRoutesListMembersResponseObject interface {
 	VisitTopicRoutesListMembersResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesListMembers200JSONResponse V1MemberList
+type TopicRoutesListMembers200JSONResponse MemberList
 
 func (response TopicRoutesListMembers200JSONResponse) VisitTopicRoutesListMembersResponse(w http.ResponseWriter) error {
 
@@ -1458,7 +1342,7 @@ type TopicRoutesGetMemberResponseObject interface {
 	VisitTopicRoutesGetMemberResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesGetMember200JSONResponse V1Member
+type TopicRoutesGetMember200JSONResponse Member
 
 func (response TopicRoutesGetMember200JSONResponse) VisitTopicRoutesGetMemberResponse(w http.ResponseWriter) error {
 
@@ -1480,7 +1364,7 @@ type PropRoutesListPropsResponseObject interface {
 	VisitPropRoutesListPropsResponse(w http.ResponseWriter) error
 }
 
-type PropRoutesListProps200JSONResponse V1PropList
+type PropRoutesListProps200JSONResponse PropList
 
 func (response PropRoutesListProps200JSONResponse) VisitPropRoutesListPropsResponse(w http.ResponseWriter) error {
 
@@ -1503,7 +1387,7 @@ type PropRoutesCreatePropResponseObject interface {
 	VisitPropRoutesCreatePropResponse(w http.ResponseWriter) error
 }
 
-type PropRoutesCreateProp200JSONResponse V1Prop
+type PropRoutesCreateProp200JSONResponse Prop
 
 func (response PropRoutesCreateProp200JSONResponse) VisitPropRoutesCreatePropResponse(w http.ResponseWriter) error {
 
@@ -1526,7 +1410,7 @@ type PropRoutesGetPropResponseObject interface {
 	VisitPropRoutesGetPropResponse(w http.ResponseWriter) error
 }
 
-type PropRoutesGetProp200JSONResponse V1Prop
+type PropRoutesGetProp200JSONResponse Prop
 
 func (response PropRoutesGetProp200JSONResponse) VisitPropRoutesGetPropResponse(w http.ResponseWriter) error {
 
@@ -1549,7 +1433,7 @@ type PropRoutesListVotesResponseObject interface {
 	VisitPropRoutesListVotesResponse(w http.ResponseWriter) error
 }
 
-type PropRoutesListVotes200JSONResponse V1VoteList
+type PropRoutesListVotes200JSONResponse VoteList
 
 func (response PropRoutesListVotes200JSONResponse) VisitPropRoutesListVotesResponse(w http.ResponseWriter) error {
 
@@ -1573,7 +1457,7 @@ type PropRoutesSetVoteResponseObject interface {
 	VisitPropRoutesSetVoteResponse(w http.ResponseWriter) error
 }
 
-type PropRoutesSetVote200JSONResponse V1Vote
+type PropRoutesSetVote200JSONResponse Vote
 
 func (response PropRoutesSetVote200JSONResponse) VisitPropRoutesSetVoteResponse(w http.ResponseWriter) error {
 
@@ -1595,7 +1479,7 @@ type TopicRoutesGetProtocolResponseObject interface {
 	VisitTopicRoutesGetProtocolResponse(w http.ResponseWriter) error
 }
 
-type TopicRoutesGetProtocol200JSONResponse V1Protocol
+type TopicRoutesGetProtocol200JSONResponse Protocol
 
 func (response TopicRoutesGetProtocol200JSONResponse) VisitTopicRoutesGetProtocolResponse(w http.ResponseWriter) error {
 
@@ -1616,7 +1500,7 @@ type UserRoutesListUsersResponseObject interface {
 	VisitUserRoutesListUsersResponse(w http.ResponseWriter) error
 }
 
-type UserRoutesListUsers200JSONResponse V1UserList
+type UserRoutesListUsers200JSONResponse UserList
 
 func (response UserRoutesListUsers200JSONResponse) VisitUserRoutesListUsersResponse(w http.ResponseWriter) error {
 
@@ -1638,7 +1522,7 @@ type UserRoutesGetUserResponseObject interface {
 	VisitUserRoutesGetUserResponse(w http.ResponseWriter) error
 }
 
-type UserRoutesGetUser200JSONResponse V1User
+type UserRoutesGetUser200JSONResponse User
 
 func (response UserRoutesGetUser200JSONResponse) VisitUserRoutesGetUserResponse(w http.ResponseWriter) error {
 
@@ -1654,12 +1538,6 @@ func (response UserRoutesGetUser200JSONResponse) VisitUserRoutesGetUserResponse(
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-
-	// (GET /extraction)
-	ExtractionRoutesGetExtraction(ctx context.Context, request ExtractionRoutesGetExtractionRequestObject) (ExtractionRoutesGetExtractionResponseObject, error)
-
-	// (POST /extraction)
-	ExtractionRoutesUpsertExtraction(ctx context.Context, request ExtractionRoutesUpsertExtractionRequestObject) (ExtractionRoutesUpsertExtractionResponseObject, error)
 
 	// (GET /healthcheck)
 	HealthRoutesHealthcheck(ctx context.Context, request HealthRoutesHealthcheckRequestObject) (HealthRoutesHealthcheckResponseObject, error)
@@ -1756,63 +1634,6 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
-}
-
-// ExtractionRoutesGetExtraction operation middleware
-func (sh *strictHandler) ExtractionRoutesGetExtraction(w http.ResponseWriter, r *http.Request, params ExtractionRoutesGetExtractionParams) {
-	var request ExtractionRoutesGetExtractionRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ExtractionRoutesGetExtraction(ctx, request.(ExtractionRoutesGetExtractionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ExtractionRoutesGetExtraction")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ExtractionRoutesGetExtractionResponseObject); ok {
-		if err := validResponse.VisitExtractionRoutesGetExtractionResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ExtractionRoutesUpsertExtraction operation middleware
-func (sh *strictHandler) ExtractionRoutesUpsertExtraction(w http.ResponseWriter, r *http.Request) {
-	var request ExtractionRoutesUpsertExtractionRequestObject
-
-	var body ExtractionRoutesUpsertExtractionJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ExtractionRoutesUpsertExtraction(ctx, request.(ExtractionRoutesUpsertExtractionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ExtractionRoutesUpsertExtraction")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ExtractionRoutesUpsertExtractionResponseObject); ok {
-		if err := validResponse.VisitExtractionRoutesUpsertExtractionResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
 }
 
 // HealthRoutesHealthcheck operation middleware

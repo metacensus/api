@@ -11,8 +11,8 @@ The four issues in ui that tracked this work — adoption, what the contract del
 ## Layout
 
 ```
-proto/           .proto sources, buf config and the OpenAPI options — the definition
-openapi/         the generated OpenAPI documents, Swagger 2.0 and OpenAPI 3
+proto/           .proto sources and buf config — the definition
+openapi/         the generated OpenAPI 3 document
 go/server/       the OpenAPI-generated server, and the wiring it needs
 go/              generated Go, the wire encoder, the manifest generator, tests
 ts/              generated TypeScript interfaces, the npm package
@@ -106,11 +106,12 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 ## Serving it
 
-The server is generated in three stages, all third-party, all run by `make gen`:
+The server is generated in two stages, both third-party, both run by `make gen`:
 
-1. `protoc-gen-openapiv2` emits `openapi/metacensus.swagger.json` from the same `google.api.http` annotations the route manifest comes from.
-2. `swagger2openapi` converts it to `openapi/metacensus.openapi.json`. That stage is not optional: `protoc-gen-openapiv2` emits **Swagger 2.0**, the only version it produces, and every Go server generator reads OpenAPI 3. The difference bites — 2.0 puts `type` on a non-body parameter and 3.x nests it under `schema`, so `oapi-codegen` fails outright on the 2.0 document.
-3. `oapi-codegen` turns that into `go/server/server.gen.go`: `StrictServerInterface`, chi routing, and request binding.
+1. `protoc-gen-openapi` (from gnostic) emits `openapi/openapi.yaml` — OpenAPI 3.0.3 — from the same `google.api.http` annotations the route manifest comes from. The file name and the YAML are the plugin's: in its default merged mode it always writes `openapi.yaml` into the directory it is given, and emits nothing else.
+2. `oapi-codegen` turns that into `go/server/server.gen.go`: `StrictServerInterface`, chi routing, and request binding.
+
+`oapi-codegen` reads the document as it stands, so nothing sits between the two.
 
 ```go
 handler, err := server.New(store, server.Options{   // store is a StrictServerInterface
@@ -120,32 +121,34 @@ handler, err := server.New(store, server.Options{   // store is a StrictServerIn
 })
 ```
 
-**One interface for the whole surface.** `StrictServerInterface` has all 21 methods across all seven resources, so an implementation takes the contract whole or not at all.
+**One interface for the whole surface.** `StrictServerInterface` has all 19 methods across all six resources, so an implementation takes the contract whole or not at all.
 
 **`strict-server` is load-bearing.** `chi-server` alone emits `func(w http.ResponseWriter, r *http.Request)` handlers — route coverage and nothing more. `strict-server` is what makes the request and response typed.
 
 **Auth knows which route it is on.** `oapi-codegen` passes its strict middleware the operation id, so `Options.Public` names operations and the guard works for parameterised routes as readily as for bare ones.
 
-**`chi` is a requirement of the published module**, not a choice a caller makes: `oapi-codegen`'s chi-server generator names it in `server.gen.go`. The module goes from two requirements to six.
+**`chi` is a requirement of the published module**, not a choice a caller makes: `oapi-codegen`'s chi-server generator names it in `server.gen.go`. The module goes from two requirements to seven, one of which — `gopkg.in/yaml.v3` — is reached only by `go/openapi_test.go`, which has to parse a document that is no longer JSON.
 
 ### Where this disagrees with the wire rules above
 
-`oapi-codegen` derives its own Go types from the document rather than reusing the protobuf ones — `V1Topic`, not `metacensusv1.Topic`, 117 of them, a second representation of every message. Two consequences, both in generated code:
+`oapi-codegen` derives its own Go types from the document rather than reusing the protobuf ones — `Topic`, not `metacensusv1.Topic`, 34 of them across the 24 schemas, a second representation of every message. Two consequences, both in generated code:
 
 - **`server.gen.go` encodes with `json.NewEncoder`**, hard-coded. `protojson` cannot be substituted; there is no seam for it. Enums and timestamps survive that — the enum is rendered as a Go string type and `time.Time` marshals RFC 3339 — and so does an empty string, since `omitempty` on a pointer keys off the pointer.
 - **Presence becomes the implementation's choice.** Every field is a pointer, so one left nil is absent, and nothing requires the server to set it. The contract marshals with `EmitDefaultValues` and the TypeScript generated from the same `.proto` declares `description: string` as always present, so the client is typed to expect a field the server may omit.
 
 **Unknown fields are accepted**, and there is no option to reject them: the generated binding uses `json.NewDecoder`. The contract's own decoder rejects them.
 
-`protoc-gen-openapiv2` can emit `x-go-type` extensions naming the protobuf types, but in its own shape — `{"import": {…}, "type": …}` — rather than the `x-go-type` plus `x-go-type-import` pair `oapi-codegen` reads. Bridging them needs a transform of the document between the two generators.
+`protoc-gen-openapi` emits no `x-go-type` extension at all, so there is nothing to point `oapi-codegen` at the protobuf types with. Closing that would mean transforming the document between the two generators, which is the stage this pipeline does not have.
 
 ### The document itself
 
-Two values cannot be derived from the `.proto` sources and are configured in `proto/openapi.yaml`: `basePath`, since `google.api.http` carries a path per route and no prefix, and the title and version. `basePath` duplicates `cmd/routegen`'s `apiPrefix`, and `TestOpenAPIBasePathMatchesManifest` keeps the copies together.
+**The document carries no base path.** Every path in it is written bare — `/topic/{topicId}`, not `/metacensus/api/v1/topic/{topicId}` — and there is no `servers` block. That is a limitation of the generator rather than a choice: `protoc-gen-openapi` has no base-path or server option, and the only thing it will turn into a `servers` entry is `google.api.default_host` on a service, which is a hostname commitment — it forces the scheme to `https` — rather than a path prefix, and would have to be written into every `.proto`.
 
-That configuration is keyed on one `.proto` file, and with `allow_merge` the merged document takes its options from whichever file sorts first — today `auth.proto`. Nothing in the toolchain says so, so a new resource sorting ahead of it would silently drop both; `TestOpenAPIConfigurationWasApplied` fails when that happens.
+Serving is unaffected: `server.New` passes `routes.Prefix` as `oapi-codegen`'s `BaseURL`, so the routes are mounted where the manifest says, and `TestOpenAPICarriesNoBasePath` fails if the document ever starts carrying the prefix itself. It matters to whoever publishes the document: a client generated from it as it stands requests `/topic/t-1` and gets a 404, and the prefix has to be supplied out of band.
 
-**`disable_default_errors` is set.** Without it every operation advertises a `default` response of `rpcStatus` — `{code: int32, message, details}` — which is gRPC's error shape and not one this contract serves.
+**The title and version are configured as plugin options** in `proto/buf.gen.yaml`, because no `.proto` expresses them. Without them the title is empty — `protoc-gen-openapi` only borrows a service name when there is exactly one service, and there are six — and the version defaults to `0.0.1`. `TestOpenAPIConfigurationWasApplied` fails if either stops arriving.
+
+**`default_response=false` is set.** Without it every operation advertises a `default` response of `google.rpc.Status` — `{code, message, details}` — which is gRPC's error shape and not one this contract serves. **`enum_type=string`** is set for the same reason `stringEnums` is set on the TypeScript: the default is `integer`, and this wire carries enum names.
 
 ## What the tests check
 

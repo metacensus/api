@@ -1,5 +1,6 @@
-# oapi-codegen reads the converted OpenAPI 3 document. Run by `make gen`; the
-# path it is given is on the command line, not here.
+# oapi-codegen reads protoc-gen-openapi's OpenAPI 3 document directly -- no
+# conversion stands between them. Run by `make gen`; the path it is given is on
+# the command line, not here.
 package: server
 output: go/server/server.gen.go
 generate:

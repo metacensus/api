@@ -15,21 +15,13 @@ import (
 
 var errUnset = errors.New("stub method not set")
 
-// unimplemented satisfies all 21 methods of StrictServerInterface.
+// unimplemented satisfies all 19 methods of StrictServerInterface.
 //
 // It exists because oapi-codegen emits one interface for the whole surface
 // rather than one per resource, so a test exercising two Prop routes must
-// still satisfy Auth, Topic, User, Protocol, Extraction and Health. The other
-// two branches let an implementation take one resource at a time.
+// still satisfy Auth, Topic, User, Protocol and Health. The other two branches
+// let an implementation take one resource at a time.
 type unimplemented struct{}
-
-func (unimplemented) ExtractionRoutesGetExtraction(context.Context, ExtractionRoutesGetExtractionRequestObject) (ExtractionRoutesGetExtractionResponseObject, error) {
-	return nil, errUnset
-}
-
-func (unimplemented) ExtractionRoutesUpsertExtraction(context.Context, ExtractionRoutesUpsertExtractionRequestObject) (ExtractionRoutesUpsertExtractionResponseObject, error) {
-	return nil, errUnset
-}
 
 func (unimplemented) HealthRoutesHealthcheck(context.Context, HealthRoutesHealthcheckRequestObject) (HealthRoutesHealthcheckResponseObject, error) {
 	return nil, errUnset
@@ -189,11 +181,11 @@ func TestResponseEncoding(t *testing.T) {
 
 	h := serve(t, Options{}, &stub{
 		getProp: func(_ context.Context, r PropRoutesGetPropRequestObject) (PropRoutesGetPropResponseObject, error) {
-			return PropRoutesGetProp200JSONResponse(V1Prop{
+			return PropRoutesGetProp200JSONResponse(Prop{
 				Id:       ptr(r.PropId),
 				AuthorId: ptr(""), // set, and empty
 				Created:  ptr(created),
-				Type:     ptr(V1PropType("PaperExtractionComplete")),
+				Type:     ptr(PropType("PaperExtractionComplete")),
 				// Description left nil: the contract declares it always
 				// present, and this type does not require it.
 			}), nil
@@ -240,7 +232,7 @@ func TestPathParametersBind(t *testing.T) {
 	h := serve(t, Options{}, &stub{
 		getProp: func(_ context.Context, r PropRoutesGetPropRequestObject) (PropRoutesGetPropResponseObject, error) {
 			got = r
-			return PropRoutesGetProp200JSONResponse(V1Prop{Id: ptr(r.PropId)}), nil
+			return PropRoutesGetProp200JSONResponse(Prop{Id: ptr(r.PropId)}), nil
 		},
 	})
 
@@ -262,7 +254,7 @@ func TestBodyAndPathAreSeparateFields(t *testing.T) {
 	h := serve(t, Options{}, &stub{
 		createProp: func(_ context.Context, r PropRoutesCreatePropRequestObject) (PropRoutesCreatePropResponseObject, error) {
 			got = r
-			return PropRoutesCreateProp200JSONResponse(V1Prop{Id: ptr("p-1")}), nil
+			return PropRoutesCreateProp200JSONResponse(Prop{Id: ptr("p-1")}), nil
 		},
 	})
 
@@ -346,7 +338,7 @@ func TestUnknownFieldsAreAccepted(t *testing.T) {
 	h := serve(t, Options{}, &stub{
 		createProp: func(_ context.Context, r PropRoutesCreatePropRequestObject) (PropRoutesCreatePropResponseObject, error) {
 			got = r
-			return PropRoutesCreateProp200JSONResponse(V1Prop{Id: ptr("p-1")}), nil
+			return PropRoutesCreateProp200JSONResponse(Prop{Id: ptr("p-1")}), nil
 		},
 	})
 
@@ -373,10 +365,10 @@ func TestAuthGuard(t *testing.T) {
 	newStub := func(t *testing.T) *stub {
 		return &stub{
 			getProp: func(_ context.Context, r PropRoutesGetPropRequestObject) (PropRoutesGetPropResponseObject, error) {
-				return PropRoutesGetProp200JSONResponse(V1Prop{Id: ptr(r.PropId)}), nil
+				return PropRoutesGetProp200JSONResponse(Prop{Id: ptr(r.PropId)}), nil
 			},
 			healthcheck: func(context.Context, HealthRoutesHealthcheckRequestObject) (HealthRoutesHealthcheckResponseObject, error) {
-				return HealthRoutesHealthcheck200JSONResponse(V1HealthcheckResponse{Status: ptr("ok")}), nil
+				return HealthRoutesHealthcheck200JSONResponse(HealthcheckResponse{Status: ptr("ok")}), nil
 			},
 		}
 	}

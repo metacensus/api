@@ -8,21 +8,27 @@ plugins:
     opt:
       - paths=source_relative
 
-  # protoc-gen-openapiv2 reads the same google.api.http annotations and emits
-  # one OpenAPI document for the whole surface.
-  - local: bin/protoc-gen-openapiv2
+  # protoc-gen-openapi (gnostic) reads the same google.api.http annotations
+  # and emits one OpenAPI 3.0.3 document for the whole surface. The output file
+  # name is not configurable: the plugin always writes openapi.yaml into `out`.
+  - local: bin/protoc-gen-openapi
     out: openapi
     opt:
-      - allow_merge=true
-      - merge_file_name=metacensus
       # The wire is lowerCamelCase, so the document has to describe that and
       # not the proto's snake_case.
-      - json_names_for_fields=true
+      - naming=json
+      # Enums travel as their names, matching stringEnums in the TypeScript
+      # and protojson on the Go side. The default is `integer`.
+      - enum_type=string
       # Without this every operation advertises a `default` response of
-      # rpcStatus -- {code: int32, message, details} -- which is gRPC's error
+      # google.rpc.Status -- {code, message, details} -- which is gRPC's error
       # shape and not the one this contract serves.
-      - disable_default_errors=true
-      - openapi_configuration=proto/openapi.yaml
+      - default_response=false
+      # Neither is derivable from the .proto sources. With one document for
+      # several services the plugin cannot guess a title, and its version
+      # default is 0.0.1.
+      - title=MetaCensus API
+      - version=v1
 
   - local: ts/node_modules/.bin/protoc-gen-ts_proto
     out: ts/src

@@ -1,0 +1,666 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: MetaCensus API
+    version: v1
+paths:
+    /healthcheck:
+        get:
+            tags:
+                - HealthRoutes
+            operationId: HealthRoutes_Healthcheck
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HealthcheckResponse'
+    /login:
+        post:
+            tags:
+                - AuthRoutes
+            operationId: AuthRoutes_Login
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/LoginRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Session'
+    /logout:
+        post:
+            tags:
+                - AuthRoutes
+            operationId: AuthRoutes_Logout
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LogoutResponse'
+    /protocol:
+        post:
+            tags:
+                - ProtocolRoutes
+            operationId: ProtocolRoutes_CreateProtocol
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ProtocolCreateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Protocol'
+    /self:
+        get:
+            tags:
+                - UserRoutes
+            operationId: UserRoutes_GetSelf
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+    /signup:
+        post:
+            tags:
+                - AuthRoutes
+            operationId: AuthRoutes_SignUp
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SignUpRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Session'
+    /topic:
+        get:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_ListTopics
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TopicList'
+        post:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_CreateTopic
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TopicCreateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Topic'
+    /topic/{topicId}:
+        get:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_GetTopic
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Topic'
+    /topic/{topicId}/member:
+        get:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_ListMembers
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MemberList'
+    /topic/{topicId}/member/{userId}:
+        get:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_GetMember
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Member'
+    /topic/{topicId}/prop:
+        get:
+            tags:
+                - PropRoutes
+            operationId: PropRoutes_ListProps
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PropList'
+        post:
+            tags:
+                - PropRoutes
+            operationId: PropRoutes_CreateProp
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PropCreateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Prop'
+    /topic/{topicId}/prop/{propId}:
+        get:
+            tags:
+                - PropRoutes
+            operationId: PropRoutes_GetProp
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: propId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Prop'
+    /topic/{topicId}/prop/{propId}/vote:
+        get:
+            tags:
+                - PropRoutes
+            operationId: PropRoutes_ListVotes
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: propId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/VoteList'
+        post:
+            tags:
+                - PropRoutes
+            operationId: PropRoutes_SetVote
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: propId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/VoteSetRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Vote'
+    /topic/{topicId}/protocol:
+        get:
+            tags:
+                - TopicRoutes
+            operationId: TopicRoutes_GetProtocol
+            parameters:
+                - name: topicId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Protocol'
+    /user:
+        get:
+            tags:
+                - UserRoutes
+            operationId: UserRoutes_ListUsers
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UserList'
+    /user/{userId}:
+        get:
+            tags:
+                - UserRoutes
+            operationId: UserRoutes_GetUser
+            parameters:
+                - name: userId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+components:
+    schemas:
+        HealthcheckResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+        LoginRequest:
+            type: object
+            properties:
+                email:
+                    type: string
+                password:
+                    type: string
+        LogoutResponse:
+            type: object
+            properties: {}
+        Member:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: The member's user id, not an id of the membership itself.
+                joined:
+                    type: string
+                    description: When the user joined the topic.
+                    format: date-time
+            description: |-
+                Member is a user's membership of a topic. No backend implements the member
+                 routes yet.
+        MemberList:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Member'
+        Prop:
+            type: object
+            properties:
+                id:
+                    type: string
+                authorId:
+                    type: string
+                created:
+                    type: string
+                    format: date-time
+                type:
+                    enum:
+                        - Unspecified
+                        - Statement
+                        - TopicQuestion
+                        - TopicChange
+                        - UserAdmit
+                        - UserExpulse
+                        - PaperExtractionComplete
+                        - PaperIncludeMetaAnalysis
+                    type: string
+                    format: enum
+                description:
+                    type: string
+                    description: The text of the proposition, and the text `Vote.citations` index into.
+            description: |-
+                Prop is a motion a topic's members vote on. It can be functional, changing
+                 the topic, or simply establish consensus.
+        PropCitation:
+            type: object
+            properties:
+                start:
+                    type: integer
+                    format: uint32
+                end:
+                    type: integer
+                    format: uint32
+            description: PropCitation is a half-open character range in a prop's `description`.
+        PropCreateRequest:
+            type: object
+            properties:
+                topicId:
+                    type: string
+                type:
+                    enum:
+                        - Unspecified
+                        - Statement
+                        - TopicQuestion
+                        - TopicChange
+                        - UserAdmit
+                        - UserExpulse
+                        - PaperExtractionComplete
+                        - PaperIncludeMetaAnalysis
+                    type: string
+                    format: enum
+                description:
+                    type: string
+            description: 'PropCreateRequest takes no author: it is the authenticated user.'
+        PropList:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Prop'
+        Protocol:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                protocolSections:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProtocolSection'
+            description: Protocol is an ordered set of sections, each an ordered set of elements.
+        ProtocolCreateRequest:
+            type: object
+            properties:
+                topicId:
+                    type: string
+                title:
+                    type: string
+                sections:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProtocolSection'
+            description: ProtocolCreateRequest ignores the ids on its sections and elements.
+        ProtocolElement:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                type:
+                    type: string
+                    description: |-
+                        An HTML input type, used verbatim as `<input type=…>`: `text`, `number`,
+                         `date`, `textarea`, `radio` or `checkbox`.
+                label:
+                    type: string
+                placeholder:
+                    type: string
+                required:
+                    type: boolean
+                options:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProtocolElementOption'
+                    description: Only meaningful for `radio` and `checkbox`.
+                sortOrder:
+                    type: integer
+                    format: int32
+        ProtocolElementOption:
+            type: object
+            properties:
+                name:
+                    type: string
+                value:
+                    type: string
+            description: ProtocolElementOption is one choice of a radio or checkbox element.
+        ProtocolSection:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                sortOrder:
+                    type: integer
+                    format: int32
+                protocolElements:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProtocolElement'
+            description: ProtocolSection is a titled group of elements, ordered by `sort_order`.
+        Session:
+            type: object
+            properties:
+                token:
+                    type: string
+                    description: 'Bearer token, sent back as `Authorization: Bearer <token>`.'
+        SignUpRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                email:
+                    type: string
+                country:
+                    type: string
+                password:
+                    type: string
+        Topic:
+            type: object
+            properties:
+                id:
+                    type: string
+                created:
+                    type: string
+                    format: date-time
+                name:
+                    type: string
+                description:
+                    type: string
+            description: Topic is a systematic review in progress.
+        TopicCreateRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                description:
+                    type: string
+        TopicList:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Topic'
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                email:
+                    type: string
+                country:
+                    type: string
+                created:
+                    type: string
+                    format: date-time
+        UserList:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/User'
+        Vote:
+            type: object
+            properties:
+                propId:
+                    type: string
+                userId:
+                    type: string
+                position:
+                    enum:
+                        - Unspecified
+                        - For
+                        - Against
+                        - Abstain
+                    type: string
+                    format: enum
+                explanation:
+                    type: string
+                    description: Free-text rationale.
+                citations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PropCitation'
+                    description: |-
+                        Spans of the prop's `description` the voter highlighted. Meaningful only
+                         for an `Against` vote; cleared when the position changes to any other.
+                lastCast:
+                    type: string
+                    description: When the vote was most recently cast. Overwritten on every recast.
+                    format: date-time
+            description: |-
+                Vote is one member's position on one prop, keyed by `(propId, userId)`: a
+                 second vote from the same user replaces the first rather than adding to it.
+        VoteList:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Vote'
+            description: VoteList is the only way to read a prop's votes.
+        VoteSetRequest:
+            type: object
+            properties:
+                topicId:
+                    type: string
+                propId:
+                    type: string
+                position:
+                    enum:
+                        - Unspecified
+                        - For
+                        - Against
+                        - Abstain
+                    type: string
+                    format: enum
+                explanation:
+                    type: string
+                citations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PropCitation'
+            description: |-
+                VoteSetRequest sets rather than creates: it replaces the caller's previous
+                 vote on this prop.
+tags:
+    - name: AuthRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
+    - name: HealthRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
+    - name: PropRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
+    - name: ProtocolRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
+    - name: TopicRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
+    - name: UserRoutes
+      description: 'Route declarations, not a gRPC commitment: see contract/README.md.'
