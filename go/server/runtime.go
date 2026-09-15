@@ -49,8 +49,6 @@ type Runtime struct {
 	VerifyBody func(r *http.Request, raw []byte) error
 }
 
-func (rt *Runtime) prefix() string { return rt.Prefix }
-
 // checkPathValue fails registration when the runtime cannot know how mux's
 // router spells a matched path segment. It runs once per Register<Service>,
 // so the mistake surfaces at startup rather than as a wrong id on the first

@@ -1,8 +1,5 @@
-// The MetaCensus API contract, as TypeScript: generated types, the route
-// manifest, and a generated client. No runtime dependencies, no value import
-// of a third-party module — see ts/scripts/check-no-runtime.mjs.
-//
-// Everything under ./src is generated; a new .proto file needs a line here.
+// The MetaCensus API contract, as TypeScript. Everything under ./src is
+// generated; a new .proto file needs a line here.
 
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";

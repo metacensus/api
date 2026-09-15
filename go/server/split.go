@@ -47,7 +47,7 @@ func Except(mux, alt Mux, rt *Runtime, rpcs ...string) Mux {
 			panic(fmt.Sprintf("server: Except: %q is not an rpc in the route manifest (%s)",
 				name, strings.Join(rpcNames(), ", ")))
 		}
-		moved[r.Method+" "+rt.prefix()+r.Path] = true
+		moved[r.Method+" "+rt.Prefix+r.Path] = true
 	}
 	return exceptMux{mux: mux, alt: alt, moved: moved}
 }

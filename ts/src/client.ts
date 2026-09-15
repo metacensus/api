@@ -18,6 +18,10 @@ import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } 
 
 const defaultPrefix = "/metacensus/api/v1";
 
+function param(v: string | number | boolean): string {
+  return encodeURIComponent(String(v));
+}
+
 // What the client hands the transport. path is absolute (prefix, route, query),
 // every segment and query value percent-encoded. body is present exactly when
 // the route carries one, already serialised; send it unchanged — a transport
@@ -56,15 +60,6 @@ export class ApiError extends Error {
     super(`${method} ${path}: HTTP ${status}`);
     this.name = "ApiError";
   }
-}
-
-function param(v: string | number | boolean): string {
-  return encodeURIComponent(String(v));
-}
-
-function query(pairs: readonly (readonly [string, string])[]): string {
-  if (pairs.length === 0) return "";
-  return "?" + pairs.map(([k, v]) => param(k) + "=" + param(v)).join("&");
 }
 
 export class Client {

@@ -60,7 +60,7 @@ make hooks   # optional: lint, format and freshness checks on commit
 
 ```bash
 go get github.com/metacensus/api          # import github.com/metacensus/api/go/metacensus/v1
-npm install @metacensus/api               # types, a client, zero runtime dependencies
+npm install @metacensus/api               # types, a route manifest, a client
 ```
 
 Neither is ready to depend on: `go get` resolves `v0.1.0`, which exists to test the release path, and `npm install` resolves the `0.0.0` placeholder rather than any released contract. See "Releasing", below.
@@ -208,7 +208,7 @@ A `bytes` field anywhere in a request **or** response tree is refused at generat
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path. `go/cmd/routegen/internal/model/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, the `X-Signature` seam seeing raw octets, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `go/server/chitest` re-runs the routes on real chi, which is where every claim `server.Mux`'s doc comment makes about router-owned behaviour is checked rather than asserted.
 
-`ts/scripts/check-no-runtime.mjs` asserts the package ships no runtime: empty `dependencies`, no value imports under `src/`. `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the client: every method the manifest declares, compared against the route it says it is; and `wire.test.mjs`, which builds `go/server/chitest/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have.
+`ts/scripts/check-no-runtime.mjs` is the gate on what the npm package may reach for. `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the client: every method the manifest declares, compared against the route it says it is; and `wire.test.mjs`, which builds `go/server/chitest/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have.
 
 ## Open questions
 

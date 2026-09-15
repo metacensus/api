@@ -298,6 +298,26 @@ func Render(routes []model.Route) ([]byte, error) {
 	if err := execute(&b, "prefixConst", struct{ APIPrefix string }{model.APIPrefix}, "", ""); err != nil {
 		return nil, err
 	}
+	// param and query are emitted only where a route needs them: nothing
+	// under src/ may reach for anything at runtime, and dead code in a
+	// package whose whole claim is that it ships almost nothing is a claim
+	// it does not have to make. No route declares a query field today.
+	var needsParam, needsQuery bool
+	for _, m := range methods {
+		needsParam = needsParam || len(m.PathFields) > 0 || len(m.QueryFields) > 0
+		needsQuery = needsQuery || len(m.QueryFields) > 0
+	}
+	if needsParam {
+		if err := execute(&b, "param", nil, "", ""); err != nil {
+			return nil, err
+		}
+	}
+	if needsQuery {
+		if err := execute(&b, "query", nil, "", ""); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := execute(&b, "staticBody", nil, "", ""); err != nil {
 		return nil, err
 	}

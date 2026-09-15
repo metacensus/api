@@ -56,15 +56,6 @@ export class ApiError extends Error {
   }
 }
 
-function param(v: string | number | boolean): string {
-  return encodeURIComponent(String(v));
-}
-
-function query(pairs: readonly (readonly [string, string])[]): string {
-  if (pairs.length === 0) return "";
-  return "?" + pairs.map(([k, v]) => param(k) + "=" + param(v)).join("&");
-}
-
 export class Client {
   // prefix defaults to the contract's own apiPrefix (see route-manifest.ts),
   // but can be overridden — mirroring server.Runtime.Prefix on the Go side,
@@ -86,6 +77,17 @@ export class Client {
     // A cast: with onlyTypes there is no runtime schema to validate against.
     return (res.body === "" ? {} : JSON.parse(res.body)) as T;
   }
+{{end}}
+{{define "param"}}function param(v: string | number | boolean): string {
+  return encodeURIComponent(String(v));
+}
+
+{{end}}
+{{define "query"}}function query(pairs: readonly (readonly [string, string])[]): string {
+  if (pairs.length === 0) return "";
+  return "?" + pairs.map(([k, v]) => param(k) + "=" + param(v)).join("&");
+}
+
 {{end}}
 {{define "route"}}
   // {{.Service}}.{{.RPC}}: {{.Method}} {{.Path}}

@@ -36,7 +36,7 @@ type Unimplemented{{.Name}} struct{}
 func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 	rt.checkPathValue(mux)
 {{end}}
-{{define "registerRoute"}}	mux.Method({{printf "%q" .Method}}, rt.prefix()+{{printf "%q" .Path}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+{{define "registerRoute"}}	mux.Method({{printf "%q" .Method}}, rt.Prefix+{{printf "%q" .Path}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.{{.GoRequest}})
 {{if .NeedsErrVar}}		var err error
 {{end -}}

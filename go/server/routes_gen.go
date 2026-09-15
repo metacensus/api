@@ -41,7 +41,7 @@ func (UnimplementedAuthRoutes) Logout(context.Context, *v1.LogoutRequest) (*v1.L
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("POST", rt.prefix()+"/login", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/login", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.LoginRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -63,7 +63,7 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 		resp, err := impl.Login(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("POST", rt.prefix()+"/signup", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/signup", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.SignUpRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -85,7 +85,7 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 		resp, err := impl.SignUp(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("POST", rt.prefix()+"/logout", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/logout", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.LogoutRequest)
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)
@@ -116,7 +116,7 @@ func (UnimplementedHealthRoutes) Healthcheck(context.Context, *v1.HealthcheckReq
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("GET", rt.prefix()+"/healthcheck", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/healthcheck", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.HealthcheckRequest)
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)
@@ -171,7 +171,7 @@ func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.PropListRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -185,7 +185,7 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 		resp, err := impl.ListProps(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/prop/{propId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/prop/{propId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.PropGetRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -203,7 +203,7 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 		resp, err := impl.GetProp(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("POST", rt.prefix()+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.PropCreateRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -229,7 +229,7 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 		resp, err := impl.CreateProp(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/prop/{propId}/vote", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/prop/{propId}/vote", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.VoteListRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -247,7 +247,7 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 		resp, err := impl.ListVotes(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("POST", rt.prefix()+"/topic/{topicId}/prop/{propId}/vote", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/topic/{topicId}/prop/{propId}/vote", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.VoteSetRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -299,7 +299,7 @@ func (UnimplementedProtocolRoutes) CreateProtocol(context.Context, *v1.ProtocolC
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("POST", rt.prefix()+"/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.ProtocolCreateRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -373,7 +373,7 @@ func (UnimplementedTopicRoutes) GetMember(context.Context, *v1.MemberGetRequest)
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("GET", rt.prefix()+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.TopicListRequest)
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)
@@ -382,7 +382,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 		resp, err := impl.ListTopics(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.TopicGetRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -396,7 +396,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 		resp, err := impl.GetTopic(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("POST", rt.prefix()+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("POST", rt.Prefix+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.TopicCreateRequest)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
@@ -418,7 +418,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 		resp, err := impl.CreateTopic(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.TopicProtocolRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -432,7 +432,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 		resp, err := impl.GetProtocol(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/member", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/member", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.MemberListRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -446,7 +446,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 		resp, err := impl.ListMembers(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/topic/{topicId}/member/{userId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/member/{userId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.MemberGetRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -498,7 +498,7 @@ func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 	rt.checkPathValue(mux)
-	mux.Method("GET", rt.prefix()+"/user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.UserListRequest)
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)
@@ -507,7 +507,7 @@ func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 		resp, err := impl.ListUsers(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/user/{userId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/user/{userId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.UserGetRequest)
 		var err error
 		if err := rt.bindQuery(r, req, nil); err != nil {
@@ -521,7 +521,7 @@ func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 		resp, err := impl.GetUser(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
-	mux.Method("GET", rt.prefix()+"/self", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Method("GET", rt.Prefix+"/self", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.SelfGetRequest)
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)

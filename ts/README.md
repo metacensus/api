@@ -4,11 +4,10 @@ TypeScript interfaces for the MetaCensus API contract — every request and
 response under `/metacensus/api/v1`, generated from the `.proto` sources that
 also generate the Go side.
 
-**No runtime dependencies.** `dependencies` is empty and nothing under `src/`
-holds a value import of a third-party module; a build step enforces both. What
-ships is the generated interfaces, the route manifest, `protobufPackage`, and
-a typed `Client` — the one piece here with actual logic, over a transport you
-supply.
+What ships is the generated interfaces, the route manifest, `protobufPackage`,
+and a typed `Client` — the one piece here with logic of its own, over a
+transport you supply. It reaches for nothing at runtime;
+`scripts/check-no-runtime.mjs` is what says so, and what fails the build.
 
 ```bash
 npm install @metacensus/api
