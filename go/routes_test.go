@@ -1,8 +1,6 @@
 package contract_test
 
 import (
-	"maps"
-	"slices"
 	"strings"
 	"testing"
 
@@ -91,20 +89,9 @@ func verbSegment(path string) string {
 }
 
 // Holds routes to the naming standard in README.md, "The naming standard",
-// which says which rules are checked here and why the rest are not.
-//
-// want is the exceptions. It is a map rather than a bare "no route may break a
-// convention" because a deliberate exception is a thing this contract has had
-// and may have again: a route that starts breaking a convention fails here, and
-// one that stops fails until it is struck off.
+// which says which rules are checked here and why the rest are not. Deliberate
+// exceptions live in skips_test.go.
 func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{
-		// A read whose name does not say so, so isRead cannot see it. GET is
-		// right; renaming it to GetHealth would be the test wagging the
-		// contract.
-		"GET /healthcheck": "write over GET",
-	}
-
 	// Reasons accumulate: a route can break more than one convention, and
 	// overwriting would hide the second.
 	reasons := map[string][]string{}
@@ -124,23 +111,11 @@ func TestNonConformingRoutes(t *testing.T) {
 		}
 	}
 
-	got := map[string]string{}
+	found := map[string]string{}
 	for key, rs := range reasons {
-		got[key] = strings.Join(rs, "; ")
+		found[key] = strings.Join(rs, "; ")
 	}
-
-	for _, key := range slices.Sorted(maps.Keys(got)) {
-		if reason, ok := want[key]; !ok {
-			t.Errorf("%s is newly non-conforming: %s", key, got[key])
-		} else if reason != got[key] {
-			t.Errorf("%s: non-conforming for %q, expected %q", key, got[key], reason)
-		}
-	}
-	for _, key := range slices.Sorted(maps.Keys(want)) {
-		if _, ok := got[key]; !ok {
-			t.Errorf("%s now conforms; strike it off this test", key)
-		}
-	}
+	holdToConventions(t, "route", found)
 }
 
 // TestPrefix pins the shape of routes.Prefix and its relationship to the paths
