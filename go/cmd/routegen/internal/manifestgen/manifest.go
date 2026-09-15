@@ -18,7 +18,6 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"go/format"
 	"strings"
 	"text/template"
 
@@ -53,45 +52,49 @@ type apiPrefixData struct{ APIPrefix string }
 
 // RenderGo writes go/routes/manifest.go: the whole route table as a
 // []Route literal, gofmt'd.
-func RenderGo(routes []model.Route) []byte {
+func RenderGo(routes []model.Route) ([]byte, error) {
 	var b bytes.Buffer
-	execute(&b, goTmpl, "manifest.go.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
+	if err := execute(&b, goTmpl, "manifest.go.tmpl", "header", apiPrefixData{model.APIPrefix}, "", ""); err != nil {
+		return nil, err
+	}
 	for _, r := range routes {
-		execute(&b, goTmpl, "manifest.go.tmpl", "route", r, r.Service, r.RPC)
+		if err := execute(&b, goTmpl, "manifest.go.tmpl", "route", r, r.Service, r.RPC); err != nil {
+			return nil, err
+		}
 	}
-	execute(&b, goTmpl, "manifest.go.tmpl", "footer", nil, "", "")
-
-	src, err := format.Source(b.Bytes())
-	if err != nil {
-		panic(err)
+	if err := execute(&b, goTmpl, "manifest.go.tmpl", "footer", nil, "", ""); err != nil {
+		return nil, err
 	}
-	return src
+	return model.GoFormat("go/routes/manifest.go", b.Bytes())
 }
 
 // RenderTS writes ts/src/route-manifest.ts: the same route table as a
 // `routes` array literal. There is no formatter downstream of this one, so
 // its whitespace is exactly what the template emits.
-func RenderTS(routes []model.Route) []byte {
+func RenderTS(routes []model.Route) ([]byte, error) {
 	var b bytes.Buffer
-	execute(&b, tsTmpl, "manifest.ts.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
-	for _, r := range routes {
-		execute(&b, tsTmpl, "manifest.ts.tmpl", "route", r, r.Service, r.RPC)
+	if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "header", apiPrefixData{model.APIPrefix}, "", ""); err != nil {
+		return nil, err
 	}
-	execute(&b, tsTmpl, "manifest.ts.tmpl", "footer", nil, "", "")
-	return b.Bytes()
+	for _, r := range routes {
+		if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "route", r, r.Service, r.RPC); err != nil {
+			return nil, err
+		}
+	}
+	if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "footer", nil, "", ""); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
 
-// execute runs one named block and panics with the template, the block and
-// the route (when there is one) on failure. Both manifests are generated
-// from descriptors this package's own tests and model.Walk already
-// validate, so a failure here means a broken template, not bad input — the
-// same class of error format.Source's own panic below reports loudly rather
-// than swallowing into partial output.
-func execute(b *bytes.Buffer, t *template.Template, tmplName, block string, data any, service, rpc string) {
+// execute runs one named block, naming the template, the block and the route
+// on failure.
+func execute(b *bytes.Buffer, t *template.Template, tmplName, block string, data any, service, rpc string) error {
 	if err := t.ExecuteTemplate(b, block, data); err != nil {
 		if service != "" {
-			panic(fmt.Sprintf("%s: %s: route %s.%s: %v", tmplName, block, service, rpc, err))
+			return fmt.Errorf("%s: %s: route %s.%s: %w", tmplName, block, service, rpc, err)
 		}
-		panic(fmt.Sprintf("%s: %s: %v", tmplName, block, err))
+		return fmt.Errorf("%s: %s: %w", tmplName, block, err)
 	}
+	return nil
 }

@@ -14,6 +14,7 @@ package model
 
 import (
 	"fmt"
+	"go/format"
 	"reflect"
 	"sort"
 	"strings"
@@ -368,6 +369,17 @@ func GoSlice(items []string) string {
 		return "nil"
 	}
 	return "[]string{" + strings.Join(QuoteAll(items), ", ") + "}"
+}
+
+// GoFormat gofmts generated Go, returning the unformatted source alongside
+// the error: that is what the error's line numbers refer to. what names the
+// output for the message.
+func GoFormat(what string, src []byte) ([]byte, error) {
+	out, err := format.Source(src)
+	if err != nil {
+		return nil, fmt.Errorf("%s: gofmt: %w\n%s", what, err, src)
+	}
+	return out, nil
 }
 
 // QuoteAll applies %q to each item, for a renderer building a slice or

@@ -334,10 +334,8 @@ func Render(routes []model.Route) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// execute runs one named block of client.ts.tmpl and wraps a failure with the
-// block and — for the per-route "route" block — the rpc that was being
-// rendered. Every route reaching here already passed describeClient, so a
-// failure means a broken template rather than bad input.
+// execute runs one named block, naming the template, the block and the route
+// on failure.
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {

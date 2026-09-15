@@ -22,7 +22,6 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"go/format"
 	"text/template"
 
 	"github.com/metacensus/api/go/cmd/routegen/internal/model"
@@ -56,7 +55,7 @@ func newRouteView(r model.Route) routeView {
 }
 
 // Render writes go/server/routes_gen.go, gofmt'd.
-func Render(routes []model.Route) []byte {
+func Render(routes []model.Route) ([]byte, error) {
 	var order []string
 	byService := map[string][]routeView{}
 	for _, r := range routes {
@@ -66,49 +65,55 @@ func Render(routes []model.Route) []byte {
 		byService[r.Service] = append(byService[r.Service], newRouteView(r))
 	}
 
+	// emit stops at the first failure and keeps it, so Render below reads as
+	// the sequence of blocks it writes. Partial output never reaches a file:
+	// main writes nothing when Render returns an error.
 	var b bytes.Buffer
-	execute(&b, "header", struct{ V1Import string }{model.V1Import}, "", "")
+	var err error
+	emit := func(block string, data any, service, rpc string) {
+		if err != nil {
+			return
+		}
+		err = execute(&b, block, data, service, rpc)
+	}
+
+	emit("header", struct{ V1Import string }{model.V1Import}, "", "")
 
 	for _, svc := range order {
 		rs := byService[svc]
 		svcData := struct{ Name string }{svc}
 
-		execute(&b, "interfaceOpen", svcData, svc, "")
+		emit("interfaceOpen", svcData, svc, "")
 		for _, r := range rs {
-			execute(&b, "interfaceMethod", r, svc, r.RPC)
+			emit("interfaceMethod", r, svc, r.RPC)
 		}
-		execute(&b, "interfaceClose", nil, svc, "")
+		emit("interfaceClose", nil, svc, "")
 
-		execute(&b, "unimplementedOpen", svcData, svc, "")
+		emit("unimplementedOpen", svcData, svc, "")
 		for _, r := range rs {
-			execute(&b, "unimplementedMethod", r, svc, r.RPC)
+			emit("unimplementedMethod", r, svc, r.RPC)
 		}
 
-		execute(&b, "registerOpen", svcData, svc, "")
+		emit("registerOpen", svcData, svc, "")
 		for _, r := range rs {
-			execute(&b, "registerRoute", r, svc, r.RPC)
+			emit("registerRoute", r, svc, r.RPC)
 		}
-		execute(&b, "registerClose", nil, svc, "")
+		emit("registerClose", nil, svc, "")
 	}
-
-	src, err := format.Source(b.Bytes())
 	if err != nil {
-		// Show the unformatted source: the error's line numbers refer to it.
-		panic(fmt.Sprintf("%v\n%s", err, b.Bytes()))
+		return nil, err
 	}
-	return src
+	return model.GoFormat("go/server/routes_gen.go", b.Bytes())
 }
 
-// execute runs one named block of server.go.tmpl and panics with the block,
-// the service and — when there is one — the rpc on failure. The routes
-// executed here already passed model.Walk, so a failure means a broken
-// template, the same class of error format.Source's own panic above
-// reports loudly rather than swallowing into partial output.
-func execute(b *bytes.Buffer, block string, data any, service, rpc string) {
+// execute runs one named block, naming the template, the block, the service
+// and the route on failure.
+func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {
-			panic(fmt.Sprintf("server.go.tmpl: %s: route %s.%s: %v", block, service, rpc, err))
+			return fmt.Errorf("server.go.tmpl: %s: route %s.%s: %w", block, service, rpc, err)
 		}
-		panic(fmt.Sprintf("server.go.tmpl: %s: service %s: %v", block, service, err))
+		return fmt.Errorf("server.go.tmpl: %s: service %s: %w", block, service, err)
 	}
+	return nil
 }

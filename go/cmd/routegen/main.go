@@ -84,20 +84,31 @@ func run() error {
 		return err
 	}
 
-	if err := write(goOut, manifestgen.RenderGo(routes)); err != nil {
-		return err
+	// Every renderer runs before anything is written, so a failure in the
+	// last one does not leave the first three's output on disk.
+	outputs := []struct {
+		path   string
+		render func([]model.Route) ([]byte, error)
+	}{
+		{goOut, manifestgen.RenderGo},
+		{tsOut, manifestgen.RenderTS},
+		{srvOut, servergen.Render},
+		{clientOut, clientgen.Render},
 	}
-	if err := write(tsOut, manifestgen.RenderTS(routes)); err != nil {
-		return err
+	rendered := make([][]byte, len(outputs))
+	for i, o := range outputs {
+		src, err := o.render(routes)
+		if err != nil {
+			return err
+		}
+		rendered[i] = src
 	}
-	if err := write(srvOut, servergen.Render(routes)); err != nil {
-		return err
+	for i, o := range outputs {
+		if err := write(o.path, rendered[i]); err != nil {
+			return err
+		}
 	}
-	clientSrc, err := clientgen.Render(routes)
-	if err != nil {
-		return err
-	}
-	return write(clientOut, clientSrc)
+	return nil
 }
 
 func write(path string, content []byte) error {
