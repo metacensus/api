@@ -537,9 +537,12 @@ func renderServer(routes []route) []byte {
 			b.WriteString("}\n\n")
 		}
 
-		fmt.Fprintf(&b, "// Register%s registers every %s route on mux, under rt's prefix. mux\n", svc, svc)
-		b.WriteString("// needs only Method(method, pattern string, http.Handler): a *http.ServeMux\n")
-		b.WriteString("// wrapped in StdMux, or a chi.Router, both satisfy it.\n")
+		fmt.Fprintf(&b, "// Register%s registers every %s route on mux, under rt.Prefix,\n", svc, svc)
+		b.WriteString("// which is \"\" — no prefix — for a router already mounted at the contract's\n")
+		b.WriteString("// prefix and routes.Prefix for one at the origin root. mux needs only\n")
+		b.WriteString("// Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in\n")
+		b.WriteString("// StdMux, or a chi.Router, both satisfy it. A chi.Router also needs\n")
+		b.WriteString("// rt.PathValue = EscapedPathValue; see doc.go.\n")
 		fmt.Fprintf(&b, "func Register%s(mux Mux, rt *Runtime, impl %s) {\n", svc, svc)
 		for _, r := range rs {
 			fmt.Fprintf(&b, "\tmux.Method(%q, rt.prefix()+%q, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n", r.Method, r.Path)
@@ -553,9 +556,9 @@ func renderServer(routes []route) []byte {
 				b.WriteString("\t\tif err := rt.verifyBody(r, raw); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n")
 				b.WriteString("\t\tif err := rt.decodeBody(raw, req); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n")
 			}
-			if len(r.Query) > 0 {
-				fmt.Fprintf(&b, "\t\tif err := rt.bindQuery(r, req, %s); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n", goSlice(r.Query))
-			}
+			// Unconditional: a route declaring no query field passes nil and
+			// so rejects every query parameter, rather than ignoring them.
+			fmt.Fprintf(&b, "\t\tif err := rt.bindQuery(r, req, %s); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n", goSlice(r.Query))
 			for _, p := range r.PathFields {
 				// The body may legitimately repeat a path-bound field (a
 				// request message models the whole request). The path is

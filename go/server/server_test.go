@@ -87,7 +87,7 @@ func errorBody(t *testing.T, rec *httptest.ResponseRecorder) (code, msg string) 
 
 func TestGetBindsPathParam(t *testing.T) {
 	topics := &fakeTopics{}
-	mux := registerAll(t, &server.Runtime{}, topics, &fakeProps{})
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
 
 	rec := do(t, mux, "GET", "/topic/abc-123", "")
 	if rec.Code != 200 {
@@ -115,7 +115,7 @@ func TestGetBindsPathParam(t *testing.T) {
 
 func TestPostDecodesBodyWithContractOptions(t *testing.T) {
 	topics := &fakeTopics{}
-	mux := registerAll(t, &server.Runtime{}, topics, &fakeProps{})
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
 
 	rec := do(t, mux, "POST", "/topic", `{"name":"n","description":"d"}`)
 	if rec.Code != 200 {
@@ -144,7 +144,7 @@ func TestPostDecodesBodyWithContractOptions(t *testing.T) {
 
 func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 	props := &fakeProps{}
-	mux := registerAll(t, &server.Runtime{}, &fakeTopics{}, props)
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, props)
 
 	// Body repeats the path-bound field with the same value: fine.
 	rec := do(t, mux, "POST", "/topic/t1/prop", `{"topicId":"t1","type":"Statement","description":"x"}`)
@@ -172,7 +172,7 @@ func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 }
 
 func TestBodySizeCap(t *testing.T) {
-	mux := registerAll(t, &server.Runtime{MaxBodyBytes: 64}, &fakeTopics{}, &fakeProps{})
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix, MaxBodyBytes: 64}, &fakeTopics{}, &fakeProps{})
 
 	big := `{"name":"` + strings.Repeat("x", 100) + `"}`
 	rec := do(t, mux, "POST", "/topic", big)
@@ -189,7 +189,7 @@ func TestVerifyBodySeesRawOctets(t *testing.T) {
 	// hook must see exactly what was sent.
 	sent := "{ \"description\" : \"d\",\n\t\"name\":\"n\" }"
 	var seen []byte
-	rt := &server.Runtime{VerifyBody: func(r *http.Request, raw []byte) error {
+	rt := &server.Runtime{Prefix: routes.Prefix, VerifyBody: func(r *http.Request, raw []byte) error {
 		seen = append([]byte(nil), raw...)
 		if r.Header.Get("X-Signature") == "" {
 			return errors.New("no signature")
@@ -226,7 +226,7 @@ func TestVerifyBodySeesRawOctets(t *testing.T) {
 
 func TestErrorModel(t *testing.T) {
 	topics := &fakeTopics{}
-	mux := registerAll(t, &server.Runtime{}, topics, &fakeProps{})
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
 
 	// A *server.Error chooses its status and message.
 	topics.err = server.Errorf(http.StatusNotFound, "topic_not_found", "no topic %q", "x")
@@ -265,10 +265,35 @@ func TestErrorModel(t *testing.T) {
 	}
 }
 
+// No route declares a query field, so every query parameter is unknown on
+// every route. Silently ignoring one would let ?page=2 through at the only
+// layer a caller can see, which is what TestNoPaginationFields exists to stop.
+func TestUnknownQueryParamsAreRejectedOnEveryRoute(t *testing.T) {
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, &fakeProps{})
+
+	for _, r := range routes.Routes {
+		if len(r.Query) > 0 {
+			continue
+		}
+		path := r.Path
+		for _, p := range r.Params {
+			path = strings.Replace(path, "{"+p+"}", "x", 1)
+		}
+		rec := do(t, mux, r.Method, path+"?page=2", `{}`)
+		if rec.Code != 400 {
+			t.Errorf("%s %s?page=2: status %d, want 400", r.Method, path, rec.Code)
+			continue
+		}
+		if code, _ := errorBody(t, rec); code != "query_unknown" {
+			t.Errorf("%s %s?page=2: code %q", r.Method, path, code)
+		}
+	}
+}
+
 // Every route in the manifest resolves to a registered handler, and nothing
 // else does: the mux and the manifest describe the same table.
 func TestEveryManifestRouteIsServed(t *testing.T) {
-	mux := registerAll(t, &server.Runtime{}, &fakeTopics{}, &fakeProps{})
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, &fakeProps{})
 	for _, r := range routes.Routes {
 		path := r.Path
 		for _, p := range r.Params {

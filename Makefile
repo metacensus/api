@@ -19,11 +19,12 @@
 .PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
-GO_DIR    := go
-TS_DIR    := ts
-PROTO     := proto
-TOOLS_DIR := internal/tools
-BIN       := $(CURDIR)/bin
+GO_DIR      := go
+TS_DIR      := ts
+PROTO       := proto
+TOOLS_DIR   := internal/tools
+CHITEST_DIR := internal/chitest
+BIN         := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
@@ -80,9 +81,13 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
-## test — the schema and route invariants
+## test — the schema and route invariants, then the chi conformance module
+#
+# internal/chitest is a module of its own so chi stays out of the published
+# go.mod, which means ./... above cannot see it and it needs its own line.
 test:
 	go test ./...
+	cd $(CHITEST_DIR) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
 check: lint format-check test
