@@ -84,11 +84,18 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 	return v, nil
 }
 
-// bindQuery sets the named fields of m from the query string. Only names in
+// bindQuery sets the named fields of m from the query string. Only fields in
 // allowed are accepted, each at most once; anything else is a 400, matching
 // the body's rejection of unknown fields. Values are parsed by the field's
 // kind: strings verbatim, bools as strconv.ParseBool, numbers in base 10,
 // enums by value name.
+//
+// A parameter may be spelled either way round — topicId or topic_id — because
+// protojson accepts both in a body (TestPostDecodesBodyWithContractOptions
+// pins that) and a request message is one message however its fields travel.
+// Accepting one spelling in the body and rejecting it in the query string
+// would make the wire format depend on which half of the request a field
+// happened to land in.
 //
 // Every route calls this, including the ones declaring no query field at all,
 // where allowed is nil and the whole query string is therefore a 400. A route
@@ -101,14 +108,22 @@ func (rt *Runtime) bindQuery(r *http.Request, m proto.Message, allowed []string)
 	for _, a := range allowed {
 		ok[a] = true
 	}
+	seen := map[protoreflect.FieldNumber]string{}
 	for key, values := range r.URL.Query() {
-		if !ok[key] {
-			return Errorf(http.StatusBadRequest, "query_unknown", "unknown query parameter %q", key)
-		}
 		fd := fields.ByJSONName(key)
 		if fd == nil {
+			fd = fields.ByTextName(key)
+		}
+		if fd == nil || !ok[fd.JSONName()] {
 			return Errorf(http.StatusBadRequest, "query_unknown", "unknown query parameter %q", key)
 		}
+		// Two spellings of one field would otherwise both bind, and the
+		// winner would be map iteration order.
+		if prev, dup := seen[fd.Number()]; dup {
+			return Errorf(http.StatusBadRequest, "query_repeated",
+				"query parameter %q is the same field as %q", key, prev)
+		}
+		seen[fd.Number()] = key
 		if fd.IsList() {
 			list := msg.Mutable(fd).List()
 			for _, s := range values {
