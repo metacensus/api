@@ -64,12 +64,6 @@ jobs:
       - name: Build the pinned code generators
         run: make tools
 
-      - name: Lint the proto sources
-        run: make lint
-
-      - name: Check proto formatting
-        run: make format-check
-
       # Breaking-change detection is off. See #14, which carries the trigger
       # for turning it back on.
       #
@@ -115,6 +109,19 @@ jobs:
       #     echo "comparing against ${against:-<nothing released yet>}"
       #     make breaking BREAKING_AGAINST="$against"
 
+      # `make check` and not a list of steps. The Makefile already names what
+      # a check is — lint, format-check, go test, the chi conformance module,
+      # build and vet, the TypeScript check, the client's tests — and CI
+      # re-spelling that list is the same information twice with nothing
+      # making the two agree. They had already drifted: the Makefile ran the
+      # conformance module under GOWORK=off and a pinned GOTOOLCHAIN and this
+      # file did not. A developer running `make check` now runs what CI runs,
+      # which is what the README has always claimed.
+      - name: Check
+        run: make check
+
+      # The one thing `make check` deliberately leaves out, because it is a
+      # question about the commit rather than about the code.
       - name: Regenerate everything
         run: make gen
 
@@ -133,32 +140,3 @@ jobs:
             echo "$untracked"
             exit 1
           fi
-
-      - name: Build and vet the Go module
-        run: |
-          go build -o /dev/null ./...
-          go vet ./...
-
-      - name: Run the schema and route invariants
-        run: go test ./...
-
-      - name: Run the generated routes against a real chi router
-        # go/server/chitest is a module of its own so chi stays out of the
-        # published go.mod, which is why ./... above does not reach it.
-        working-directory: go/server/chitest
-        run: go test ./...
-
-      - name: Type-check the TypeScript and assert it ships no runtime
-        working-directory: ts
-        run: npm run check
-
-      - name: Build the npm package
-        # Not published here — this only proves the publish build compiles, so a
-        # broken build fails on the PR rather than at release time.
-        working-directory: ts
-        run: npm run build
-
-      - name: Run the generated client's tests
-        # node --test against the built dist; no test-runner devDependency.
-        working-directory: ts
-        run: node --test "test/**/*.test.mjs"

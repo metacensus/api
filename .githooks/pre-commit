@@ -33,10 +33,17 @@ fi
 # paths come from the Makefile so this cannot drift from what `gen` writes.
 generated=$(make -s generated-paths)
 make gen >/dev/null
-if ! git diff --quiet -- $generated; then
+
+# Two questions, both of which CI asks: did regeneration change a committed
+# file, and did it produce one nobody has added? A new .proto lands as an
+# untracked generated file, which `git diff` cannot see.
+changed=$(git diff --name-only -- $generated)
+untracked=$(git ls-files --others --exclude-standard -- $generated)
+if [ -n "$changed" ] || [ -n "$untracked" ]; then
 	echo >&2
-	echo "pre-commit: regenerating changed the committed output:" >&2
-	git diff --name-only -- $generated | sed 's/^/  /' >&2
+	echo "pre-commit: regenerating produced output that is not committed:" >&2
+	{ [ -n "$changed" ] && echo "$changed"; [ -n "$untracked" ] && echo "$untracked"; } \
+		| sed 's/^/  /' >&2
 	echo >&2
 	echo "'make gen' has already run. Stage the result and commit again." >&2
 	exit 1
