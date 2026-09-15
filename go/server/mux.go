@@ -24,7 +24,7 @@ import (
 //     router, because the generated TypeScript client percent-encodes every
 //     segment and the two halves would then disagree about what an id is:
 //     Runtime.PathValue owns it — see StdPathValue and EscapedPathValue.
-//   - HEAD on a GET route. ServeMux matches it (Go 1.22+ pattern semantics)
+//   - HEAD on a GET route. ServeMux matches it under its pattern semantics
 //     and answers 200 with the body suppressed; chi answers 405.
 //   - 404 and 405 bodies. Neither is the {"error","code"} envelope: they come
 //     from the router before any generated handler runs. ServeMux writes
@@ -37,9 +37,9 @@ type Mux interface {
 }
 
 // StdMux adapts a *http.ServeMux to Mux using the "METHOD pattern" syntax
-// net/http's own mux has accepted since Go 1.22. It is the only place this
-// package knows that syntax exists; a Mux implementation for a different
-// router does not need to.
+// net/http's own mux accepts. It is the only place this package knows that
+// syntax exists; a Mux implementation for a different router does not need
+// to.
 type StdMux struct {
 	*http.ServeMux
 }

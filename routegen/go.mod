@@ -16,19 +16,17 @@
 // The buf and protoc-gen-go versions are the ones that produced the committed
 // output. **Do not `go mod tidy`.** Add a requirement by hand instead.
 //
-// Tidy runs to completion here (it did not before the go directive moved to
-// 1.27.1 — grpc-gateway v2.30.0, somewhere in buf's graph, wants go >= 1.25).
-// Running it is still wrong, and now fails quietly rather than loudly:
-// measured on go1.27.1, it holds buf at v1.57.2 and chi at v5.2.3 but lifts
-// google.golang.org/protobuf from v1.36.9 to v1.36.11, and protoc-gen-go
-// stamps its own version into every .pb.go, so the next `make gen` rewrites
-// six generated files that no .proto change touched. Moving that pin is a
-// decision to take on purpose, in the same commit as the contract module's
-// own protobuf requirement, not a side effect of tidying.
+// Tidy runs to completion here, and running it is still wrong — it fails
+// quietly rather than loudly. Measured: it holds buf and chi where they are
+// but lifts google.golang.org/protobuf, and protoc-gen-go stamps its own
+// version into every .pb.go, so the next `make gen` rewrites six generated
+// files that no .proto change touched. Moving that pin is a decision to take
+// on purpose, in the same commit as the contract module's own protobuf
+// requirement, not a side effect of tidying.
 //
-// chi is v5.2.3 rather than a version of its own choosing because buf's graph
-// already carries it there; declaring v5.1.0 beside it would be a pin nothing
-// honours, since minimal version selection takes the higher.
+// chi is required at whatever buf's graph already carries, rather than at a
+// version of its own choosing: declaring a lower one beside it would be a pin
+// nothing honours, since minimal version selection takes the higher.
 //
 // The replace is what keeps the tests honest — they run against the working
 // tree, not against a published version.

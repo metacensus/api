@@ -4,7 +4,7 @@ Every request and response under `/metacensus/api/v1`, defined once in `.proto` 
 
 This repository was split out of [`metacensus/ui`](https://github.com/metacensus/ui), where it lived as `contract/`. The 16 commits that built it came across intact — they are the derivation argument for why each field is in or out, and `git log` is the place to read it.
 
-**Nothing consumes this yet.** infra, demo and the SPA each still carry their own hand-maintained types. One version, `v0.1.0`, was tagged to exercise the release path rather than to promise anything, and what reached the registries is uneven: the Go module is live on proxy.golang.org and permanently so, while npm carries only `@metacensus/api@0.0.0`, the placeholder version, as `latest` — `0.1.0` never got there.
+**Nothing consumes this yet.** infra, demo and the SPA each still carry their own hand-maintained types. One version was tagged to exercise the release path rather than to promise anything (`make latest` prints it), and what reached the registries is uneven: the Go module is live on proxy.golang.org and permanently so, while npm carries only the placeholder version in `ts/package.json` as `latest` — the tagged one never got there.
 
 `routegen` also generates a Go server (`go/server`) and a TypeScript client (`ts/src/client.ts`) from the same route table, so that adopting this contract does not mean hand-writing the binding between it and an HTTP handler on one side or a `fetch` call on the other. Neither has a consumer wired up yet, and neither touches persistence — see "The generated server" and "The generated client" below.
 
@@ -61,7 +61,7 @@ make hooks   # optional: lint, format and freshness checks on commit
 
 | Thing | Pinned in | Read by |
 |---|---|---|
-| Go, for the module, for building the generators, and as the floor a consumer must meet | `go.mod` (`go 1.27.1`; `routegen/go.mod` matches) | CI's `setup-go` (`go-version-file`), and the Makefile, which derives `GOTOOLCHAIN_PIN` from the same line with `awk` rather than repeating it |
+| Go, for the module, for building the generators, and as the floor a consumer must meet | the `go` directive in `go.mod`; `routegen/go.mod` matches it | CI's `setup-go` (`go-version-file`), and the Makefile, which derives `GOTOOLCHAIN_PIN` from the same line with `awk` rather than repeating it |
 | `buf`, `protoc-gen-go` | `routegen/go.mod` `tool` directives | `make tools`, which rebuilds whenever that module's `go.mod` or `go.sum` moves |
 | `ts-proto`, `typescript` | `ts/package.json` + `ts/package-lock.json` | `npm ci`, which `make gen` runs as a prerequisite when the lockfile is newer than the installed plugin |
 | Node | `ts/.nvmrc` (and a floor in `engines`) | `nvm use`, and CI's `setup-node` (`node-version-file`) |
@@ -78,13 +78,13 @@ go get github.com/metacensus/api          # import github.com/metacensus/api/go/
 npm install @metacensus/api               # types, a route manifest, a client
 ```
 
-**The Go floor is `go 1.27.1`**, the `go` directive in the root `go.mod`. A consumer on an older toolchain gets a build error rather than a fallback, so this is the one number here that constrains somebody else's repository: `metacensus/infra` is on 1.25.7 today and would have to move first. The floor is the language version the contract is developed and generated against; nothing in the generated types needs anything newer than the module system.
+**A consumer's Go must satisfy the `go` directive in the root `go.mod`**, which is a build error below it rather than a fallback. It is the one thing here that constrains another repository's toolchain, so a consumer still on an older Go has to move first. The directive is the language version the contract is developed and generated against; nothing in the generated types needs anything newer than the module system.
 
-Neither is ready to depend on: `go get` resolves `v0.1.0`, which exists to test the release path, and `npm install` resolves the `0.0.0` placeholder rather than any released contract. See "Releasing", below.
+Neither is ready to depend on: `go get` resolves the tag that exists to test the release path, and `npm install` resolves `ts/package.json`'s placeholder rather than any released contract. See "Releasing", below.
 
 ## What "breaking" is measured against
 
-**CI does not enforce this.** The step is commented out in `.github/workflows/ci.yml`, and `make breaking` is intact for running by hand. Nothing consumes this contract and the only tag, `v0.1.0`, exists to exercise the release path rather than to promise anything — so the check was measuring every branch against a throwaway baseline, failing on the removal of `paper.proto`, and taking the rest of the suite down with it before the tests ever ran. [#14](https://github.com/metacensus/api/issues/14) records the trigger for turning it back on and the release-workflow bug that has to be fixed alongside it.
+**CI does not enforce this.** The step is commented out in `.github/workflows/ci.yml`, and `make breaking` is intact for running by hand. Nothing consumes this contract and the only tag exists to exercise the release path rather than to promise anything — so the check was measuring every branch against a throwaway baseline, failing on the removal of `paper.proto`, and taking the rest of the suite down with it before the tests ever ran. [#14](https://github.com/metacensus/api/issues/14) records the trigger for turning it back on and the release-workflow bug that has to be fixed alongside it.
 
 What the target is, by hand now and in CI again later:
 
