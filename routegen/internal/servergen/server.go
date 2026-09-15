@@ -28,11 +28,14 @@ var tmpl = template.Must(template.New("server.go.tmpl").Funcs(template.FuncMap{
 
 // routeView is model.Route plus what the template cannot work out for
 // itself. NeedsErrVar: a handler declares `var err error` up front unless a
-// body="*" block already declared it with :=. Both are decided here rather
-// than with nested {{if}} in the template.
+// body="*" block already declared it with :=. Alias is the import alias for
+// the generated package this route's messages live in, which is per surface.
+// All of them are decided here rather than with nested {{if}} in the
+// template.
 type routeView struct {
 	model.Route
 	ServiceRPC  string
+	Alias       string
 	NeedsErrVar bool
 }
 
@@ -40,8 +43,18 @@ func newRouteView(r model.Route) routeView {
 	return routeView{
 		Route:       r,
 		ServiceRPC:  r.Service + "." + r.RPC,
+		Alias:       r.Pkg.GoAlias,
 		NeedsErrVar: r.Body != "*" && len(r.PathFields) > 0,
 	}
+}
+
+// serviceView is what the per-service blocks need: the Go identifier they
+// build names from, and the prefix constant its routes hang off, so the
+// generated doc comment says which surface a service belongs to rather than
+// leaving a reader to infer it from the route paths.
+type serviceView struct {
+	Name        string
+	PrefixConst string
 }
 
 // Render writes go/server/routes_gen.go, gofmt'd.
@@ -53,6 +66,33 @@ func Render(routes []model.Route) ([]byte, error) {
 			order = append(order, r.Service)
 		}
 		byService[r.Service] = append(byService[r.Service], newRouteView(r))
+	}
+
+	// One Go file, so two services sharing a name across surfaces would
+	// generate one interface and one Register function for both — the second
+	// silently overwriting nothing and the file failing to compile some
+	// distance from the cause. Refused here, where the message can name it.
+	seen := map[string]string{}
+	for _, r := range routes {
+		if first, ok := seen[r.Service]; ok && first != r.Pkg.Proto {
+			return nil, fmt.Errorf("service %s is declared by both %s and %s; the "+
+				"generated server is one package, so the two would collide on "+
+				"%[1]s, Unimplemented%[1]s and Register%[1]s", r.Service, first, r.Pkg.Proto)
+		}
+		seen[r.Service] = r.Pkg.Proto
+	}
+
+	// Only the surfaces that actually declare a route are imported: an
+	// unused import does not compile, and a package with no routes has
+	// already failed model.Walk.
+	var imports []model.Package
+	for _, pkg := range model.Packages {
+		for _, r := range routes {
+			if r.Pkg.Proto == pkg.Proto {
+				imports = append(imports, pkg)
+				break
+			}
+		}
 	}
 
 	// emit stops at the first failure and keeps it, so Render below reads as
@@ -67,11 +107,11 @@ func Render(routes []model.Route) ([]byte, error) {
 		err = execute(&b, block, data, service, rpc)
 	}
 
-	emit("header", struct{ V1Import string }{model.V1Import}, "", "")
+	emit("header", struct{ Imports []model.Package }{imports}, "", "")
 
 	for _, svc := range order {
 		rs := byService[svc]
-		svcData := struct{ Name string }{svc}
+		svcData := serviceView{Name: svc, PrefixConst: rs[0].Pkg.GoConst}
 
 		emit("interfaceOpen", svcData, svc, "")
 		for _, r := range rs {

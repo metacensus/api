@@ -21,7 +21,14 @@ type Runtime struct {
 	// no prefix. That is what a router already mounted at the contract's
 	// prefix needs — chi's Route, http.StripPrefix — and it has to be
 	// expressible, so it is the zero value rather than a sentinel. A router
-	// mounted at the origin root wants routes.Prefix.
+	// mounted at the origin root wants the constant for the surface it is
+	// serving: routes.Prefix or routes.PublicPrefix.
+	//
+	// This is the one field that is per surface. A process serving both
+	// builds a Runtime each, differing only here; sharing one mounts a
+	// surface's routes under the other's prefix, which every Register call
+	// accepts without complaint and only the URLs reveal. Each generated
+	// Register<Service> names the constant its own service hangs off.
 	Prefix string
 
 	// MaxBodyBytes bounds a request body; a larger one is a 413. Zero means

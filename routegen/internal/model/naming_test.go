@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -17,6 +18,11 @@ import (
 // descriptors and the two must agree on every message and field; if they ever
 // do not, the tag format or the naming has changed and the generated server
 // would bind the wrong fields.
+//
+// Over every contract package, because goNames now takes one and checks the
+// resolved Go type is in that package's import path: an entry in Packages
+// naming the wrong GoImport is caught here rather than as an unused import in
+// the generated server.
 func TestGoNamesAgreeWithProtogen(t *testing.T) {
 	req := &pluginpb.CodeGeneratorRequest{
 		CompilerVersion: &pluginpb.Version{Major: proto.Int32(0), Minor: proto.Int32(0), Patch: proto.Int32(0)},
@@ -34,15 +40,34 @@ func TestGoNamesAgreeWithProtogen(t *testing.T) {
 		}
 		req.ProtoFile = append(req.ProtoFile, protodesc.ToFileDescriptorProto(fd))
 	}
+	// The package each generated file belongs to, so goNames below is called
+	// with the one whose GoImport that file's types must resolve into.
+	pkgOf := map[string]Package{}
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		if string(fd.Package()) == protoPkg {
-			add(fd)
-			req.FileToGenerate = append(req.FileToGenerate, fd.Path())
+		for _, pkg := range Packages {
+			if string(fd.Package()) == pkg.Proto {
+				add(fd)
+				req.FileToGenerate = append(req.FileToGenerate, fd.Path())
+				pkgOf[fd.Path()] = pkg
+			}
 		}
 		return true
 	})
 	if len(req.FileToGenerate) == 0 {
 		t.Fatal("no contract files registered")
+	}
+	// Per package, so one surface's files cannot vouch for another's absence.
+	for _, pkg := range Packages {
+		var any bool
+		for _, p := range pkgOf {
+			if p.Proto == pkg.Proto {
+				any = true
+				break
+			}
+		}
+		if !any {
+			t.Fatalf("no files registered for %s", pkg.Proto)
+		}
 	}
 
 	plugin, err := protogen.Options{}.New(req)
@@ -55,13 +80,14 @@ func TestGoNamesAgreeWithProtogen(t *testing.T) {
 		if !f.Generate {
 			continue
 		}
+		pkg := pkgOf[f.Desc.Path()]
 		var walk func(msgs []*protogen.Message)
 		walk = func(msgs []*protogen.Message) {
 			for _, m := range msgs {
 				if m.Desc.IsMapEntry() {
 					continue
 				}
-				got, _, err := goNames(m.Desc, m.Desc)
+				got, _, err := goNames(pkg, m.Desc, m.Desc)
 				if err != nil {
 					t.Errorf("%s: %v", m.Desc.FullName(), err)
 					continue
@@ -92,14 +118,23 @@ func TestGoNamesAgreeWithProtogen(t *testing.T) {
 // The Go names the server rendering uses must be the ones protoc-gen-go emitted
 // for the same protoc-gen-go version, so this pins which version that is: the
 // runtime and the generator are the same module here.
+//
+// The expected go_package is derived rather than listed: the import path comes
+// from Packages, and the package name after ";" is the proto package with its
+// dots removed, which is the convention every file here follows. A file that
+// spells either differently is what makes model.Packages and the .proto
+// sources disagree about where a surface's Go lives, so it fails here.
 func TestDescriptorsCarryGoPackage(t *testing.T) {
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		if string(fd.Package()) != protoPkg {
-			return true
-		}
-		opts, _ := fd.Options().(*descriptorpb.FileOptions)
-		if got := opts.GetGoPackage(); got != V1Import+";metacensusv1" {
-			t.Errorf("%s: go_package %q, want %q", fd.Path(), got, V1Import+";metacensusv1")
+		for _, pkg := range Packages {
+			if string(fd.Package()) != pkg.Proto {
+				continue
+			}
+			want := pkg.GoImport + ";" + strings.ReplaceAll(pkg.Proto, ".", "")
+			opts, _ := fd.Options().(*descriptorpb.FileOptions)
+			if got := opts.GetGoPackage(); got != want {
+				t.Errorf("%s: go_package %q, want %q", fd.Path(), got, want)
+			}
 		}
 		return true
 	})

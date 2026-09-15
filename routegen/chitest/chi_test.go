@@ -184,6 +184,13 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	server.RegisterTopicRoutes(r, rt, server.UnimplementedTopicRoutes{})
 	server.RegisterUserRoutes(r, rt, server.UnimplementedUserRoutes{})
 
+	// The public surface hangs off its own prefix, so it needs its own
+	// Runtime. Both mount on the one router, which is the arrangement a
+	// process serving both surfaces is in.
+	pub := *rt
+	pub.Prefix = routes.PublicPrefix
+	server.RegisterPartnerRoutes(r, &pub, server.UnimplementedPartnerRoutes{})
+
 	for _, route := range routes.Routes {
 		path := route.Path
 		for _, p := range route.Params {
@@ -194,7 +201,7 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 			body = strings.NewReader("{}")
 		}
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(route.Method, routes.Prefix+path, body)
+		req := httptest.NewRequest(route.Method, route.Prefix+path, body)
 		r.ServeHTTP(rec, req)
 		// Unimplemented, which means it reached a generated handler.
 		if rec.Code != http.StatusNotImplemented {

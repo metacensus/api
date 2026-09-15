@@ -18,7 +18,7 @@
 # changed between Go releases, so either one lands as generated-code drift in a
 # PR that never touched a .proto.
 
-.PHONY: help all gen generated-paths lint format format-check breaking test check clean deps hooks tools \
+.PHONY: help all gen generated-paths lint format format-check breaking breaking-public test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
 # `make` with no target lists the targets rather than running the whole suite,
@@ -59,10 +59,19 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
+# The public surface answers "does this break what is deployed?" rather than
+# "what was released?", because its callers are browsers holding a build of the
+# SPA nobody can redeploy, and none of them consume a tag. See README.md,
+# "Versioning the public surface".
+PUBLIC_PROTO_DIR        := $(PROTO)/metacensus/public
+# The same directory as buf sees it, i.e. relative to the module root.
+PUBLIC_PACKAGE_PATH     := metacensus/public
+PUBLIC_BREAKING_AGAINST ?= origin/main
+
 help:
 	@echo "MetaCensus API contract. Run from the repository root."
 	@echo ""
-	@awk -F' — ' '/^## /{ sub(/^## /, ""); printf "  make %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk -F' — ' '/^## /{ sub(/^## /, ""); printf "  make %-16s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "  A fresh clone needs nothing first: gen and check install what they need."
 
@@ -119,6 +128,48 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
+## breaking-public — the public surface against what is deployed, not what is tagged
+#
+# `--path` scopes the comparison to the public package, so one buf module carries
+# two breaking checks. **This is the one buf invocation that does not run from
+# the repository root**, and it has to be: `--path` resolves against the input's
+# context directory, and the `--against` input is the module rooted at $(PROTO)
+# inside a git archive, so a root-relative path targets no files there and buf
+# answers "no .proto files were targeted" instead of failing usefully. $(BUF) is
+# absolute, so running from $(PROTO) is safe.
+#
+# The rule set is FILE for both checks because FILE is buf's strictest. What is
+# breaking here and invisible to any schema differ — a narrowed length cap, a
+# newly-required field — lives in comments and in the server, and is held by
+# review and by README.md rather than by a flag that would only claim to.
+#
+# The baseline is echoed because it is a local remote-tracking ref: `make check`
+# does not fetch, so a stale one would otherwise compare against the wrong
+# commit, or skip, without saying so.
+#
+# An empty PUBLIC_BREAKING_AGAINST means "do not ask this question", and it is
+# how a release build turns the check off: on a tag the comparison would run
+# backwards, because a tagged commit can sit behind origin/main and anything
+# added to the public surface after the tag would read as a deletion. That case
+# is decided by whoever sets the variable, not by whether a ref happens to
+# resolve — a skip that depends on a ref being absent is not a skip, it is a
+# coincidence.
+breaking-public: $(BIN)/buf
+	@if [ -z '$(PUBLIC_BREAKING_AGAINST)' ]; then \
+		echo "no baseline for the public surface; nothing deployed to break"; \
+	elif ! git rev-parse --verify -q '$(PUBLIC_BREAKING_AGAINST)^{commit}' >/dev/null; then \
+		echo "no $(PUBLIC_BREAKING_AGAINST) to compare against; skipping"; \
+	else \
+		echo "public surface against $(PUBLIC_BREAKING_AGAINST) @ $$(git log -1 --format='%h %cs' '$(PUBLIC_BREAKING_AGAINST)')"; \
+		if [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
+			echo "  no public package there yet; nothing deployed to break"; \
+		else \
+			cd $(PROTO) && $(BUF) breaking . \
+				--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
+				--path '$(PUBLIC_PACKAGE_PATH)'; \
+		fi; \
+	fi
+
 ## test — the contract's own invariants, then the generator's
 #
 # routegen is a module of its own, so ./... above cannot see it and it needs
@@ -129,7 +180,7 @@ test:
 	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check test $(TS_PLUGIN)
+check: lint format-check breaking-public test $(TS_PLUGIN)
 	go build ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
 	cd $(TS_DIR) && npm test

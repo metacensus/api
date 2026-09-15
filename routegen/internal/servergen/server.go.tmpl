@@ -6,17 +6,17 @@ import (
 	"context"
 	"net/http"
 
-	v1 {{printf "%q" .V1Import}}
-)
+{{range .Imports}}	{{.GoAlias}} {{printf "%q" .GoImport}}
+{{end}})
 
 {{end}}
 {{define "interfaceOpen"}}// {{.Name}} is what an implementation of the {{.Name}} service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.{{.PrefixConst}}.
 type {{.Name}} interface {
 {{end}}
 {{define "interfaceMethod"}}	// {{.Method}} {{.Path}}
-	{{.RPC}}(context.Context, *v1.{{.GoRequest}}) (*v1.{{.GoResponse}}, error)
+	{{.RPC}}(context.Context, *{{.Alias}}.{{.GoRequest}}) (*{{.Alias}}.{{.GoResponse}}, error)
 {{end}}
 {{define "interfaceClose"}}}
 
@@ -26,18 +26,20 @@ type {{.Name}} interface {
 type Unimplemented{{.Name}} struct{}
 
 {{end}}
-{{define "unimplementedMethod"}}func (Unimplemented{{.Service}}) {{.RPC}}(context.Context, *v1.{{.GoRequest}}) (*v1.{{.GoResponse}}, error) {
+{{define "unimplementedMethod"}}func (Unimplemented{{.Service}}) {{.RPC}}(context.Context, *{{.Alias}}.{{.GoRequest}}) (*{{.Alias}}.{{.GoResponse}}, error) {
 	return nil, errNotImplemented({{printf "%q" .ServiceRPC}})
 }
 
 {{end}}
-{{define "registerOpen"}}// Register{{.Name}} registers every {{.Name}} route on mux, under rt.Prefix.
+{{define "registerOpen"}}// Register{{.Name}} registers every {{.Name}} route on mux, under rt.Prefix,
+// which for this service is routes.{{.PrefixConst}}.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 	rt.checkPathValue(mux)
 {{end}}
 {{define "registerRoute"}}	mux.Method({{printf "%q" .Method}}, rt.Prefix+{{printf "%q" .Path}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := new(v1.{{.GoRequest}})
+		req := new({{.Alias}}.{{.GoRequest}})
 {{if .NeedsErrVar}}		var err error
 {{end -}}
 {{if eq .Body "*"}}		raw, err := rt.readBody(w, r)
