@@ -10,9 +10,8 @@ import (
 // crosses the wire.
 //
 // Status is the one field a composite literal can leave out and still
-// compile, so status() treats anything outside 100..599 as 500 rather than
-// letting net/http panic on it: a handler that mis-fills an error should
-// answer badly, not take the connection down.
+// compile, so anything outside 100..599 is written as a 500: a handler that
+// mis-fills an error should answer badly, not take the connection down.
 type Error struct {
 	Status  int
 	Code    string

@@ -30,7 +30,9 @@ import (
 // emits for a google.protobuf.Timestamp.
 var created = timestamppb.New(time.Date(2023, 11, 14, 22, 13, 20, 0, time.UTC))
 
-type topics struct{ server.UnimplementedTopicRoutes }
+type topics struct {
+	server.UnimplementedTopicRoutes
+}
 
 func (topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.Topic, error) {
 	if req.TopicId == "missing" {

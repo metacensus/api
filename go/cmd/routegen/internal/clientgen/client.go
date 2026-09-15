@@ -1,18 +1,7 @@
 // Package clientgen renders ts/src/client.ts: one typed method per rpc over
-// a caller-supplied transport. It extends each model.Route (already vetted
-// by model.Walk: only "*" or no body, only string path params, only scalar
-// or repeated-scalar query fields) with the descriptor detail only a
-// TypeScript client needs — field kinds, message types for import
-// references — and rejects the one shape it alone cannot encode: bytes
-// anywhere in the request or response tree. A request tree containing bytes
-// cannot survive JSON.stringify as protojson expects, so that rejection is
-// the client's own; the Go server side has no such gap.
-//
-// client.ts.tmpl is embedded and parsed at init so a broken template fails
-// `make gen` immediately. Its named blocks are executed by a Go loop that
-// mirrors the original imperative writer, one route at a time, so an
-// execution error carries the block and — for the per-route "route" block —
-// the rpc that was being rendered.
+// a caller-supplied transport. It extends each model.Route with the
+// descriptor detail only a TypeScript client needs, and rejects the one
+// shape it alone cannot encode — see rejectBytes.
 package clientgen
 
 import (
@@ -32,10 +21,8 @@ import (
 //go:embed client.ts.tmpl
 var tmplSrc string
 
-// funcs are client.ts.tmpl's own helpers: lowerFirst and pathTemplate build TS
-// syntax no builtin covers, and join composes a comma list for the import
-// lines. Every Go or TS string literal in the template goes through the
-// builtin printf "%q" instead — see client.ts.tmpl.
+// funcs is what client.ts.tmpl may call beyond the builtins. Every TS string
+// literal goes through the builtin printf "%q" rather than a helper.
 var funcs = template.FuncMap{
 	"lowerFirst":   lowerFirst,
 	"pathTemplate": pathTemplate,
@@ -44,9 +31,7 @@ var funcs = template.FuncMap{
 
 var tmpl = template.Must(template.New("client.ts.tmpl").Funcs(funcs).Parse(tmplSrc))
 
-// field is what the client renderer needs per request field beyond its JSON
-// name: enough of the descriptor to choose an encoding. The manifest and
-// server renderers discard all of this.
+// field is enough of a request field's descriptor to choose an encoding.
 type field struct {
 	JSONName string
 	Kind     protoreflect.Kind
@@ -63,7 +48,6 @@ type tsRef struct {
 	File string // e.g. "./metacensus/v1/topic.js"
 }
 
-// clientRoute is the per-route information the client renderer consumes.
 type clientRoute struct {
 	model.Route
 	PathFields  []field
@@ -92,9 +76,6 @@ func refOf(md protoreflect.MessageDescriptor) tsRef {
 	return tsRef{Name: strings.Join(parts, "_"), File: path}
 }
 
-// describeClient extends a route (already vetted by model.Walk) with the
-// descriptor detail the client needs, read off r.Descriptor, and rejects
-// the one shape it alone cannot encode: bytes anywhere in the request tree.
 func describeClient(r model.Route) (clientRoute, error) {
 	md := r.Descriptor
 	req := md.Input()
@@ -185,13 +166,10 @@ func pathTemplate(path string, src string) string {
 	return b.String()
 }
 
-// methodView adds the derived values client.ts.tmpl's "route" block needs
-// beyond clientRoute: the request-destructuring and query-binding lines
-// (ExtraLines), which branch per query field on Kind and List and so are
-// built once here rather than re-decided inside the template, Src (the
-// prefix pathTemplate reads path-bound fields off: "" once they have been
-// destructured out of req, "req." otherwise), and BodyExpr, the serialised
-// body the call sends.
+// methodView is clientRoute plus the lines the template cannot work out for
+// itself: ExtraLines branches per field on Kind and List, and Src is the
+// prefix path fields are read off — "" once destructured out of req, "req."
+// otherwise. Decided here rather than with nested {{if}} in the template.
 type methodView struct {
 	clientRoute
 	ExtraLines []string
@@ -199,11 +177,9 @@ type methodView struct {
 	BodyExpr   string
 }
 
-// newMethodView applies the same decisions the original renderer made
-// inline: a "*" body is "everything the path did not bind", and
-// destructuring is how the path fields leave it. describeClient has already
-// ensured Body is "*" or "" — never a named field — so those are the only
-// two cases here.
+// A "*" body is everything the path did not bind, and destructuring is how
+// the path fields leave it. model.Walk has already refused a named body, so
+// "*" and "" are the only cases.
 func newMethodView(cr clientRoute) methodView {
 	mv := methodView{clientRoute: cr, Src: "req.", BodyExpr: "undefined"}
 	if cr.Body == "*" {
@@ -237,17 +213,15 @@ func newMethodView(cr clientRoute) methodView {
 	return mv
 }
 
-// fileImport is client.ts.tmpl's "import" block data: one generated file and
-// the type names pulled from it, both already sorted so re-running the
-// generator is stable.
+// fileImport is one generated file and the type names pulled from it, sorted
+// so re-running the generator is stable.
 type fileImport struct {
 	File  string
 	Names []string
 }
 
-// Render extends every route with client-specific descriptor detail and
-// writes ts/src/client.ts: one Client class, one typed method per rpc, over
-// a caller-supplied Transport.
+// Render writes ts/src/client.ts: one Client class, one typed method per rpc,
+// over a caller-supplied Transport.
 func Render(routes []model.Route) ([]byte, error) {
 	methods := make([]methodView, 0, len(routes))
 	for _, r := range routes {

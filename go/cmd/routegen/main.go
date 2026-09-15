@@ -1,32 +1,17 @@
 // Command routegen writes the route manifest, a Go server and a TypeScript
 // client for metacensus.v1 from the google.api.http annotations on each
-// service. One walk of the compiled descriptors — internal/model — feeds
-// four renderers, one package each:
-//   - internal/manifestgen writes go/routes/manifest.go and
-//     ts/src/route-manifest.ts, the data-only manifest;
-//   - internal/servergen writes go/server/routes_gen.go, a handler
-//     interface, an Unimplemented* and a Register* per service that binds
-//     path/query/body and dispatches to it — the hand-written runtime
-//     beside it is go/server/runtime.go;
-//   - internal/clientgen writes ts/src/client.ts, a typed method per rpc
-//     over a caller-supplied transport.
+// service. One walk of the compiled descriptors — internal/model — feeds four
+// renderings: internal/manifestgen, internal/servergen, internal/clientgen.
+// Each package's own doc says what it emits.
 //
-// A renderer package imports internal/model and nothing else under
-// cmd/routegen; model imports no renderer. imports_test.go asserts this
-// against the actual import graph.
-//
-// Every renderer's templates are text/template, embedded with go:embed and
-// parsed at init. A template file is named <name>.<destination-extension>.tmpl
-// — manifest.go.tmpl and manifest.ts.tmpl render the same route to Go and
-// TypeScript, server.go.tmpl renders Go, client.ts.tmpl renders TypeScript —
-// so the extension the file is embedded to render is visible in its name
-// rather than only in the //go:embed line that reads it.
+// A renderer imports internal/model and nothing else under cmd/routegen;
+// model imports no renderer. imports_test.go asserts that against the build
+// graph rather than stating it here.
 //
 // It reads the descriptors the generated Go package registers, so it runs
-// after `buf generate`. None of this changes the route table: routegen only
-// deepens what is generated from the routes already declared, and refuses
-// to generate at all for a route shape it cannot bind (see
-// internal/model.Walk and internal/clientgen.Render).
+// after `buf generate`. It never changes the route table: it only deepens
+// what is generated from the routes already declared, and refuses to generate
+// at all for a route shape it cannot bind.
 package main
 
 import (

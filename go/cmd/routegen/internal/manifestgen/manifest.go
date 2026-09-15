@@ -5,13 +5,8 @@
 // in the same commit, and splitting them would only add two import lines
 // for renderers that share every fact they emit.
 //
-// Each output has its own .tmpl, embedded and parsed at init so a broken
-// template fails `make gen` immediately rather than on the first build that
-// happens to exercise it. Each template is three named blocks — header,
-// route, footer — executed in that order by a Go loop that mirrors the
-// original imperative writer: the loop, not the template, decides how many
-// times "route" runs, so a template execution error carries the route that
-// was being rendered when it failed.
+// The loop, not the template, decides how many times the "route" block runs,
+// so a failure can name the route it was rendering.
 package manifestgen
 
 import (
@@ -30,11 +25,9 @@ var goTmplSrc string
 //go:embed manifest.ts.tmpl
 var tsTmplSrc string
 
-// funcs are the helpers every routegen template can call: goSlice and
-// quoteAll spell a []string as Go or quoted-TS source, and join composes
-// with quoteAll where a template needs the pieces comma-joined rather than
-// a Go slice literal. Every Go or TS string literal in a template goes
-// through the builtin printf "%q" instead — see the .tmpl files.
+// funcs is what these templates may call beyond the builtins. Every Go or
+// TS string literal goes through the builtin printf "%q" rather than a
+// helper.
 var funcs = template.FuncMap{
 	"goSlice":  model.GoSlice,
 	"quoteAll": model.QuoteAll,
@@ -46,8 +39,6 @@ var (
 	tsTmpl = template.Must(template.New("manifest.ts.tmpl").Funcs(funcs).Parse(tsTmplSrc))
 )
 
-// apiPrefixData is every field manifest.go.tmpl's and manifest.ts.tmpl's
-// "header" block reference outside the route loop.
 type apiPrefixData struct{ APIPrefix string }
 
 // RenderGo writes go/routes/manifest.go: the whole route table as a

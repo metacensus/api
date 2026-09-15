@@ -1,8 +1,6 @@
-// Package servergen renders go/server/routes_gen.go: one handler interface
-// per service, an Unimplemented* per service, and one Register* per service
-// that binds path/query/body and dispatches to it. The hand-written runtime
-// it calls into is package server's own files (binding.go, errors.go,
-// mux.go, response.go, runtime.go).
+// Package servergen renders go/server/routes_gen.go: per service, a handler
+// interface, an Unimplemented*, and a Register* that binds and dispatches.
+// The runtime it calls into is package server's hand-written files.
 //
 // Unimplemented<Service> is kept at a known cost: an implementer who embeds
 // it and later renames an rpc still compiles, and the renamed route answers
@@ -10,12 +8,6 @@
 // embedding, so a rename is a compile error — trades that for a service that
 // can never be implemented one route at a time, which is the shape every
 // consumer of this contract is actually in.
-//
-// server.go.tmpl is embedded and parsed at init so a broken template fails
-// `make gen` immediately. Its named blocks are executed by a Go loop that
-// mirrors the original imperative writer, one service and one route at a
-// time, so an execution error carries the block, the service and — for the
-// per-route blocks — the rpc that was being rendered.
 package servergen
 
 import (
@@ -34,12 +26,10 @@ var tmpl = template.Must(template.New("server.go.tmpl").Funcs(template.FuncMap{
 	"goSlice": model.GoSlice,
 }).Parse(tmplSrc))
 
-// routeView adds the derived values servergen's own templates need beyond
-// model.Route: whether the handler declares `var err error` up front (it
-// does unless a body="*" block already declares err via :=), and the
-// service-qualified rpc name errNotImplemented reports. Both are decisions
-// about the route, computed once here rather than re-derived inside the
-// template on every reference.
+// routeView is model.Route plus what the template cannot work out for
+// itself. NeedsErrVar: a handler declares `var err error` up front unless a
+// body="*" block already declared it with :=. Both are decided here rather
+// than with nested {{if}} in the template.
 type routeView struct {
 	model.Route
 	ServiceRPC  string
