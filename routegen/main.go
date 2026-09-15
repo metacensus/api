@@ -4,7 +4,7 @@
 // renderings: internal/manifestgen, internal/servergen, internal/clientgen.
 // Each package's own doc says what it emits.
 //
-// A renderer imports internal/model and nothing else under cmd/routegen;
+// A renderer imports internal/model and nothing else in this module;
 // model imports no renderer. imports_test.go asserts that against the build
 // graph rather than stating it here.
 //
@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/metacensus/api/go/cmd/routegen/internal/clientgen"
-	"github.com/metacensus/api/go/cmd/routegen/internal/manifestgen"
-	"github.com/metacensus/api/go/cmd/routegen/internal/model"
-	"github.com/metacensus/api/go/cmd/routegen/internal/servergen"
+	"github.com/metacensus/api/routegen/internal/clientgen"
+	"github.com/metacensus/api/routegen/internal/manifestgen"
+	"github.com/metacensus/api/routegen/internal/model"
+	"github.com/metacensus/api/routegen/internal/servergen"
 )
 
 // Output paths are relative to the repository root, which is where the
@@ -43,24 +43,47 @@ func main() {
 	}
 }
 
-// modulePath anchors the cwd check below.
-const modulePath = "module github.com/metacensus/api"
+// contractModule is the module line of the repository root's go.mod — not
+// this module's, which sits one directory below it.
+const contractModule = "module github.com/metacensus/api"
 
-// checkRoot fails loudly when routegen is run from anywhere but the repository
-// root. The Out paths are relative, so a wrong cwd does not error — it writes
-// the generated files somewhere else and leaves the committed ones stale,
-// which the freshness check cannot see because nothing in the tree changed.
-func checkRoot() error {
-	b, err := os.ReadFile("go.mod")
-	if err != nil || !strings.Contains(string(b), modulePath) {
-		wd, _ := os.Getwd()
-		return fmt.Errorf("run from the repository root (cwd is %s); use `make gen`", wd)
+// chdirRoot finds the repository root and moves there, because every output
+// path is relative to it. The generator now lives in a module of its own, so
+// `make gen` runs it from routegen/ and a plain cwd check would reject the
+// only working directory it is ever invoked from.
+//
+// Walking up and checking the module line is stricter than trusting cwd, not
+// looser: from anywhere inside the repository it finds the same root, and
+// from outside it refuses rather than writing four generated files into
+// somebody's home directory and leaving the committed ones stale — which the
+// freshness check cannot see, because nothing in the tree changed.
+func chdirRoot() error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
 	}
-	return nil
+	start := dir
+	for {
+		b, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		// A module line is the whole line, so routegen/go.mod's
+		// "module github.com/metacensus/api/routegen" does not match.
+		if err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				if strings.TrimSpace(line) == contractModule {
+					return os.Chdir(dir)
+				}
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return fmt.Errorf("no %s above %s; run this from inside the repository, or use `make gen`", contractModule, start)
+		}
+		dir = parent
+	}
 }
 
 func run() error {
-	if err := checkRoot(); err != nil {
+	if err := chdirRoot(); err != nil {
 		return err
 	}
 

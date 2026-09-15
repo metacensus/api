@@ -1,18 +1,41 @@
-// The code generation toolchain, deliberately a separate module.
+// The generator and what tests it. Never imported, never published, and
+// deliberately unversioned: no routegen/v* tag is ever cut, so the release
+// workflow's tag filter needs no rule for it. The module path exists so these
+// packages can import each other.
 //
-// Under Go 1.24 a `tool` directive is a real module requirement. Left in the
-// published module's go.mod, buf and protoc-gen-go would drag ~90 transitive
-// requirements — the Docker CLI, quic-go, the whole buf server graph — into
-// every consumer of github.com/metacensus/api. This module is never published
-// and never imported; the Makefile builds the binaries out of it.
+// Everything about generation lives here: routegen and its renderers, the chi
+// conformance suite, the HTTP server ts/test/wire.test.mjs drives, and buf and
+// protoc-gen-go as `tool` dependencies. Under Go 1.24 a `tool` directive is a
+// real module requirement, and buf drags ~90 transitive ones — the Docker CLI,
+// quic-go, the whole buf server graph. github.com/metacensus/api, the
+// contract, requires exactly two things and must keep doing so. That is the
+// whole reason for the split, and it is one reason, which is why there is one
+// module here and not two: a conformance test that imports chi and a tool
+// directive that names buf are the same problem.
 //
-// It is the original contract/go/go.mod, verbatim but for the module path, so
-// buf and protoc-gen-go stay on exactly the versions that produced the
-// committed output. Do not `go mod tidy` it to chase tidiness: tidy resolves
-// new modules at latest and moves the pins.
-module github.com/metacensus/api/internal/tools
+// The buf and protoc-gen-go versions are the ones that produced the committed
+// output. **Do not `go mod tidy`.** It resolves new modules at latest and
+// moves the pins, and it cannot complete here anyway: something in buf's test
+// graph reaches grpc-gateway v2.30.0, which requires go >= 1.25, and the
+// generators are pinned to go1.24.0 so that protoc-gen-go stamps a stable
+// version into every .pb.go. Add a requirement by hand.
+//
+// chi is v5.2.3 rather than a version of its own choosing because buf's graph
+// already carries it there; declaring v5.1.0 beside it would be a pin nothing
+// honours, since minimal version selection takes the higher.
+//
+// The replace is what keeps the tests honest — they run against the working
+// tree, not against a published version.
+module github.com/metacensus/api/routegen
 
 go 1.24.0
+
+replace github.com/metacensus/api => ../
+
+require (
+	github.com/go-chi/chi/v5 v5.2.3
+	github.com/metacensus/api v0.0.0-00010101000000-000000000000
+)
 
 tool (
 	github.com/bufbuild/buf/cmd/buf
@@ -58,7 +81,6 @@ require (
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect

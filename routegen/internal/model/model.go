@@ -1,10 +1,10 @@
-// Package model owns the descriptor walk and the Route every renderer in
-// cmd/routegen consumes: one walk of the compiled descriptors for
-// metacensus.v1, turned into a route per rpc by reading its
-// google.api.http annotation. A renderer package imports model and nothing
-// else in cmd/routegen; model imports no renderer, so the boundary that
-// keeps a renderer from reaching into another's internals is the import
-// graph, not a convention (see the sibling imports_test.go in cmd/routegen).
+// Package model owns the descriptor walk and the Route every renderer
+// consumes: one walk of the compiled descriptors for metacensus.v1, turned
+// into a route per rpc by reading its google.api.http annotation. A renderer
+// package imports model and nothing else in this module; model imports no
+// renderer, so the boundary that keeps a renderer from reaching into
+// another's internals is the import graph, not a convention (see
+// imports_test.go beside main.go).
 //
 // The rejections here are properties of a route, not of any one renderer.
 // describe_test.go is the enumeration of them, fed synthetic descriptors; a

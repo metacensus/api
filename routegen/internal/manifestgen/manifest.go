@@ -16,7 +16,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/metacensus/api/go/cmd/routegen/internal/model"
+	"github.com/metacensus/api/routegen/internal/model"
 )
 
 //go:embed manifest.go.tmpl

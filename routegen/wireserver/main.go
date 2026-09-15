@@ -4,9 +4,9 @@
 // the response message, because what is under test is the encoding, not any
 // behaviour.
 //
-// It lives in the chitest module, which is never published and never imported,
-// for the same reason chi does: the contract's own module requires exactly two
-// things, and a fixture is not one of them.
+// It lives in the routegen module, which is never published and never
+// imported: the contract's own module requires exactly two things, and a test
+// fixture is not one of them.
 //
 // It prints "listening <addr>" on a port the OS chooses, then serves until
 // killed.

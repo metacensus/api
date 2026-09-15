@@ -6,7 +6,7 @@
 
 set -e
 
-inputs=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*' 'go/cmd/routegen/*')
+inputs=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*' 'routegen/*')
 [ -n "$inputs" ] || exit 0
 
 echo "pre-commit: a generator input is staged — checking lint, formatting and freshness"

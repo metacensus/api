@@ -16,8 +16,8 @@ import (
 // Method(method, pattern string, handler http.Handler) is everything this
 // package asks of a router, so everything a router decides before a handler
 // runs is the router's answer, not this package's. Measured against
-// net/http's ServeMux and github.com/go-chi/chi/v5 v5.1.0 — the two routers
-// go/server/chitest exercises against real chi:
+// net/http's ServeMux and github.com/go-chi/chi/v5 — the two routers
+// routegen/chitest exercises against a real one:
 //
 //   - Path-parameter escaping. ServeMux percent-decodes a segment before
 //     r.PathValue returns it; chi does not. This one is not left to the
@@ -67,7 +67,7 @@ func StdPathValue(r *http.Request, name string) (string, error) {
 // A StdMux must not have it. net/http has already decoded once, so a second
 // decode turns the id "50%2Fx" into "50/x" with a 200 and rejects "100%" with
 // a 400. Choosing wrong in either direction is silent for an id containing
-// nothing worth escaping, which is why go/server/chitest pins both directions
+// nothing worth escaping, which is why routegen/chitest pins both directions
 // against real routers rather than leaving this to a comment.
 //
 // The error is unreachable behind net/http, which rejects a request URI with

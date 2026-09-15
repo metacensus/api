@@ -13,10 +13,10 @@ import (
 // links, not what a file happens to say.
 func TestImportGraph(t *testing.T) {
 	const (
-		modelPkg       = "github.com/metacensus/api/go/cmd/routegen/internal/model"
-		manifestgenPkg = "github.com/metacensus/api/go/cmd/routegen/internal/manifestgen"
-		servergenPkg   = "github.com/metacensus/api/go/cmd/routegen/internal/servergen"
-		clientgenPkg   = "github.com/metacensus/api/go/cmd/routegen/internal/clientgen"
+		modelPkg       = "github.com/metacensus/api/routegen/internal/model"
+		manifestgenPkg = "github.com/metacensus/api/routegen/internal/manifestgen"
+		servergenPkg   = "github.com/metacensus/api/routegen/internal/servergen"
+		clientgenPkg   = "github.com/metacensus/api/routegen/internal/clientgen"
 	)
 	renderers := []string{manifestgenPkg, servergenPkg, clientgenPkg}
 

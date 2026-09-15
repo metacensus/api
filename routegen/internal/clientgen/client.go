@@ -15,7 +15,7 @@ import (
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	"github.com/metacensus/api/go/cmd/routegen/internal/model"
+	"github.com/metacensus/api/routegen/internal/model"
 )
 
 //go:embed client.ts.tmpl

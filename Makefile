@@ -1,11 +1,13 @@
 # The MetaCensus API contract. Run from the repository root.
 #
-# buf and protoc-gen-go are `tool` dependencies of internal/tools, a module of
-# its own so their ~90 transitive requirements stay out of the published
-# module's go.mod. `go tool` only runs inside its own module, so instead of
-# running buf from there we build the binaries into ./bin and run them from the
-# repository root. Every relative path in buf.gen.yaml is therefore relative to
-# the root, which is also where they read most naturally.
+# Two modules. The root is the contract — the generated types, the manifest,
+# the wire encoder and the server — and it requires exactly two things.
+# routegen/ is the generator and everything that tests what it emits; it is
+# never imported and never published, so it may require whatever it needs,
+# which is why chi and buf live there. buf and protoc-gen-go are its `tool`
+# dependencies; `go tool` only runs inside its own module, so the binaries are
+# built into ./bin and run from the repository root, which is what every
+# relative path in buf.gen.yaml is relative to.
 #
 # GOWORK=off and GOTOOLCHAIN are load-bearing, both lessons from
 # metacensus/infra#52. A go.work anywhere above this checkout would resolve tool
@@ -25,12 +27,11 @@
 # hand-writes its help text, which is the same information twice.
 .DEFAULT_GOAL := help
 
-GO_DIR      := go
-TS_DIR      := ts
-PROTO       := proto
-TOOLS_DIR   := internal/tools
-CHITEST_DIR := go/server/chitest
-BIN         := $(CURDIR)/bin
+GO_DIR   := go
+TS_DIR   := ts
+PROTO    := proto
+ROUTEGEN := routegen
+BIN      := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
@@ -68,15 +69,15 @@ help:
 ## all — an alias for check
 all: check
 
-## tools — build the pinned code generators out of internal/tools
+## tools — build the pinned code generators out of routegen/
 tools: $(BIN)/buf $(BIN)/protoc-gen-go
 
-$(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+$(BIN)/buf: $(ROUTEGEN)/go.mod $(ROUTEGEN)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
-	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
+	cd $(ROUTEGEN) && $(TOOLENV) go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
 
-$(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
-	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+$(BIN)/protoc-gen-go: $(ROUTEGEN)/go.mod $(ROUTEGEN)/go.sum
+	cd $(ROUTEGEN) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
 
 ## deps — reinstall the TypeScript toolchain from the lockfile
 deps:
@@ -93,7 +94,7 @@ $(TS_PLUGIN): $(TS_DIR)/package-lock.json
 ## gen — regenerate Go and TypeScript from the .proto sources
 gen: tools $(TS_PLUGIN)
 	$(BUF) generate --template $(PROTO)/buf.gen.yaml
-	go run ./$(GO_DIR)/cmd/routegen
+	cd $(ROUTEGEN) && $(TOOLENV) go run .
 
 ## lint — buf's STANDARD rules
 lint: $(BIN)/buf
@@ -118,19 +119,18 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
-## test — the schema and route invariants, then the chi conformance module
+## test — the contract's own invariants, then the generator's
 #
-# go/server/chitest is a module of its own so chi stays out of the published
-# go.mod, which means ./... above cannot see it and it needs its own line.
+# routegen is a module of its own, so ./... above cannot see it and it needs
+# its own line. Its tests are the generator's unit tests and the suites that
+# exercise what it emits, including the chi conformance run.
 test:
 	go test ./...
-	cd $(CHITEST_DIR) && $(TOOLENV) go test ./...
+	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
 check: lint format-check test $(TS_PLUGIN)
-	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
-	# binary in the working directory.
-	go build -o /dev/null ./... && go vet ./...
+	go build ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
 	cd $(TS_DIR) && npm test
 

@@ -10,9 +10,10 @@
 // EmitDefaultValues — and nothing checked the pairing. This is metacensus/ui#49,
 // closed for the shapes below.
 //
-// The server is go/server/chitest/wireserver, compiled to a temporary
-// directory and run: it lives in the chitest module so a fixture never reaches
-// the published go.mod. Compiled rather than `go run`, because `go run` runs
+// The server is routegen/wireserver, compiled to a temporary directory and
+// run: it lives in the routegen module, with everything else that exercises
+// what the generator emits, so a fixture never reaches the published go.mod.
+// Compiled rather than `go run`, because `go run` runs
 // the binary as a child of its own and killing the parent leaves the listener
 // holding the pipe this process is reading.
 //
@@ -29,7 +30,7 @@ import { dirname, join } from "node:path";
 
 import { Client, ApiError } from "../dist/src/client.js";
 
-const chitest = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "go", "server", "chitest");
+const routegen = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "routegen");
 
 let server;
 let workdir;
@@ -44,13 +45,13 @@ before(async () => {
     // GOWORK=off for the same reason the Makefile sets it: a go.work above the
     // checkout would resolve this module against the union of its members.
     execFileSync("go", ["build", "-o", bin, "./wireserver"], {
-      cwd: chitest,
+      cwd: routegen,
       env: { ...process.env, GOWORK: "off" },
       stdio: "pipe",
     });
   } catch (e) {
     throw new Error(
-      `could not build go/server/chitest/wireserver (is Go on PATH?): ` +
+      `could not build routegen/wireserver (is Go on PATH?): ` +
         `${e.stderr?.toString() || e.message}`,
     );
   }
