@@ -18,23 +18,23 @@ export interface Topic {
   description: string;
 }
 
-export interface TopicListRequest {
+export interface ListTopicsRequest {
 }
 
 export interface TopicList {
   items: Topic[];
 }
 
-export interface TopicGetRequest {
+export interface GetTopicRequest {
   topicId: string;
 }
 
-export interface TopicCreateRequest {
+export interface CreateTopicRequest {
   name: string;
   description: string;
 }
 
-export interface TopicProtocolRequest {
+export interface GetProtocolRequest {
   topicId: string;
 }
 
@@ -49,7 +49,7 @@ export interface Member {
   joined?: string | undefined;
 }
 
-export interface MemberListRequest {
+export interface ListMembersRequest {
   topicId: string;
 }
 
@@ -57,7 +57,7 @@ export interface MemberList {
   items: Member[];
 }
 
-export interface MemberGetRequest {
+export interface GetMemberRequest {
   topicId: string;
   userId: string;
 }

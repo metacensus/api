@@ -96,14 +96,48 @@ Each resource file declares its own routes: `topic.proto` has `TopicRoutes`, `pr
 
 It is not expressed in the `.proto`: `google.api.http` carries a path per route and protobuf has no string constant, so putting it there would mean a custom `FileOptions` extension and a non-resource `.proto` inside a schema whose tests assert every file is a resource. `TestPrefix` pins the invariant instead — the prefix is absolute, has no trailing slash, and no route path already contains it.
 
-**To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `PropCreateRequest` carries `topic_id` although `topic_id` never travels in a body.
+**To read the whole route table at once, read the generated manifest** — `go/routes` or `ts/src/route-manifest.ts`. `params`, `query` and `body` between them account for every field of the request message, so **a request message models the whole request**, not only its body: `CreatePropRequest` carries `topic_id` although `topic_id` never travels in a body.
 
 **They are a route declaration, not a gRPC commitment.** Nothing generates or serves gRPC: no `protoc-gen-go-grpc`, no grpc-gateway, no Connect. ts-proto is given `outputServices=none`, without which it emits service interfaces of `Promise`-returning methods.
 
-**Every route conforms to the conventions.** It did not always: three routes on `Paper` broke them — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `TestNonConformingRoutes` still runs, pinning the set of deliberate exceptions at empty, so a route that starts breaking a convention fails the build.
+### The naming standard
+
+A route on a resource:
+
+```proto
+rpc <Verb><Noun(s)>(<Rpc>Request) returns (<Response>) {
+  option (google.api.http) = {<method>: "/<resource>/{<resource>Id}" body: "*"};
+}
+```
+
+with `/topic/{topicId}/<resource>/{<resource>Id}` for resources that belong to a topic, and deeper nesting where the ownership is deeper — votes hang off a prop, so `ListVotes` is at `/topic/{topicId}/prop/{propId}/vote`. A route that acts on no resource drops the http path convention and keeps the rest: `Login`, `SignUp`, `Logout`.
+
+| | rule | enforced |
+| --- | --- | --- |
+| service | `<Domain>Routes`, named for the file it lives in | **yes** |
+| rpc | `<Verb><Noun(s)>`, plural after `List`, singular otherwise | **yes** |
+| rpc ↔ path | the rpc's noun is the resource its path acts on | **yes** |
+| request | `<Rpc>Request` | **yes** |
+| response | `List<Noun>s` returns `<Noun>List` | **yes** |
+| response | anything else: the resource, or `<Rpc>Response` | no |
+| method | reads GET, writes POST | **yes** |
+| path | names a resource; the rpc names the verb | **yes** |
+| ids | own id is `id`, a reference is `<noun>_id` | no |
+
+**Two rules are left to judgement, for different reasons.**
+
+The *general* response rule cannot be checked as written. "The resource, or `<Noun>List`, or `<Rpc>Response`" is a disjunction whose last branch swallows everything, so a check would reduce to "the response is not named `*Request`". The `List` half has teeth and is enforced; the rest is a convention, because `GetTopic` returning `Topic` and `Login` and `SignUp` both returning `Session` is a decision this contract took and wrote into `buf.yaml`'s lint exceptions — a `<Rpc>Response` rule would reverse it by wrapping every resource in a one-field envelope.
+
+The **id rule is wrong as stated**, which a check is what proved. Asserting that every `<noun>_id` names a message in the contract flags exactly one field: `Prop.author_id`, where no `Author` message exists, because it names a *role*. `user_id` would satisfy the rule and say less. So the rule stays a convention rather than becoming a check with a permanent exception standing in for a rule nobody has written correctly yet.
+
+**Exceptions go in one list, and cost something.** `go/skips_test.go` is the only place a convention here is deliberately not held, so its history is every exception this contract has granted. An entry carries the violation verbatim — compared, so granting one means having seen the failure — an argument that the test rejects if it merely restates the violation or fits in a few words, and either the issue that removes it or `permanent`, which claims the rule is wrong rather than the code. An entry that stops being needed fails the build until it is deleted.
+
+**Every route conforms, with one recorded exception.** It did not always: three routes on `Paper` broke the conventions — a read over POST, and `create` and `lookup` as verbs in the path — and `Paper` has since left the contract, because those routes could not be fixed without first settling whether a paper is one resource or two ([#8](https://github.com/metacensus/api/issues/8)). `Data extraction` left for the same kind of reason ([#16](https://github.com/metacensus/api/issues/16)). The exception that remains is `GET /healthcheck`: it is a read, but nothing in its name says so, and renaming it to `GetHealth` to satisfy a test would be the test wagging the contract. `TestNonConformingRoutes` holds the rest.
 
 ## What the tests check
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path.
+
+`TestNonConformingRoutes` and `TestNonConformingServices` hold the route conventions above. Both build a map of subject to what it broke and hand it to `holdToConventions`, so a new check is a few lines in that shape and inherits the skip list for free. `TestSkipsAreArgued` holds the exception list to its own rules.
 
 `ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.
