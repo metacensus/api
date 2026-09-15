@@ -85,6 +85,12 @@ jobs:
       # carrying a deliberate break fails its own gate, and the Go module
       # publishes from the tag regardless.
       #
+      # When it comes back it belongs last in the job rather than here. It is
+      # the one step whose result is not a property of the change under
+      # review — a break inherited from main fails every PR until the next tag
+      # ships — so running it after the rest keeps such a break from masking
+      # the checks that are about this diff.
+      #
       # - name: Check for breaking changes
       #   # Compare against the latest release tag, not the merge base.
       #   #
@@ -108,15 +114,42 @@ jobs:
       #     echo "comparing against ${against:-<nothing released yet>}"
       #     make breaking BREAKING_AGAINST="$against"
 
+      # The baseline `make breaking-public` compares against, fetched here so
+      # that its presence is a property of this file rather than of whatever
+      # refspec actions/checkout used. Fetched rather than folded into the
+      # Makefile target, because a target that reaches the network behind your
+      # back is worse than one that says what it could not find.
+      - name: Fetch the deployed baseline for the public surface
+        run: git fetch -q --no-tags origin main
+
       # `make check` and not a list of steps. The Makefile already names what
-      # a check is — lint, format-check, go test, the chi conformance module,
-      # build and vet, the TypeScript check, the client's tests — and CI
-      # re-spelling that list is the same information twice with nothing
-      # making the two agree. They had already drifted: the Makefile ran the
-      # conformance module under GOWORK=off and a pinned GOTOOLCHAIN and this
-      # file did not. A developer running `make check` now runs what CI runs,
-      # which is what the README has always claimed.
+      # a check is — lint, format-check, the public surface's breaking check,
+      # go test, the chi conformance module, build and vet, the TypeScript
+      # check, the client's tests — and CI re-spelling that list is the same
+      # information twice with nothing making the two agree. They had already
+      # drifted: the Makefile ran the conformance module under GOWORK=off and
+      # a pinned GOTOOLCHAIN and this file did not. A developer running
+      # `make check` now runs what CI runs, which is what the README has
+      # always claimed.
+      #
+      # That includes `breaking-public`, which is enforcing: failing it means
+      # the change breaks callers that are live, and the answer is a
+      # deliberate decision recorded in the PR. It is unaffected by the
+      # released-contract check being off (#14), because its baseline is
+      # origin/main rather than a tag and so cannot inherit a release's
+      # breakage. On a tag, where the fetch above is skipped, it reports that
+      # it has nothing to compare against and passes.
       - name: Check
+        # On a tag, the public surface's breaking check is turned off by
+        # handing it no baseline. The comparison would otherwise run
+        # backwards: a tagged commit can sit behind origin/main, so anything
+        # added to the public surface after the tag reads as a deletion and
+        # blocks the release. Skipping the *fetch* would not have done this —
+        # `make check` runs the target either way, and origin/main is present
+        # in a full-history checkout regardless — so the decision is made here,
+        # where it is a value rather than a coincidence.
+        env:
+          PUBLIC_BREAKING_AGAINST: ${{ github.ref_type == 'tag' && '' || 'origin/main' }}
         run: make check
 
       # The one thing `make check` deliberately leaves out, because it is a

@@ -61,6 +61,15 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 	server.RegisterProtocolRoutes(std, rt, server.UnimplementedProtocolRoutes{})
 	server.RegisterTopicRoutes(std, rt, topics)
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
+
+	// The public surface hangs off its own prefix, so it gets its own
+	// Runtime — a copy of rt with only Prefix changed, so a test setting
+	// MaxBodyBytes or VerifyBody sets it for both surfaces. This is how a
+	// process serving both actually mounts them: Prefix is the one field
+	// that is per surface.
+	pub := *rt
+	pub.Prefix = routes.PublicPrefix
+	server.RegisterPartnerRoutes(std, &pub, server.UnimplementedPartnerRoutes{})
 	return mux
 }
 
@@ -279,7 +288,12 @@ func TestUnknownQueryParamsAreRejectedOnEveryRoute(t *testing.T) {
 		for _, p := range r.Params {
 			path = strings.Replace(path, "{"+p+"}", "x", 1)
 		}
-		rec := do(t, mux, r.Method, path+"?page=2", `{}`)
+		// r.Prefix, not routes.Prefix: do() prepends the authenticated one,
+		// and a public route requested under it is a 404 rather than the
+		// rejection this is about.
+		req := httptest.NewRequest(r.Method, r.Prefix+path+"?page=2", strings.NewReader(`{}`))
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
 		if rec.Code != 400 {
 			t.Errorf("%s %s?page=2: status %d, want 400", r.Method, path, rec.Code)
 			continue
@@ -299,9 +313,9 @@ func TestEveryManifestRouteIsServed(t *testing.T) {
 		for _, p := range r.Params {
 			path = strings.Replace(path, "{"+p+"}", "x", 1)
 		}
-		req := httptest.NewRequest(r.Method, routes.Prefix+path, nil)
+		req := httptest.NewRequest(r.Method, r.Prefix+path, nil)
 		_, pattern := mux.Handler(req)
-		if pattern != r.Method+" "+routes.Prefix+r.Path {
+		if pattern != r.Method+" "+r.Prefix+r.Path {
 			t.Errorf("%s %s resolved to pattern %q", r.Method, path, pattern)
 		}
 	}

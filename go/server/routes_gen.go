@@ -6,12 +6,13 @@ import (
 	"context"
 	"net/http"
 
+	publicv1 "github.com/metacensus/api/go/metacensus/public/v1"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 )
 
 // AuthRoutes is what an implementation of the AuthRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type AuthRoutes interface {
 	// POST /login
 	Login(context.Context, *v1.LoginRequest) (*v1.Session, error)
@@ -37,7 +38,9 @@ func (UnimplementedAuthRoutes) Logout(context.Context, *v1.LogoutRequest) (*v1.L
 	return nil, errNotImplemented("AuthRoutes.Logout")
 }
 
-// RegisterAuthRoutes registers every AuthRoutes route on mux, under rt.Prefix.
+// RegisterAuthRoutes registers every AuthRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 	rt.checkPathValue(mux)
@@ -98,7 +101,7 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 
 // HealthRoutes is what an implementation of the HealthRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type HealthRoutes interface {
 	// GET /healthcheck
 	Healthcheck(context.Context, *v1.HealthcheckRequest) (*v1.HealthcheckResponse, error)
@@ -112,7 +115,9 @@ func (UnimplementedHealthRoutes) Healthcheck(context.Context, *v1.HealthcheckReq
 	return nil, errNotImplemented("HealthRoutes.Healthcheck")
 }
 
-// RegisterHealthRoutes registers every HealthRoutes route on mux, under rt.Prefix.
+// RegisterHealthRoutes registers every HealthRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 	rt.checkPathValue(mux)
@@ -129,7 +134,7 @@ func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 
 // PropRoutes is what an implementation of the PropRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type PropRoutes interface {
 	// GET /topic/{topicId}/prop
 	ListProps(context.Context, *v1.PropListRequest) (*v1.PropList, error)
@@ -167,7 +172,9 @@ func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1
 	return nil, errNotImplemented("PropRoutes.SetVote")
 }
 
-// RegisterPropRoutes registers every PropRoutes route on mux, under rt.Prefix.
+// RegisterPropRoutes registers every PropRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 	rt.checkPathValue(mux)
@@ -281,7 +288,7 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 
 // ProtocolRoutes is what an implementation of the ProtocolRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type ProtocolRoutes interface {
 	// POST /protocol
 	CreateProtocol(context.Context, *v1.ProtocolCreateRequest) (*v1.Protocol, error)
@@ -295,7 +302,9 @@ func (UnimplementedProtocolRoutes) CreateProtocol(context.Context, *v1.ProtocolC
 	return nil, errNotImplemented("ProtocolRoutes.CreateProtocol")
 }
 
-// RegisterProtocolRoutes registers every ProtocolRoutes route on mux, under rt.Prefix.
+// RegisterProtocolRoutes registers every ProtocolRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
 	rt.checkPathValue(mux)
@@ -325,7 +334,7 @@ func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
 
 // TopicRoutes is what an implementation of the TopicRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type TopicRoutes interface {
 	// GET /topic
 	ListTopics(context.Context, *v1.TopicListRequest) (*v1.TopicList, error)
@@ -369,7 +378,9 @@ func (UnimplementedTopicRoutes) GetMember(context.Context, *v1.MemberGetRequest)
 	return nil, errNotImplemented("TopicRoutes.GetMember")
 }
 
-// RegisterTopicRoutes registers every TopicRoutes route on mux, under rt.Prefix.
+// RegisterTopicRoutes registers every TopicRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 	rt.checkPathValue(mux)
@@ -468,7 +479,7 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 
 // UserRoutes is what an implementation of the UserRoutes service provides.
 // One method per route; the request carries path, query and body fields
-// already bound.
+// already bound. Its routes hang off routes.Prefix.
 type UserRoutes interface {
 	// GET /user
 	ListUsers(context.Context, *v1.UserListRequest) (*v1.UserList, error)
@@ -494,7 +505,9 @@ func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1
 	return nil, errNotImplemented("UserRoutes.GetSelf")
 }
 
-// RegisterUserRoutes registers every UserRoutes route on mux, under rt.Prefix.
+// RegisterUserRoutes registers every UserRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 	rt.checkPathValue(mux)
@@ -528,6 +541,52 @@ func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 			return
 		}
 		resp, err := impl.GetSelf(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+}
+
+// PartnerRoutes is what an implementation of the PartnerRoutes service provides.
+// One method per route; the request carries path, query and body fields
+// already bound. Its routes hang off routes.PublicPrefix.
+type PartnerRoutes interface {
+	// POST /partner
+	SubmitPartnerInterest(context.Context, *publicv1.PartnerSubmission) (*publicv1.PartnerReceipt, error)
+}
+
+// UnimplementedPartnerRoutes answers every PartnerRoutes route with 501. Embed it to
+// implement a service one route at a time.
+type UnimplementedPartnerRoutes struct{}
+
+func (UnimplementedPartnerRoutes) SubmitPartnerInterest(context.Context, *publicv1.PartnerSubmission) (*publicv1.PartnerReceipt, error) {
+	return nil, errNotImplemented("PartnerRoutes.SubmitPartnerInterest")
+}
+
+// RegisterPartnerRoutes registers every PartnerRoutes route on mux, under rt.Prefix,
+// which for this service is routes.PublicPrefix.
+//
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
+func RegisterPartnerRoutes(mux Mux, rt *Runtime, impl PartnerRoutes) {
+	rt.checkPathValue(mux)
+	mux.Method("POST", rt.Prefix+"/partner", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(publicv1.PartnerSubmission)
+		raw, err := rt.readBody(w, r)
+		if err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.verifyBody(r, raw); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.decodeBody(raw, req); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.SubmitPartnerInterest(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
 }

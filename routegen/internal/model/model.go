@@ -1,9 +1,9 @@
 // Package model owns the descriptor walk and the Route every renderer
-// consumes: one walk of the compiled descriptors for metacensus.v1, turned
-// into a route per rpc by reading its google.api.http annotation. A renderer
-// package imports model and nothing else in this module; model imports no
-// renderer, so the boundary that keeps a renderer from reaching into
-// another's internals is the import graph, not a convention (see
+// consumes: one walk of the compiled descriptors for every contract package,
+// turned into a route per rpc by reading its google.api.http annotation. A
+// renderer package imports model and nothing else in this module; model
+// imports no renderer, so the boundary that keeps a renderer from reaching
+// into another's internals is the import graph, not a convention (see
 // imports_test.go beside main.go).
 //
 // The rejections here are properties of a route, not of any one renderer.
@@ -19,41 +19,153 @@ import (
 	"sort"
 	"strings"
 
-	_ "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/internal/protoscan"
 	"google.golang.org/genproto/googleapis/api/annotations"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+
+	// Registration. Every walk below reads protoregistry, which holds only
+	// what this binary imported, so a contract package absent here is absent
+	// from the manifest and from the checks that would have caught it.
+	// Packages names them; CheckPackages fails when one of them registers
+	// nothing.
+	_ "github.com/metacensus/api/go/metacensus/public/v1"
+	_ "github.com/metacensus/api/go/metacensus/v1"
 )
 
-const (
-	protoPkg = "metacensus.v1"
+// protoDir holds the .proto sources, relative to the repository root, which
+// is where the generator runs. CheckPackages reads it.
+const protoDir = "proto"
 
-	// V1Import is the generated package the server and client renderings bind
-	// against. This package itself imports it (above) to register the
-	// descriptors, so the two cannot name different packages.
-	V1Import = "github.com/metacensus/api/go/metacensus/v1"
+// Package is one contract package: a proto package, the path its routes hang
+// off, the generated Go it binds against, and the names each rendering gives
+// its prefix. Adding a surface is an entry here and nothing else.
+//
+// Packages below is the only place either prefix is written down. Every
+// renderer takes its prefixes from there, prose included, so a constant and
+// the paths it describes cannot drift apart.
+//
+// A prefix is not in the .proto: google.api.http annotations carry a path
+// each and protobuf has no notion of a string constant, so expressing one
+// there would mean a custom FileOptions extension and a non-resource .proto
+// file inside a schema whose tests assert every file is a resource. Not worth
+// it for two strings this package is already the authority on.
+type Package struct {
+	// Proto is the proto package, as declared in the .proto sources.
+	Proto string
 
-	// APIPrefix is the path every route in the manifest is relative to, and
-	// the only place this string is written down. Every renderer takes it
-	// from here, including their prose, so the constant and the paths it
-	// describes cannot drift apart.
-	//
-	// It is not in the .proto: google.api.http annotations carry a path each
-	// and protobuf has no notion of a string constant, so expressing it there
-	// would mean a custom FileOptions extension and a non-resource .proto
-	// file inside a schema whose tests assert every file is a resource. Not
-	// worth it for one string that this package is already the authority on.
-	APIPrefix = "/metacensus/api/v1"
-)
+	// Prefix is the path this package's routes are relative to.
+	Prefix string
+
+	// GoImport is the generated Go package the server rendering binds
+	// against; GoAlias is what it is imported as in the generated file.
+	GoImport string
+	GoAlias  string
+
+	// GoConst and TSConst name Prefix's constant in each manifest. The
+	// generated rows spell a route's prefix as the constant rather than the
+	// literal, so the two cannot be edited apart in the generated file
+	// either.
+	GoConst string
+	TSConst string
+
+	// TSClient is the generated client class for this surface. One class per
+	// surface, not one for all of them: the entry points exist so a consumer
+	// of only the public surface does not acquire the authenticated types,
+	// and a single class carrying every route would hand them over.
+	TSClient string
+
+	// Summary is the one-line description the generated prose uses.
+	Summary string
+}
+
+// Packages is every contract package, in manifest order.
+var Packages = []Package{
+	{
+		Proto:    "metacensus.v1",
+		Prefix:   "/metacensus/api/v1",
+		GoImport: "github.com/metacensus/api/go/metacensus/v1",
+		GoAlias:  "v1",
+		GoConst:  "Prefix",
+		TSConst:  "apiPrefix",
+		TSClient: "Client",
+		Summary:  "the authenticated API",
+	},
+	{
+		Proto: "metacensus.public.v1",
+		// No version segment: see README.md, "Versioning the public surface".
+		Prefix:   "/metacensus/public",
+		GoImport: "github.com/metacensus/api/go/metacensus/public/v1",
+		GoAlias:  "publicv1",
+		GoConst:  "PublicPrefix",
+		TSConst:  "publicPrefix",
+		TSClient: "PublicClient",
+		Summary:  "the public, unauthenticated surface",
+	},
+}
+
+// CheckPackages fails when Packages does not name a proto package that exists
+// on disk, or names one whose generated Go this package does not import.
+// Either way that package's routes would be missing from everything generated
+// here, with nothing to say so — the failure is not that a surface is exempt
+// but that it is invisible.
+//
+// On disk, not protoregistry: the registry holds only what this binary
+// imported, so a package nobody imported is absent from the output and from
+// the check that would have caught it.
+func CheckPackages() error {
+	onDisk, err := protoscan.Packages(protoDir)
+	if err != nil {
+		return err
+	}
+
+	named := map[string]bool{}
+	for _, pkg := range Packages {
+		named[pkg.Proto] = true
+	}
+
+	var stray []string
+	for _, pkg := range onDisk {
+		if !named[pkg] {
+			stray = append(stray, pkg)
+		}
+	}
+	if len(stray) > 0 {
+		return fmt.Errorf("%s declared under %s/ but not in model.Packages, so their "+
+			"routes would be missing from the manifest, the server and the client. Add "+
+			"an entry naming the prefix each one's routes hang off",
+			strings.Join(stray, ", "), protoDir)
+	}
+
+	registered := map[string]bool{}
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		registered[string(fd.Package())] = true
+		return true
+	})
+	for _, pkg := range Packages {
+		if !registered[pkg.Proto] {
+			return fmt.Errorf("no file registers %s; add a blank import of %s to "+
+				"internal/model", pkg.Proto, pkg.GoImport)
+		}
+	}
+	return nil
+}
 
 // Route is one route, in the shape every renderer consumes. Path is
-// relative to APIPrefix and spells its parameters {lowerCamelCase}, as the
+// relative to Pkg.Prefix and spells its parameters {lowerCamelCase}, as the
 // wire does. Params, Query and Body between them account for every field of
 // Request: Params bind path segments, Query travels in the query string,
 // and Body is "*" when the rest travels in the body and empty when none
 // does.
 type Route struct {
+	// Pkg is the contract package this route was read from, and so the
+	// prefix it hangs off. Carried per route because with more than one
+	// prefix a consumer holding a Route has no other way to know which to
+	// join, and inferring it from the service name is exactly the
+	// hand-mirroring this repository exists to stop.
+	Pkg Package
+
 	Service  string
 	RPC      string
 	Method   string
@@ -86,33 +198,41 @@ type PathField struct {
 	GoField  string
 }
 
-// Walk reads every service in metacensus.v1 off the descriptors this
-// package's import of go/metacensus/v1 registered, and returns one Route
-// per rpc, in file-then-declaration order so the output is stable across
-// runs. It fails on the first route it cannot describe, and when the
-// package declares no routes at all — an empty manifest is never the
-// generator's own decision to make.
+// Walk reads every service in every contract package off the descriptors
+// this package's blank imports registered, and returns one Route per rpc, in
+// package-then-file-then-declaration order so the output is stable across
+// runs. It fails on the first route it cannot describe, and when a package
+// declares no routes at all — an empty manifest is never the generator's own
+// decision to make.
+//
+// Per package, not in total: one package's routes must not vouch for
+// another's absence. Without that, adding a surface and misspelling its proto
+// package generates a manifest silently missing it, over a route table
+// smaller than the one that ships.
 func Walk() ([]Route, error) {
 	var routes []Route
-	for _, svc := range services() {
-		for i := 0; i < svc.Methods().Len(); i++ {
-			md := svc.Methods().Get(i)
-			r, err := describe(md)
-			if err != nil {
-				return nil, err
+	for _, pkg := range Packages {
+		before := len(routes)
+		for _, svc := range services(pkg.Proto) {
+			for i := 0; i < svc.Methods().Len(); i++ {
+				md := svc.Methods().Get(i)
+				r, err := describe(pkg, md)
+				if err != nil {
+					return nil, err
+				}
+				routes = append(routes, r)
 			}
-			routes = append(routes, r)
 		}
-	}
-	if len(routes) == 0 {
-		return nil, fmt.Errorf("no routes found in package %s", protoPkg)
+		if len(routes) == before {
+			return nil, fmt.Errorf("no routes found in package %s", pkg.Proto)
+		}
 	}
 	return routes, nil
 }
 
 // services returns every service in the package, ordered by file then by
 // declaration, so Walk's output is stable across runs.
-func services() []protoreflect.ServiceDescriptor {
+func services(protoPkg string) []protoreflect.ServiceDescriptor {
 	var files []protoreflect.FileDescriptor
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		if string(fd.Package()) == protoPkg {
@@ -131,7 +251,7 @@ func services() []protoreflect.ServiceDescriptor {
 	return out
 }
 
-func describe(md protoreflect.MethodDescriptor) (Route, error) {
+func describe(pkg Package, md protoreflect.MethodDescriptor) (Route, error) {
 	rule, ok := proto.GetExtension(md.Options(), annotations.E_Http).(*annotations.HttpRule)
 	if !ok || rule == nil {
 		return Route{}, fmt.Errorf("%s: no google.api.http option", md.Name())
@@ -175,7 +295,7 @@ func describe(md protoreflect.MethodDescriptor) (Route, error) {
 		// not worth carrying unused.
 		return Route{}, fmt.Errorf("%s: body %q names a field; only body: \"*\" or no body is supported", md.Name(), body)
 	}
-	req, resp, err := goNames(md.Input(), md.Output())
+	req, resp, err := goNames(pkg, md.Input(), md.Output())
 	if err != nil {
 		return Route{}, fmt.Errorf("%s: %w", md.Name(), err)
 	}
@@ -208,6 +328,7 @@ func describe(md protoreflect.MethodDescriptor) (Route, error) {
 	}
 
 	return Route{
+		Pkg:        pkg,
 		Service:    string(md.Parent().Name()),
 		RPC:        string(md.Name()),
 		Method:     method,
@@ -244,7 +365,7 @@ type goType struct {
 // registered — whatever protoc-gen-go produced is by construction what is
 // returned. TestGoNamesAgreeWithProtogen cross-checks this against
 // compiler/protogen, the public package protoc-gen-go is built on.
-func goNames(mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
+func goNames(pkg Package, mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
 	var out [2]goType
 	for i, md := range mds {
 		mt, err := protoregistry.GlobalTypes.FindMessageByName(md.FullName())
@@ -255,8 +376,12 @@ func goNames(mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
 		if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct {
 			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not a pointer to struct", md.FullName(), t)
 		}
-		if t.Elem().PkgPath() != V1Import {
-			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, V1Import)
+		// The route's own package, not "some generated package": a message
+		// resolving elsewhere is a shape the server rendering has no import
+		// alias for, and a cross-surface field besides — which
+		// TestNoMessageFieldCrossesResourceFiles refuses outright.
+		if t.Elem().PkgPath() != pkg.GoImport {
+			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, pkg.GoImport)
 		}
 		out[i] = goType{typeName: t.Elem().Name(), fields: map[protoreflect.Name]string{}}
 		for j := 0; j < t.Elem().NumField(); j++ {

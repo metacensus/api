@@ -129,7 +129,7 @@ func TestDescribeRejects(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			md := method(t, tc.rpc)
-			r, err := describe(md)
+			r, err := describe(testPkg, md)
 			if err == nil {
 				t.Fatalf("accepted, as %+v", r)
 			}
@@ -178,7 +178,7 @@ func TestDescribeAccepts(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			r, err := describe(method(t, tc.rpc))
+			r, err := describe(testPkg, method(t, tc.rpc))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -195,13 +195,27 @@ func TestDescribeAccepts(t *testing.T) {
 	}
 }
 
+// testPkg is the contract package these synthetic routes are built over,
+// looked up by name rather than by position so reordering Packages does not
+// silently change what this file tests.
+var testPkg = packageNamed("metacensus.v1")
+
+func packageNamed(proto string) Package {
+	for _, pkg := range Packages {
+		if pkg.Proto == proto {
+			return pkg
+		}
+	}
+	panic("no contract package " + proto)
+}
+
 // rpc builds one synthetic method over real metacensus.v1 messages. rule nil
 // means no google.api.http option at all.
 func rpc(name, in, out string, rule *annotations.HttpRule) *descriptorpb.MethodDescriptorProto {
 	m := &descriptorpb.MethodDescriptorProto{
 		Name:       proto.String(name),
-		InputType:  proto.String("." + protoPkg + "." + in),
-		OutputType: proto.String("." + protoPkg + "." + out),
+		InputType:  proto.String("." + testPkg.Proto + "." + in),
+		OutputType: proto.String("." + testPkg.Proto + "." + out),
 	}
 	if rule != nil {
 		m.Options = &descriptorpb.MethodOptions{}
@@ -219,7 +233,7 @@ func method(t *testing.T, m *descriptorpb.MethodDescriptorProto) protoreflect.Me
 
 	var deps []string
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		if string(fd.Package()) == protoPkg {
+		if string(fd.Package()) == testPkg.Proto {
 			deps = append(deps, fd.Path())
 		}
 		return true
@@ -227,7 +241,7 @@ func method(t *testing.T, m *descriptorpb.MethodDescriptorProto) protoreflect.Me
 
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:       proto.String("routegen/describe_test.proto"),
-		Package:    proto.String(protoPkg),
+		Package:    proto.String(testPkg.Proto),
 		Syntax:     proto.String("proto3"),
 		Dependency: deps,
 		Service: []*descriptorpb.ServiceDescriptorProto{{

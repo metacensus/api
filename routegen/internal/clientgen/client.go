@@ -1,7 +1,13 @@
-// Package clientgen renders ts/src/client.ts: one typed method per rpc over
-// a caller-supplied transport. It extends each model.Route with the
-// descriptor detail only a TypeScript client needs, and rejects the one
-// shape it alone cannot encode — see rejectBytes.
+// Package clientgen renders ts/src/client.ts: one class per surface, one
+// typed method per rpc, over a caller-supplied transport. It extends each
+// model.Route with the descriptor detail only a TypeScript client needs, and
+// rejects the one shape it alone cannot encode — see rejectBytes.
+//
+// One file, several classes. The shared envelope (Transport, ApiError) has to
+// be one declaration — two ApiError classes would make `instanceof` depend on
+// the import path — and nothing under src/ may take a value import, so the
+// classes that throw it live beside it. Which surface a consumer gets is
+// decided by the entry point that re-exports it: ts/index.ts and ts/public.ts.
 package clientgen
 
 import (
@@ -233,7 +239,7 @@ func Render(routes []model.Route) ([]byte, error) {
 	}
 
 	var b bytes.Buffer
-	if err := execute(&b, "header", struct{ APIPrefix string }{model.APIPrefix}, "", ""); err != nil {
+	if err := execute(&b, "header", nil, "", ""); err != nil {
 		return nil, err
 	}
 
@@ -263,14 +269,13 @@ func Render(routes []model.Route) ([]byte, error) {
 		}
 	}
 
-	// The same literal as route-manifest.ts's apiPrefix, emitted twice by the
-	// one generator that owns it, because importing it would be a value
-	// import under src/ and check-no-runtime.mjs forbids those. Unexported,
-	// so ts/index.ts's `export *` still has exactly one apiPrefix; a second
-	// would be an ambiguous star export, which tsc rejects (TS2308) and
-	// `npm run check` would therefore catch.
-	if err := execute(&b, "prefixConst", struct{ APIPrefix string }{model.APIPrefix}, "", ""); err != nil {
-		return nil, err
+	// One default prefix per surface, each emitted unexported. An exported
+	// one would collide with route-manifest.ts's under ts/index.ts's
+	// `export *` — an ambiguous star export, which tsc rejects (TS2308).
+	for _, pkg := range withRoutes(methods) {
+		if err := execute(&b, "prefixConst", pkg, "", ""); err != nil {
+			return nil, err
+		}
 	}
 	// param and query are emitted only where a route needs them: nothing
 	// under src/ may reach for anything at runtime, and dead code in a
@@ -296,16 +301,43 @@ func Render(routes []model.Route) ([]byte, error) {
 		return nil, err
 	}
 
-	for _, m := range methods {
-		if err := execute(&b, "route", m, m.Service, m.RPC); err != nil {
+	// One class per surface, in Packages order, each holding only its own
+	// routes. Iterating the table rather than the methods keeps the class
+	// order stable and independent of the route order within a surface.
+	for _, pkg := range withRoutes(methods) {
+		if err := execute(&b, "classOpen", pkg, "", ""); err != nil {
+			return nil, err
+		}
+		for _, m := range methods {
+			if m.Pkg.Proto != pkg.Proto {
+				continue
+			}
+			if err := execute(&b, "route", m, m.Service, m.RPC); err != nil {
+				return nil, err
+			}
+		}
+		if err := execute(&b, "classClose", nil, "", ""); err != nil {
 			return nil, err
 		}
 	}
-
-	if err := execute(&b, "footer", nil, "", ""); err != nil {
-		return nil, err
-	}
 	return b.Bytes(), nil
+}
+
+// withRoutes is model.Packages narrowed to the surfaces these routes actually
+// cover, in table order. A surface with no routes has already failed
+// model.Walk, so this is a guard against emitting an empty class rather than
+// a case that is expected to arise.
+func withRoutes(methods []methodView) []model.Package {
+	var out []model.Package
+	for _, pkg := range model.Packages {
+		for _, m := range methods {
+			if m.Pkg.Proto == pkg.Proto {
+				out = append(out, pkg)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // execute runs one named block, naming the template, the block and the route

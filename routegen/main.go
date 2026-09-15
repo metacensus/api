@@ -1,8 +1,11 @@
-// Command routegen writes the route manifest, a Go server and a TypeScript
-// client for metacensus.v1 from the google.api.http annotations on each
-// service. One walk of the compiled descriptors — internal/model — feeds four
-// renderings: internal/manifestgen, internal/servergen, internal/clientgen.
-// Each package's own doc says what it emits.
+// Command routegen writes the route manifest, a Go server and TypeScript
+// clients for every contract package from the google.api.http annotations on
+// each service. One walk of the compiled descriptors — internal/model — feeds
+// four renderings: internal/manifestgen, internal/servergen,
+// internal/clientgen. Each package's own doc says what it emits.
+//
+// Which packages those are, and the prefix each one's routes hang off, is
+// model.Packages — the one place either prefix is written down.
 //
 // A renderer imports internal/model and nothing else in this module;
 // model imports no renderer. imports_test.go asserts that against the build
@@ -84,6 +87,13 @@ func chdirRoot() error {
 
 func run() error {
 	if err := chdirRoot(); err != nil {
+		return err
+	}
+
+	// Before the walk: a proto package on disk that the table does not name
+	// would generate nothing and say nothing, and the walk cannot notice it
+	// because it only ever looks at packages the table already lists.
+	if err := model.CheckPackages(); err != nil {
 		return err
 	}
 

@@ -39,43 +39,55 @@ var (
 	tsTmpl = template.Must(template.New("manifest.ts.tmpl").Funcs(funcs).Parse(tsTmplSrc))
 )
 
-type apiPrefixData struct{ APIPrefix string }
+// packagesData is what the header block needs: the surfaces, so the generated
+// prose names each prefix constant beside the path it holds.
+type packagesData struct{ Packages []model.Package }
 
-// RenderGo writes go/routes/manifest.go: the whole route table as a
-// []Route literal, gofmt'd.
+// RenderGo writes go/routes/manifest.go: a constant per prefix and the whole
+// route table as a []Route literal, gofmt'd.
 func RenderGo(routes []model.Route) ([]byte, error) {
-	var b bytes.Buffer
-	if err := execute(&b, goTmpl, "manifest.go.tmpl", "header", apiPrefixData{model.APIPrefix}, "", ""); err != nil {
-		return nil, err
-	}
-	for _, r := range routes {
-		if err := execute(&b, goTmpl, "manifest.go.tmpl", "route", r, r.Service, r.RPC); err != nil {
-			return nil, err
-		}
-	}
-	if err := execute(&b, goTmpl, "manifest.go.tmpl", "footer", nil, "", ""); err != nil {
-		return nil, err
-	}
-	return model.GoFormat("go/routes/manifest.go", b.Bytes())
+	return render(goTmpl, "manifest.go.tmpl", routes, func(b []byte) ([]byte, error) {
+		return model.GoFormat("go/routes/manifest.go", b)
+	})
 }
 
-// RenderTS writes ts/src/route-manifest.ts: the same route table as a
-// `routes` array literal. There is no formatter downstream of this one, so
-// its whitespace is exactly what the template emits.
+// RenderTS writes ts/src/route-manifest.ts: the same constants and the same
+// route table as a `routes` array literal. There is no formatter downstream
+// of this one, so its whitespace is exactly what the template emits.
 func RenderTS(routes []model.Route) ([]byte, error) {
+	return render(tsTmpl, "manifest.ts.tmpl", routes, func(b []byte) ([]byte, error) {
+		return b, nil
+	})
+}
+
+// render runs the blocks both manifests share, in order. They are one
+// decision rendered twice, so the sequence lives here once and the two
+// templates differ only in what each block says.
+//
+// The prefix block runs per package rather than once, so a third surface is
+// a table entry rather than an edit to two templates.
+func render(t *template.Template, name string, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
 	var b bytes.Buffer
-	if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "header", apiPrefixData{model.APIPrefix}, "", ""); err != nil {
+	if err := execute(&b, t, name, "header", packagesData{model.Packages}, "", ""); err != nil {
 		return nil, err
 	}
-	for _, r := range routes {
-		if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "route", r, r.Service, r.RPC); err != nil {
+	for _, pkg := range model.Packages {
+		if err := execute(&b, t, name, "prefix", pkg, "", ""); err != nil {
 			return nil, err
 		}
 	}
-	if err := execute(&b, tsTmpl, "manifest.ts.tmpl", "footer", nil, "", ""); err != nil {
+	if err := execute(&b, t, name, "routeType", nil, "", ""); err != nil {
 		return nil, err
 	}
-	return b.Bytes(), nil
+	for _, r := range routes {
+		if err := execute(&b, t, name, "route", r, r.Service, r.RPC); err != nil {
+			return nil, err
+		}
+	}
+	if err := execute(&b, t, name, "footer", nil, "", ""); err != nil {
+		return nil, err
+	}
+	return format(b.Bytes())
 }
 
 // execute runs one named block, naming the template, the block and the route
