@@ -40,10 +40,12 @@ export interface ClientResponse {
 // contract's concern.
 export type Transport = (req: ClientRequest) => Promise<ClientResponse>;
 
-// ApiError is any non-2xx the transport did not itself act on. The contract
-// declares no error message, so body is the response text, unparsed; a
-// caller that wants the {error, code} shape the reference Go server emits
-// can parse ApiError.body itself.
+// ApiError is any non-2xx the transport did not itself act on. path is the
+// path that was requested, prefix included. The contract declares no error
+// message, so body is the response text, unparsed — and a 404 or 405 comes
+// from the router rather than from a handler, so it is often not JSON at all;
+// a caller that wants the {error, code} shape the reference Go server emits
+// must parse ApiError.body defensively.
 export class ApiError extends Error {
   constructor(
     readonly method: string,
@@ -78,9 +80,10 @@ export class Client {
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {
-    const res = await this.transport({ method, path: this.prefix + path, body });
+    const full = this.prefix + path;
+    const res = await this.transport({ method, path: full, body });
     if (res.status < 200 || res.status >= 300) {
-      throw new ApiError(method, path, res.status, res.body);
+      throw new ApiError(method, full, res.status, res.body);
     }
     // A cast: with onlyTypes there is no runtime schema to validate against.
     return (res.body === "" ? {} : JSON.parse(res.body)) as T;

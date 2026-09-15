@@ -90,17 +90,23 @@ func describeClient(md protoreflect.MethodDescriptor, r route) (clientRoute, err
 	for _, q := range r.Query {
 		cr.QueryFields = append(cr.QueryFields, fieldOf(byJSON[q]))
 	}
-	if err := rejectBytes(req, map[protoreflect.FullName]bool{}); err != nil {
-		return cr, fmt.Errorf("%s: %w", md.Name(), err)
+	// Both directions: a request tree cannot be encoded, and a response tree
+	// cannot be decoded, without lying about the type.
+	for _, tree := range []protoreflect.MessageDescriptor{req, md.Output()} {
+		if err := rejectBytes(tree, map[protoreflect.FullName]bool{}); err != nil {
+			return cr, fmt.Errorf("%s: %w", md.Name(), err)
+		}
 	}
 	return cr, nil
 }
 
-// rejectBytes refuses a request tree containing a bytes field: ts-proto types
-// bytes as Uint8Array, which JSON.stringify renders as an index-keyed object
-// (`{"0":1,"1":2}`), not the base64 string protojson expects. The Go server
-// side has no such gap — contract.Marshal/Unmarshal handle bytes natively —
-// so this rejection is specific to the client renderer, not describe().
+// rejectBytes refuses a message tree containing a bytes field. ts-proto types
+// bytes as Uint8Array: JSON.stringify renders that as an index-keyed object
+// (`{"0":1,"1":2}`) rather than the base64 protojson expects on the way out,
+// and JSON.parse hands back the base64 string cast to Uint8Array on the way
+// back. The Go server side has no such gap — contract.Marshal/Unmarshal
+// handle bytes natively — so this rejection is the client renderer's, not
+// describe()'s.
 func rejectBytes(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
 	if seen[md.FullName()] {
 		return nil
@@ -140,7 +146,14 @@ func pathTemplate(path string, src string) string {
 			b.WriteString(path)
 			break
 		}
-		shut := strings.IndexByte(path, '}')
+		// From open, matching rewriteParams: two walks of the same string
+		// disagreeing about where to look is how one of them eventually panics.
+		shut := strings.IndexByte(path[open:], '}')
+		if shut < 0 {
+			b.WriteString(path)
+			break
+		}
+		shut += open
 		b.WriteString(path[:open])
 		fmt.Fprintf(&b, "${param(%s%s)}", src, path[open+1:shut])
 		path = path[shut+1:]
@@ -187,16 +200,12 @@ func renderClient(routes []clientRoute) []byte {
 	}
 	b.WriteString("\n")
 
-	// The prefix is written here as well as in route-manifest.ts: the same
-	// literal, emitted twice by the same generator, deliberately NOT exported
-	// under this name. A value import of ./route-manifest.js would be a
-	// runtime edge under src/ (check-no-runtime.mjs forbids that), and
-	// re-exporting a second `apiPrefix` here would collide with
-	// route-manifest.ts's own export of that name through ts/index.ts's
-	// `export *` — an ambiguous export that TypeScript silently drops from
-	// the package root instead of erroring, breaking `import { apiPrefix }
-	// from "@metacensus/api"` for anyone who already relies on it. Kept
-	// private; only Client's own default constructor argument uses it.
+	// The same literal as route-manifest.ts's apiPrefix, emitted twice by the
+	// one generator that owns it, because importing it would be a value
+	// import under src/ and check-no-runtime.mjs forbids those. Unexported,
+	// so ts/index.ts's `export *` still has exactly one apiPrefix; a second
+	// would be an ambiguous star export, which tsc rejects (TS2308) and
+	// `npm run check` would therefore catch.
 	fmt.Fprintf(&b, "const defaultPrefix = %q;\n\n", apiPrefix)
 
 	b.WriteString(`// What the client hands the transport. path is absolute (prefix, route, query),
@@ -221,10 +230,12 @@ export interface ClientResponse {
 // contract's concern.
 export type Transport = (req: ClientRequest) => Promise<ClientResponse>;
 
-// ApiError is any non-2xx the transport did not itself act on. The contract
-// declares no error message, so body is the response text, unparsed; a
-// caller that wants the {error, code} shape the reference Go server emits
-// can parse ApiError.body itself.
+// ApiError is any non-2xx the transport did not itself act on. path is the
+// path that was requested, prefix included. The contract declares no error
+// message, so body is the response text, unparsed — and a 404 or 405 comes
+// from the router rather than from a handler, so it is often not JSON at all;
+// a caller that wants the {error, code} shape the reference Go server emits
+// must parse ApiError.body defensively.
 export class ApiError extends Error {
   constructor(
     readonly method: string,
@@ -259,9 +270,10 @@ export class Client {
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {
-    const res = await this.transport({ method, path: this.prefix + path, body });
+    const full = this.prefix + path;
+    const res = await this.transport({ method, path: full, body });
     if (res.status < 200 || res.status >= 300) {
-      throw new ApiError(method, path, res.status, res.body);
+      throw new ApiError(method, full, res.status, res.body);
     }
     // A cast: with onlyTypes there is no runtime schema to validate against.
     return (res.body === "" ? {} : JSON.parse(res.body)) as T;
@@ -296,10 +308,14 @@ export class Client {
 			b.WriteString("    const q: (readonly [string, string])[] = [];\n")
 			for _, f := range r.QueryFields {
 				name := f.JSONName
+				// useOptionals=messages types these as required, so the
+				// guards are for a caller who is not TypeScript. Without
+				// them an absent field sends the literal "undefined", which
+				// a string-typed parameter binds without complaint.
 				if f.List {
-					fmt.Fprintf(&b, "    for (const v of req.%s) q.push([%q, String(v)]);\n", name, name)
+					fmt.Fprintf(&b, "    for (const v of req.%s ?? []) q.push([%q, String(v)]);\n", name, name)
 				} else {
-					fmt.Fprintf(&b, "    q.push([%q, String(req.%s)]);\n", name, name)
+					fmt.Fprintf(&b, "    if (req.%s !== undefined && req.%s !== null) q.push([%q, String(req.%s)]);\n", name, name, name, name)
 				}
 			}
 		}

@@ -46,13 +46,16 @@ test("a route with no body and no path params sends neither", async () => {
   assert.equal(calls[0].body, undefined);
 });
 
-test("non-2xx throws ApiError carrying status and raw body", async () => {
+test("non-2xx throws ApiError carrying status, raw body and the path requested", async () => {
   const { transport } = fake(404, '{"error":"no such topic"}');
   await assert.rejects(new Client(transport).getTopic({ topicId: "x" }), (e) => {
     assert.ok(e instanceof ApiError);
     assert.equal(e.status, 404);
     assert.equal(e.body, '{"error":"no such topic"}');
-    assert.equal(e.message, "GET /topic/x: HTTP 404");
+    // The path the transport was given, prefix included — an error naming a
+    // path nobody requested is a worse error.
+    assert.equal(e.path, "/metacensus/api/v1/topic/x");
+    assert.equal(e.message, "GET /metacensus/api/v1/topic/x: HTTP 404");
     return true;
   });
 });
