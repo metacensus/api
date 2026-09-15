@@ -1,6 +1,9 @@
-// Assert the generated TypeScript carries no runtime: no declared dependencies,
-// and no value imports under src/. ts-proto's default forceLong would pull in
-// `long`; dropping onlyTypes would pull in protobufjs.
+// Assert the package reaches for no runtime: no declared dependencies, and no
+// value import under src/. ts-proto's default forceLong would pull in `long`;
+// dropping onlyTypes would pull in protobufjs.
+//
+// This is not "the package contains no code" — src/client.ts does. It is that
+// nothing under src/ depends on a module it would have to ship.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -17,7 +20,7 @@ const deps = Object.keys(pkg.dependencies ?? {});
 if (deps.length > 0) {
   failures.push(
     `package.json declares runtime dependencies: ${deps.join(", ")}. ` +
-      `A types-only contract package must have none.`,
+      `A contract package must ship none.`,
   );
 }
 const peers = Object.keys(pkg.peerDependencies ?? {});

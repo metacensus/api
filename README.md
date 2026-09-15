@@ -19,6 +19,7 @@ go/server/       generated handler interfaces + registration, and the hand-writt
 ts/              generated TypeScript interfaces, the npm package
 ts/src/client.ts generated typed client, over a caller-supplied transport
 internal/tools/  the pinned code generators, a module of its own
+internal/chitest/ the generated routes run against real chi, a module of its own
 scripts/         version.sh, which `make release` uses to mint tags
 go.mod           the published Go module, rooted here
 ```
@@ -108,15 +109,12 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 
 ## The generated server
 
-`cmd/routegen` walks the same descriptors that build the manifest and, per service, writes to `go/server/routes_gen.go`:
+`cmd/routegen` walks the same descriptors that build the manifest and, per service, writes to `go/server/routes_gen.go`: a handler interface with one method per rpc — `GetTopic(context.Context, *v1.TopicGetRequest) (*v1.Topic, error)`, path, query and body already bound — an `Unimplemented<Service>` answering 501, and a `Register<Service>(mux Mux, rt *Runtime, impl <Service>)` that binds and dispatches. `go/server/runtime.go` is the hand-written half beside it.
 
-- a handler interface, one method per rpc — `GetTopic(context.Context, *v1.TopicGetRequest) (*v1.Topic, error)` — carrying path, query and body fields already bound;
-- `Unimplemented<Service>`, whose every method answers 501, so a service can be implemented one route at a time by embedding it;
-- `Register<Service>(mux Mux, rt *Runtime, impl <Service>)`, which binds each route's request and dispatches to `impl`.
+**[`go/server/doc.go`](go/server/doc.go) is the package's own account of itself**: what it owns, what it refuses, what it leaves to the router, and why `Mux`, `Unimplemented<Service>`, the error envelope and `Prefix` are shaped the way they are. It is not repeated here. Two facts belong in a README because they decide how you mount:
 
-`Mux` is one method, `Method(method, pattern string, h http.Handler)` — deliberately the shape `chi.Router` already has under that exact name, so a `chi.Router` satisfies it with no adapter and no `go.mod` dependency on chi; a bare `*http.ServeMux` needs the one-line `server.StdMux{ServeMux: mux}` wrapper, because it has no method-specific registration call of its own. `go/server/mux_test.go` proves both shapes against a chi-signature fake, without importing chi.
-
-The runtime beside the generated file, `go/server/runtime.go`, is hand-written and owns what does not belong in a route-by-route rendering: a request body is capped at `Runtime.MaxBodyBytes` (`net/http.MaxBytesReader`, default 1 MiB) and decoded with the contract's own `UnmarshalOptions` — protojson, unknown fields rejected — never `encoding/json`; a response is written with the contract's `Marshal`. Errors are `{"error": "<message>", "code": "<code>"}`, because the contract itself declares no error message and the SPA's existing error handling already reads `.error || .message`; a handler chooses the status by returning `*server.Error`, and anything else becomes an opaque 500 that never leaks the underlying error text. `Runtime.VerifyBody(r, raw)`, if set, runs on the exact received body octets, between reading the body and decoding it — the seam for an `X-Signature` check, which must verify what was actually sent rather than a re-encoding, since protojson's own output is not byte-stable.
+- **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix — chi's `Route`, `http.StripPrefix` — wants the zero value. A router at the origin root wants `routes.Prefix`.
+- **A `chi.Router` also needs `PathValue: server.EscapedPathValue`.** `net/http`'s `ServeMux` percent-decodes a path segment and chi does not, and the generated client percent-encodes every one of them, so the wrong choice silently binds a wrong id. `internal/chitest` runs the generated routes against real chi v5.1.0 in a module of its own, so chi stays out of the published `go.mod`.
 
 **Deliberately excluded:** persistence or a store of any kind. `Unimplemented<Service>` is the whole default implementation; wiring a real one to a database, a cache, or another service is entirely the implementer's, and nothing here assumes a shape for it.
 
@@ -134,19 +132,30 @@ func (topics) GetTopic(ctx context.Context, req *v1.TopicGetRequest) (*v1.Topic,
 }
 
 mux := http.NewServeMux()
-server.RegisterTopicRoutes(server.StdMux{ServeMux: mux}, &server.Runtime{}, topics{})
+server.RegisterTopicRoutes(
+	server.StdMux{ServeMux: mux},
+	&server.Runtime{Prefix: routes.Prefix},
+	topics{},
+)
 ```
 
-or, mounted on a `chi.Router` directly, with no wrapper:
+or on a `chi.Router`, with no wrapper, inside whatever it is already mounted under:
 
 ```go
-r := chi.NewRouter()
-server.RegisterTopicRoutes(r, &server.Runtime{VerifyBody: verifyXSignature}, topics{})
+r.Route(routes.Prefix, func(v1 chi.Router) {
+	v1.Group(func(authed chi.Router) {
+		authed.Use(jwtMiddleware)
+		server.RegisterTopicRoutes(authed, &server.Runtime{
+			PathValue:  server.EscapedPathValue, // chi leaves segments escaped
+			VerifyBody: verifyXSignature,
+		}, topics{})
+	})
+})
 ```
 
 ## The generated client
 
-The same walk writes `ts/src/client.ts`: a single `Client` class, one method per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). Each method builds the path from the request's path fields (percent-encoded per segment), the query string from its query fields, serialises the body exactly once, and hands `{method, path, body?}` to a caller-supplied `Transport`. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there is no runtime schema to validate a response against; a non-2xx throws `ApiError`, carrying the status and the raw response text unparsed, since the contract defines no error message.
+The same walk writes `ts/src/client.ts`: a single `Client` class, one method per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). Each method builds the path from the request's path fields (percent-encoded per segment), the query string from its query fields, serialises the body exactly once, and hands `{method, path, body?}` to a caller-supplied `Transport`. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there is no runtime schema to validate a response against; a non-2xx throws `ApiError`, carrying the status, the path requested and the raw response text unparsed. Parse that text defensively: a 404 or 405 comes from the router before any handler runs, so it is often not JSON at all.
 
 **The `Transport` is where the caller's own concerns live**, deliberately: auth headers, an `X-Signature` computed over `req.body` — the exact octets sent, which is why the client serialises the body once and hands over the string rather than an object — and status policy beyond "2xx parses, the rest throws" (the SPA's 401-clears-the-token-and-redirects behavior, or retries). The client does not call `fetch` itself and carries no cache of its own.
 
@@ -168,10 +177,22 @@ const topic = await api.getTopic({ topicId });
 const created = await api.createTopic({ name, description: "" });
 ```
 
-A request tree containing a `bytes` field is refused at generation time: `JSON.stringify` renders a ts-proto `Uint8Array` as `{"0":1,"1":2}`, not the base64 string protojson expects, and there is no such field in the contract today.
+A `bytes` field anywhere in a request **or** response tree is refused at generation time: ts-proto types it `Uint8Array`, which `JSON.stringify` renders as `{"0":1,"1":2}` rather than the base64 protojson expects, and which `JSON.parse` cannot produce from the base64 that comes back. There is no such field in the contract today.
+
+`useOptionals=messages` makes every scalar required, which pairs with `EmitDefaultValues` on the Go side: `api.createTopic({ name })` does not type-check, `{ name, description: "" }` does.
 
 ## What the tests check
 
-`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path. `go/cmd/routegen/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, the `X-Signature` seam seeing raw octets, the error model, and that every manifest route is actually served.
+`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path. `go/cmd/routegen/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, the `X-Signature` seam seeing raw octets, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `internal/chitest` re-runs the routes on real chi, which is where every claim `go/server/doc.go` makes about router-owned behaviour is checked rather than asserted.
 
-`ts/scripts/check-no-runtime.mjs` asserts the package still declares no runtime: empty `dependencies`, no value imports under `src/`. It does not mean the package contains no executable code any more — `client.ts` does — only that nothing under `src/` reaches for a dependency or a sibling module's runtime value; `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built client, no test-runner dependency) is what exercises that code.
+`ts/scripts/check-no-runtime.mjs` asserts the package ships no runtime: empty `dependencies`, no value imports under `src/`. `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the client, including driving every method the manifest declares and comparing what reaches the transport against the route it says it is.
+
+## Open questions
+
+Written down, not tracked — the four ui issues that held this work were closed as not-planned when the contract moved here, and nothing has replaced them. Each of these is a decision nobody has standing to take yet because the consumer that would settle it does not exist.
+
+- **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` envelope and the client hands back the response text unparsed. A real message (an error-code enum, field-level validation errors) is the obvious next step and is exactly the kind of schema that goes wrong when it is invented before a second consumer exists. Refs [#3](https://github.com/metacensus/api/issues/3).
+- **Where does `Runtime.VerifyBody` sit relative to infra's JWT middleware?** infra has no `X-Signature` verification today, so this seam has no existing behaviour to match — whether it composes with the bearer check or replaces it for these routes is open, as is whether `Register<Service>` mounts at the root or under a sub-`Route`. Refs [#3](https://github.com/metacensus/api/issues/3).
+- **Should the generated client emit a query parameter holding its zero value?** No route declares a query field, so both answers are untested against a real caller, and `EmitDefaultValues` on the response side argues one way while URL length argues the other. Refs [#4](https://github.com/metacensus/api/issues/4).
+- **Should the npm package have a second entry point** (`@metacensus/api/client`) so a bundler can tree-shake the client away from the types, rather than the single root export used here? Refs [#4](https://github.com/metacensus/api/issues/4).
+- **Cross-language wire agreement is still unchecked.** `ts/test` drives the client against the manifest and `go/server` against itself; nothing drives the generated client against the generated server. This was [metacensus/ui#49](https://github.com/metacensus/ui/issues/49), and generating both halves widens what it covers without narrowing it.
