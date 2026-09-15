@@ -1,4 +1,4 @@
-package main
+package model
 
 import (
 	"testing"
@@ -98,8 +98,8 @@ func TestDescriptorsCarryGoPackage(t *testing.T) {
 			return true
 		}
 		opts, _ := fd.Options().(*descriptorpb.FileOptions)
-		if got := opts.GetGoPackage(); got != v1Import+";metacensusv1" {
-			t.Errorf("%s: go_package %q, want %q", fd.Path(), got, v1Import+";metacensusv1")
+		if got := opts.GetGoPackage(); got != V1Import+";metacensusv1" {
+			t.Errorf("%s: go_package %q, want %q", fd.Path(), got, V1Import+";metacensusv1")
 		}
 		return true
 	})
