@@ -3,7 +3,7 @@
 // that binds path/query/body and dispatches to it. The hand-written runtime
 // it calls into is go/server/runtime.go.
 //
-// server.tmpl is embedded and parsed at init so a broken template fails
+// server.go.tmpl is embedded and parsed at init so a broken template fails
 // `make gen` immediately. Its named blocks are executed by a Go loop that
 // mirrors the original imperative writer, one service and one route at a
 // time, so an execution error carries the block, the service and — for the
@@ -20,10 +20,10 @@ import (
 	"github.com/metacensus/api/go/cmd/routegen/internal/model"
 )
 
-//go:embed server.tmpl
+//go:embed server.go.tmpl
 var tmplSrc string
 
-var tmpl = template.Must(template.New("server.tmpl").Funcs(template.FuncMap{
+var tmpl = template.Must(template.New("server.go.tmpl").Funcs(template.FuncMap{
 	"goSlice": model.GoSlice,
 }).Parse(tmplSrc))
 
@@ -91,7 +91,7 @@ func Render(routes []model.Route) []byte {
 	return src
 }
 
-// execute runs one named block of server.tmpl and panics with the block,
+// execute runs one named block of server.go.tmpl and panics with the block,
 // the service and — when there is one — the rpc on failure. The routes
 // executed here already passed model.Walk, so a failure means a broken
 // template, the same class of error format.Source's own panic above
@@ -99,8 +99,8 @@ func Render(routes []model.Route) []byte {
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {
-			panic(fmt.Sprintf("server.tmpl: %s: route %s.%s: %v", block, service, rpc, err))
+			panic(fmt.Sprintf("server.go.tmpl: %s: route %s.%s: %v", block, service, rpc, err))
 		}
-		panic(fmt.Sprintf("server.tmpl: %s: service %s: %v", block, service, err))
+		panic(fmt.Sprintf("server.go.tmpl: %s: service %s: %v", block, service, err))
 	}
 }

@@ -8,7 +8,7 @@
 // cannot survive JSON.stringify as protojson expects, so that rejection is
 // the client's own; the Go server side has no such gap.
 //
-// client.tmpl is embedded and parsed at init so a broken template fails
+// client.ts.tmpl is embedded and parsed at init so a broken template fails
 // `make gen` immediately. Its named blocks are executed by a Go loop that
 // mirrors the original imperative writer, one route at a time, so an
 // execution error carries the block and — for the per-route "route" block —
@@ -29,20 +29,20 @@ import (
 	"github.com/metacensus/api/go/cmd/routegen/internal/model"
 )
 
-//go:embed client.tmpl
+//go:embed client.ts.tmpl
 var tmplSrc string
 
-// funcs are client.tmpl's own helpers: lowerFirst and pathTemplate build TS
+// funcs are client.ts.tmpl's own helpers: lowerFirst and pathTemplate build TS
 // syntax no builtin covers, and join composes a comma list for the import
 // lines. Every Go or TS string literal in the template goes through the
-// builtin printf "%q" instead — see client.tmpl.
+// builtin printf "%q" instead — see client.ts.tmpl.
 var funcs = template.FuncMap{
 	"lowerFirst":   lowerFirst,
 	"pathTemplate": pathTemplate,
 	"join":         func(sep string, items []string) string { return strings.Join(items, sep) },
 }
 
-var tmpl = template.Must(template.New("client.tmpl").Funcs(funcs).Parse(tmplSrc))
+var tmpl = template.Must(template.New("client.ts.tmpl").Funcs(funcs).Parse(tmplSrc))
 
 // field is what the client renderer needs per request field beyond its JSON
 // name: enough of the descriptor to choose an encoding. The manifest and
@@ -185,7 +185,7 @@ func pathTemplate(path string, src string) string {
 	return b.String()
 }
 
-// methodView adds the derived values client.tmpl's "route" block needs
+// methodView adds the derived values client.ts.tmpl's "route" block needs
 // beyond clientRoute: the request-destructuring and query-binding lines
 // (ExtraLines), which branch per query field on Kind and List and so are
 // built once here rather than re-decided inside the template, Src (the
@@ -237,7 +237,7 @@ func newMethodView(cr clientRoute) methodView {
 	return mv
 }
 
-// fileImport is client.tmpl's "import" block data: one generated file and
+// fileImport is client.ts.tmpl's "import" block data: one generated file and
 // the type names pulled from it, both already sorted so re-running the
 // generator is stable.
 type fileImport struct {
@@ -314,16 +314,16 @@ func Render(routes []model.Route) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// execute runs one named block of client.tmpl and wraps a failure with the
+// execute runs one named block of client.ts.tmpl and wraps a failure with the
 // block and — for the per-route "route" block — the rpc that was being
 // rendered. Every route reaching here already passed describeClient, so a
 // failure means a broken template rather than bad input.
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {
-			return fmt.Errorf("client.tmpl: %s: route %s.%s: %w", block, service, rpc, err)
+			return fmt.Errorf("client.ts.tmpl: %s: route %s.%s: %w", block, service, rpc, err)
 		}
-		return fmt.Errorf("client.tmpl: %s: %w", block, err)
+		return fmt.Errorf("client.ts.tmpl: %s: %w", block, err)
 	}
 	return nil
 }

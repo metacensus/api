@@ -15,6 +15,13 @@
 // cmd/routegen; model imports no renderer. imports_test.go asserts this
 // against the actual import graph.
 //
+// Every renderer's templates are text/template, embedded with go:embed and
+// parsed at init. A template file is named <name>.<destination-extension>.tmpl
+// — manifest.go.tmpl and manifest.ts.tmpl render the same route to Go and
+// TypeScript, server.go.tmpl renders Go, client.ts.tmpl renders TypeScript —
+// so the extension the file is embedded to render is visible in its name
+// rather than only in the //go:embed line that reads it.
+//
 // It reads the descriptors the generated Go package registers, so it runs
 // after `buf generate`. None of this changes the route table: routegen only
 // deepens what is generated from the routes already declared, and refuses

@@ -25,10 +25,10 @@ import (
 	"github.com/metacensus/api/go/cmd/routegen/internal/model"
 )
 
-//go:embed manifest_go.tmpl
+//go:embed manifest.go.tmpl
 var goTmplSrc string
 
-//go:embed manifest_ts.tmpl
+//go:embed manifest.ts.tmpl
 var tsTmplSrc string
 
 // funcs are the helpers every routegen template can call: goSlice and
@@ -43,11 +43,11 @@ var funcs = template.FuncMap{
 }
 
 var (
-	goTmpl = template.Must(template.New("manifest_go.tmpl").Funcs(funcs).Parse(goTmplSrc))
-	tsTmpl = template.Must(template.New("manifest_ts.tmpl").Funcs(funcs).Parse(tsTmplSrc))
+	goTmpl = template.Must(template.New("manifest.go.tmpl").Funcs(funcs).Parse(goTmplSrc))
+	tsTmpl = template.Must(template.New("manifest.ts.tmpl").Funcs(funcs).Parse(tsTmplSrc))
 )
 
-// apiPrefixData is every field manifest_go.tmpl's and manifest_ts.tmpl's
+// apiPrefixData is every field manifest.go.tmpl's and manifest.ts.tmpl's
 // "header" block reference outside the route loop.
 type apiPrefixData struct{ APIPrefix string }
 
@@ -55,11 +55,11 @@ type apiPrefixData struct{ APIPrefix string }
 // []Route literal, gofmt'd.
 func RenderGo(routes []model.Route) []byte {
 	var b bytes.Buffer
-	execute(&b, goTmpl, "manifest_go.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
+	execute(&b, goTmpl, "manifest.go.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
 	for _, r := range routes {
-		execute(&b, goTmpl, "manifest_go.tmpl", "route", r, r.Service, r.RPC)
+		execute(&b, goTmpl, "manifest.go.tmpl", "route", r, r.Service, r.RPC)
 	}
-	execute(&b, goTmpl, "manifest_go.tmpl", "footer", nil, "", "")
+	execute(&b, goTmpl, "manifest.go.tmpl", "footer", nil, "", "")
 
 	src, err := format.Source(b.Bytes())
 	if err != nil {
@@ -73,11 +73,11 @@ func RenderGo(routes []model.Route) []byte {
 // its whitespace is exactly what the template emits.
 func RenderTS(routes []model.Route) []byte {
 	var b bytes.Buffer
-	execute(&b, tsTmpl, "manifest_ts.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
+	execute(&b, tsTmpl, "manifest.ts.tmpl", "header", apiPrefixData{model.APIPrefix}, "", "")
 	for _, r := range routes {
-		execute(&b, tsTmpl, "manifest_ts.tmpl", "route", r, r.Service, r.RPC)
+		execute(&b, tsTmpl, "manifest.ts.tmpl", "route", r, r.Service, r.RPC)
 	}
-	execute(&b, tsTmpl, "manifest_ts.tmpl", "footer", nil, "", "")
+	execute(&b, tsTmpl, "manifest.ts.tmpl", "footer", nil, "", "")
 	return b.Bytes()
 }
 
