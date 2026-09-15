@@ -12,7 +12,8 @@ import "net/http"
 const DefaultMaxBodyBytes int64 = 1 << 20
 
 // Runtime is what every generated handler runs against. The zero value is
-// usable: no prefix, DefaultMaxBodyBytes, StdPathValue, no body verification.
+// usable on a StdMux: no prefix, DefaultMaxBodyBytes, StdPathValue, no body
+// verification. Any other Mux has to set PathValue.
 // It persists nothing and validates only what binding requires; wiring
 // persistence, or any authentication beyond VerifyBody, is the implementer's.
 type Runtime struct {
@@ -29,8 +30,13 @@ type Runtime struct {
 
 	// PathValue reads one path parameter out of a matched request. It is the
 	// one thing Mux cannot carry: registration is identical across routers
-	// and extraction is not. Zero means StdPathValue; a chi.Router needs
-	// EscapedPathValue.
+	// and extraction is not, and both wrong answers bind a wrong id and
+	// answer 200 (see StdPathValue and EscapedPathValue).
+	//
+	// So there is no default to guess. StdMux is the only router this
+	// package can identify, and it is the only one that may leave this
+	// unset; Register<Service> panics for any other Mux — a chi.Router
+	// included — until it is set.
 	PathValue PathValueFunc
 
 	// VerifyBody, when set, sees the raw request body — the octets as
@@ -45,6 +51,30 @@ type Runtime struct {
 
 func (rt *Runtime) prefix() string { return rt.Prefix }
 
+// checkPathValue fails registration when the runtime cannot know how mux's
+// router spells a matched path segment. It runs once per Register<Service>,
+// so the mistake surfaces at startup rather than as a wrong id on the first
+// request that carries a character worth escaping.
+//
+// StdMux is the only Mux whose router this package wrote the adapter for, so
+// it is the only one whose convention can be inferred. Anything else has to
+// say.
+func (rt *Runtime) checkPathValue(mux Mux) {
+	if rt.PathValue != nil {
+		return
+	}
+	if _, ok := mux.(StdMux); ok {
+		return
+	}
+	panic("server: Runtime.PathValue is unset and mux is not a StdMux. " +
+		"Set it to the convention this router uses: a chi.Router needs " +
+		"server.EscapedPathValue, a *http.ServeMux wrapped in server.StdMux " +
+		"needs server.StdPathValue. Guessing binds a wrong id with a 200.")
+}
+
+// pathValue is what a handler reads a segment through. checkPathValue has
+// already run at registration, so the fallback here is only reached for a
+// StdMux, where it is right by construction rather than by guess.
 func (rt *Runtime) pathValue() PathValueFunc {
 	if rt.PathValue != nil {
 		return rt.PathValue

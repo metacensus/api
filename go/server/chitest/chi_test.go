@@ -52,7 +52,12 @@ func TestPathValueDecoding(t *testing.T) {
 	t.Run("StdPathValue leaves chi's segment escaped", func(t *testing.T) {
 		impl := &topics{}
 		r := chi.NewRouter()
-		server.RegisterTopicRoutes(r, &server.Runtime{Prefix: routes.Prefix}, impl)
+		// Set explicitly: Runtime refuses to guess this for a chi.Router, and
+		// what this subtest pins is that the guess would have been wrong.
+		server.RegisterTopicRoutes(r, &server.Runtime{
+			Prefix:    routes.Prefix,
+			PathValue: server.StdPathValue,
+		}, impl)
 
 		if rec := get(r, routes.Prefix+"/topic/"+escaped); rec.Code != 200 {
 			t.Fatalf("status %d: %s", rec.Code, rec.Body)
@@ -91,6 +96,54 @@ func TestPathValueDecoding(t *testing.T) {
 			t.Errorf("bound %q, want %q", impl.gotID, id)
 		}
 	})
+
+	// The other direction, which nothing pinned before: EscapedPathValue on a
+	// StdMux decodes a segment net/http already decoded. It is silent for an
+	// ordinary id and wrong for exactly the ids that made this a question.
+	t.Run("EscapedPathValue on a StdMux double-decodes", func(t *testing.T) {
+		for _, tc := range []struct {
+			id     string
+			status int
+			bound  string
+		}{
+			{"plain", 200, "plain"},
+			{"50%2Fx", 200, "50/x"}, // one decode too many
+			{"a%20b", 200, "a b"},   // likewise
+			{"100%", 400, ""},       // trailing % is not valid escaping, twice over
+		} {
+			impl := &topics{}
+			mux := http.NewServeMux()
+			server.RegisterTopicRoutes(server.StdMux{ServeMux: mux}, &server.Runtime{
+				Prefix:    routes.Prefix,
+				PathValue: server.EscapedPathValue,
+			}, impl)
+
+			rec := get(mux, routes.Prefix+"/topic/"+url.PathEscape(tc.id))
+			if rec.Code != tc.status || impl.gotID != tc.bound {
+				t.Errorf("id %q: status %d bound %q, want %d %q",
+					tc.id, rec.Code, impl.gotID, tc.status, tc.bound)
+			}
+			if tc.bound != tc.id && impl.gotID == tc.id {
+				t.Errorf("id %q survived; EscapedPathValue may now be safe on a StdMux", tc.id)
+			}
+		}
+	})
+}
+
+// Registration refuses a chi.Router until the runtime says which convention
+// it uses. Before this, the zero value picked StdPathValue — the wrong one
+// for the router metacensus/infra actually mounts.
+func TestChiRouterMustDeclareItsPathValue(t *testing.T) {
+	defer func() {
+		p := recover()
+		if p == nil {
+			t.Fatal("registered on a chi.Router with PathValue unset")
+		}
+		if msg, _ := p.(string); !strings.Contains(msg, "EscapedPathValue") {
+			t.Errorf("panic does not name the fix: %v", p)
+		}
+	}()
+	server.RegisterTopicRoutes(chi.NewRouter(), &server.Runtime{Prefix: routes.Prefix}, &topics{})
 }
 
 // metacensus/infra mounts everything inside chi's Route(routes.Prefix, ...),
@@ -150,7 +203,8 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 // states each of these; this is what makes the statement a check.
 func TestWhatChiOwns(t *testing.T) {
 	r := chi.NewRouter()
-	server.RegisterTopicRoutes(r, &server.Runtime{Prefix: routes.Prefix}, &topics{})
+	rt := &server.Runtime{Prefix: routes.Prefix, PathValue: server.EscapedPathValue}
+	server.RegisterTopicRoutes(r, rt, &topics{})
 
 	t.Run("HEAD on a GET route is 405, where net/http answers 200", func(t *testing.T) {
 		rec := httptest.NewRecorder()

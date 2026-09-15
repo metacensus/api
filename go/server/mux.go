@@ -64,9 +64,11 @@ func StdPathValue(r *http.Request, name string) (string, error) {
 //
 //	server.Runtime{PathValue: server.EscapedPathValue}
 //
-// Choosing wrong is silent for an id that contains nothing worth escaping,
-// which is why go/server/chitest asserts both halves against real chi rather
-// than leaving this to a comment.
+// A StdMux must not have it. net/http has already decoded once, so a second
+// decode turns the id "50%2Fx" into "50/x" with a 200 and rejects "100%" with
+// a 400. Choosing wrong in either direction is silent for an id containing
+// nothing worth escaping, which is why go/server/chitest pins both directions
+// against real routers rather than leaving this to a comment.
 //
 // The error is unreachable behind net/http, which rejects a request URI with
 // a bad escape before routing; it exists so that a router feeding this

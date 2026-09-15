@@ -38,6 +38,7 @@ type Unimplemented{{.Name}} struct{}
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
 // rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
+	rt.checkPathValue(mux)
 {{end}}
 {{define "registerRoute"}}	mux.Method({{printf "%q" .Method}}, rt.prefix()+{{printf "%q" .Path}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.{{.GoRequest}})

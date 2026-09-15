@@ -3,6 +3,7 @@ package server_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/metacensus/api/go/routes"
@@ -49,7 +50,10 @@ func TestPrefixIsLiteral(t *testing.T) {
 		{"/v1", "GET /v1/topic"},
 	} {
 		fake := &fakeChiRouter{}
-		server.RegisterTopicRoutes(fake, &server.Runtime{Prefix: tc.prefix}, server.UnimplementedTopicRoutes{})
+		server.RegisterTopicRoutes(fake, &server.Runtime{
+			Prefix:    tc.prefix,
+			PathValue: server.EscapedPathValue,
+		}, server.UnimplementedTopicRoutes{})
 		found := false
 		for _, got := range fake.registered {
 			if got == tc.want {
@@ -64,7 +68,10 @@ func TestPrefixIsLiteral(t *testing.T) {
 
 func TestMuxAcceptsAChiShapedRouter(t *testing.T) {
 	fake := &fakeChiRouter{}
-	server.RegisterTopicRoutes(fake, &server.Runtime{Prefix: routes.Prefix}, server.UnimplementedTopicRoutes{})
+	server.RegisterTopicRoutes(fake, &server.Runtime{
+		Prefix:    routes.Prefix,
+		PathValue: server.EscapedPathValue,
+	}, server.UnimplementedTopicRoutes{})
 	if len(fake.registered) != 6 {
 		t.Fatalf("got %d registrations, want 6 (one per TopicRoutes rpc)", len(fake.registered))
 	}
@@ -100,4 +107,27 @@ func TestStdMuxSatisfiesMux(t *testing.T) {
 	if rec.Code != http.StatusNotImplemented {
 		t.Fatalf("status = %d, want %d (Unimplemented)", rec.Code, http.StatusNotImplemented)
 	}
+}
+
+// The seam has two wrong settings and both answer 200 with a wrong id, so the
+// zero value may not guess: registration refuses a Mux this package cannot
+// identify until the runtime says which convention the router uses.
+func TestRegisterRefusesAnUnidentifiedMuxWithNoPathValue(t *testing.T) {
+	defer func() {
+		p := recover()
+		if p == nil {
+			t.Fatal("registered on a non-StdMux with PathValue unset")
+		}
+		if msg, _ := p.(string); !strings.Contains(msg, "EscapedPathValue") {
+			t.Errorf("panic does not name the fix: %v", p)
+		}
+	}()
+	server.RegisterTopicRoutes(&fakeChiRouter{}, &server.Runtime{Prefix: routes.Prefix}, server.UnimplementedTopicRoutes{})
+}
+
+// A StdMux is the one router this package wrote the adapter for, so it is the
+// one whose convention can be inferred.
+func TestStdMuxMayLeavePathValueUnset(t *testing.T) {
+	server.RegisterTopicRoutes(server.StdMux{ServeMux: http.NewServeMux()},
+		&server.Runtime{Prefix: routes.Prefix}, server.UnimplementedTopicRoutes{})
 }
