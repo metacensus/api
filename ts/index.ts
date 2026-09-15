@@ -1,4 +1,6 @@
-// The MetaCensus API contract, as TypeScript. Types only, no runtime.
+// The MetaCensus API contract, as TypeScript: generated types, the route
+// manifest, and a generated client. No runtime dependencies, no value import
+// of a third-party module — see ts/scripts/check-no-runtime.mjs.
 //
 // Everything under ./src is generated; a new .proto file needs a line here.
 
@@ -13,3 +15,4 @@ export * from "./src/route-manifest.js";
 // Every generated file exports an identical `protobufPackage`, so `export *`
 // cannot pick one.
 export { protobufPackage } from "./src/metacensus/v1/common.js";
+export * from "./src/client.js";

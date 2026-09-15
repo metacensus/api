@@ -1,7 +1,20 @@
-// Command routegen writes the route manifest for Go and TypeScript from the
-// google.api.http annotations on every service in metacensus.v1. It reads the
-// descriptors the generated Go package registers, so it runs after
-// `buf generate`.
+// Command routegen writes the route manifest, a Go server and a TypeScript
+// client for metacensus.v1 from the google.api.http annotations on each
+// service. One walk of the compiled descriptors feeds four renderers:
+//   - go/routes/manifest.go and ts/src/route-manifest.ts, the data-only
+//     manifest (renderGo, renderTS);
+//   - go/server/routes_gen.go, a handler interface, an Unimplemented* and a
+//     Register* per service that binds path/query/body and dispatches to it
+//     (renderServer) — the hand-written runtime beside it is
+//     go/server/runtime.go;
+//   - ts/src/client.ts, a typed method per rpc over a caller-supplied
+//     transport (renderClient).
+//
+// It reads the descriptors the generated Go package registers, so it runs
+// after `buf generate`. None of this changes the route table: routegen only
+// deepens what is generated from the 19 routes already declared, and refuses
+// to generate at all for a route shape it cannot bind (see describe and
+// describeClient).
 package main
 
 import (
@@ -10,6 +23,7 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -27,6 +41,12 @@ const (
 	protoPkg = "metacensus.v1"
 	goOut    = "go/routes/manifest.go"
 	tsOut    = "ts/src/route-manifest.ts"
+	srvOut   = "go/server/routes_gen.go"
+
+	// v1Import is the generated package the server code binds against. The
+	// generator itself imports it (above) to register the descriptors, so the
+	// two cannot name different packages.
+	v1Import = "github.com/metacensus/api/go/metacensus/v1"
 
 	// apiPrefix is the path every route in the manifest is relative to, and the
 	// only place this string is written down. Both generated manifests take it
@@ -51,6 +71,21 @@ type route struct {
 	Body     string
 	Request  string
 	Response string
+
+	// The server rendering needs the Go side of the same facts: the Go type
+	// names protoc-gen-go gave the messages and, per path parameter, the Go
+	// struct field it binds. None of these are derived by re-implementing
+	// protoc-gen-go's naming; see goNames.
+	GoRequest  string
+	GoResponse string
+	PathFields []pathField
+}
+
+// pathField pairs a path parameter's wire spelling with the generated Go
+// struct field that carries it.
+type pathField struct {
+	JSONName string
+	GoField  string
 }
 
 func main() {
@@ -82,14 +117,22 @@ func run() error {
 	}
 
 	var routes []route
+	var clientRoutes []clientRoute
 
 	for _, svc := range services() {
 		for i := 0; i < svc.Methods().Len(); i++ {
-			r, err := describe(svc.Methods().Get(i))
+			md := svc.Methods().Get(i)
+			r, err := describe(md)
 			if err != nil {
 				return err
 			}
 			routes = append(routes, r)
+
+			cr, err := describeClient(md, r)
+			if err != nil {
+				return err
+			}
+			clientRoutes = append(clientRoutes, cr)
 		}
 	}
 	if len(routes) == 0 {
@@ -99,7 +142,13 @@ func run() error {
 	if err := write(goOut, renderGo(routes)); err != nil {
 		return err
 	}
-	return write(tsOut, renderTS(routes))
+	if err := write(tsOut, renderTS(routes)); err != nil {
+		return err
+	}
+	if err := write(srvOut, renderServer(routes)); err != nil {
+		return err
+	}
+	return write(clientOut, renderClient(clientRoutes))
 }
 
 // services returns every service in the package, ordered by file then by
@@ -158,17 +207,119 @@ func describe(md protoreflect.MethodDescriptor) (route, error) {
 		return route{}, fmt.Errorf("%s: %w", md.Name(), err)
 	}
 
+	// The server rendering binds the request statically, so it needs facts
+	// the manifest does not, and it refuses shapes it could not bind.
+	if body != "" && body != "*" {
+		// A named body decodes the body into one sub-message and leaves the
+		// rest to the query string. Nothing in the contract does this and the
+		// binding it needs (a message-typed field, a second decode target) is
+		// not worth carrying unused.
+		return route{}, fmt.Errorf("%s: body %q names a field; only body: \"*\" or no body is supported", md.Name(), body)
+	}
+	req, resp, err := goNames(md.Input(), md.Output())
+	if err != nil {
+		return route{}, fmt.Errorf("%s: %w", md.Name(), err)
+	}
+	var pathFields []pathField
+	for _, p := range params {
+		fd := fieldByJSONName(md.Input(), p)
+		if fd.Kind() != protoreflect.StringKind || fd.IsList() {
+			// Path segments are strings on the wire. Binding a non-string
+			// would mean parsing, with a 400 on failure and a Go-side
+			// conversion per kind; ids are strings here (TestIdsAreStrings),
+			// so this is a shape the contract does not have.
+			return route{}, fmt.Errorf("%s: path parameter %q is %s, not a singular string", md.Name(), p, fd.Kind())
+		}
+		if fd.ContainingOneof() != nil {
+			return route{}, fmt.Errorf("%s: path parameter %q is a oneof member; the generated binding sets struct fields directly", md.Name(), p)
+		}
+		goField, ok := req.fields[fd.Name()]
+		if !ok {
+			return route{}, fmt.Errorf("%s: no Go struct field carries %s", md.Name(), fd.FullName())
+		}
+		pathFields = append(pathFields, pathField{JSONName: p, GoField: goField})
+	}
+	for _, q := range query {
+		fd := fieldByJSONName(md.Input(), q)
+		if fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind || fd.IsMap() {
+			// Query strings carry scalars. google.api.http allows nested
+			// `a.b=1`, which needs a path walker; none of the routes need it.
+			return route{}, fmt.Errorf("%s: query parameter %q is %s; only scalar query fields are supported", md.Name(), q, fd.Kind())
+		}
+	}
+
 	return route{
-		Service:  string(md.Parent().Name()),
-		RPC:      string(md.Name()),
-		Method:   method,
-		Path:     path,
-		Params:   params,
-		Query:    query,
-		Body:     body,
-		Request:  string(md.Input().Name()),
-		Response: string(md.Output().Name()),
+		Service:    string(md.Parent().Name()),
+		RPC:        string(md.Name()),
+		Method:     method,
+		Path:       path,
+		Params:     params,
+		Query:      query,
+		Body:       body,
+		Request:    string(md.Input().Name()),
+		Response:   string(md.Output().Name()),
+		GoRequest:  req.typeName,
+		GoResponse: resp.typeName,
+		PathFields: pathFields,
 	}, nil
+}
+
+func fieldByJSONName(md protoreflect.MessageDescriptor, jsonName string) protoreflect.FieldDescriptor {
+	return md.Fields().ByJSONName(jsonName)
+}
+
+// goType is what the server rendering knows about one generated Go message
+// type: its name and the Go struct field for each proto field.
+type goType struct {
+	typeName string
+	fields   map[protoreflect.Name]string
+}
+
+// goNames reads the Go names protoc-gen-go emitted, off the generated code
+// itself, rather than re-deriving them. protoc-gen-go's camel-casing and its
+// collision suffixing live in internal packages that cannot be imported, and
+// a copy would drift from them silently. The generated struct carries a
+// `protobuf:"...,name=<proto name>,..."` tag on every field, so the mapping
+// from proto field to Go field is read from the type that the descriptors
+// registered — whatever protoc-gen-go produced is by construction what is
+// returned. TestGoNamesAgreeWithProtogen cross-checks this against
+// compiler/protogen, the public package protoc-gen-go is built on.
+func goNames(mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
+	var out [2]goType
+	for i, md := range mds {
+		mt, err := protoregistry.GlobalTypes.FindMessageByName(md.FullName())
+		if err != nil {
+			return goType{}, goType{}, fmt.Errorf("%s: not registered as a Go type: %w", md.FullName(), err)
+		}
+		t := reflect.TypeOf(mt.New().Interface())
+		if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct {
+			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not a pointer to struct", md.FullName(), t)
+		}
+		if t.Elem().PkgPath() != v1Import {
+			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, v1Import)
+		}
+		out[i] = goType{typeName: t.Elem().Name(), fields: map[protoreflect.Name]string{}}
+		for j := 0; j < t.Elem().NumField(); j++ {
+			sf := t.Elem().Field(j)
+			for _, part := range strings.Split(sf.Tag.Get("protobuf"), ",") {
+				if name, ok := strings.CutPrefix(part, "name="); ok {
+					out[i].fields[protoreflect.Name(name)] = sf.Name
+				}
+			}
+		}
+		// Every field the descriptor declares must have been found on the
+		// struct, or the tag format has changed under us.
+		for j := 0; j < md.Fields().Len(); j++ {
+			fd := md.Fields().Get(j)
+			if fd.ContainingOneof() != nil {
+				continue // oneof members sit behind an interface field
+			}
+			if _, ok := out[i].fields[fd.Name()]; !ok {
+				return goType{}, goType{}, fmt.Errorf("%s: no struct field tagged name=%s on %s", md.FullName(), fd.Name(), t)
+			}
+		}
+	}
+	return out[0], out[1], nil
 }
 
 // rewriteParams replaces each {field} segment with {jsonName} and returns the
@@ -337,4 +488,91 @@ func write(path string, content []byte) error {
 		return err
 	}
 	return os.WriteFile(path, content, 0o644)
+}
+
+// renderServer writes the Go server half: one handler interface per service,
+// an Unimplemented* per service, and one Register* per service that binds
+// each route's request and dispatches it. The hand-written runtime it calls
+// into is go/server/runtime.go.
+func renderServer(routes []route) []byte {
+	var b bytes.Buffer
+
+	b.WriteString("// Code generated by cmd/routegen. DO NOT EDIT.\n\n")
+	b.WriteString("package server\n\n")
+	b.WriteString("import (\n")
+	b.WriteString("\t\"context\"\n")
+	b.WriteString("\t\"net/http\"\n\n")
+	fmt.Fprintf(&b, "\tv1 %q\n", v1Import)
+	b.WriteString(")\n\n")
+
+	// Group by service, preserving order.
+	var order []string
+	byService := map[string][]route{}
+	for _, r := range routes {
+		if _, ok := byService[r.Service]; !ok {
+			order = append(order, r.Service)
+		}
+		byService[r.Service] = append(byService[r.Service], r)
+	}
+
+	for _, svc := range order {
+		rs := byService[svc]
+
+		fmt.Fprintf(&b, "// %s is what an implementation of the %s service provides.\n", svc, svc)
+		b.WriteString("// One method per route; the request carries path, query and body fields\n")
+		b.WriteString("// already bound.\n")
+		fmt.Fprintf(&b, "type %s interface {\n", svc)
+		for _, r := range rs {
+			fmt.Fprintf(&b, "\t// %s %s\n", r.Method, r.Path)
+			fmt.Fprintf(&b, "\t%s(context.Context, *v1.%s) (*v1.%s, error)\n", r.RPC, r.GoRequest, r.GoResponse)
+		}
+		b.WriteString("}\n\n")
+
+		fmt.Fprintf(&b, "// Unimplemented%s answers every %s route with 501. Embed it to\n", svc, svc)
+		b.WriteString("// implement a service one route at a time.\n")
+		fmt.Fprintf(&b, "type Unimplemented%s struct{}\n\n", svc)
+		for _, r := range rs {
+			fmt.Fprintf(&b, "func (Unimplemented%s) %s(context.Context, *v1.%s) (*v1.%s, error) {\n", svc, r.RPC, r.GoRequest, r.GoResponse)
+			fmt.Fprintf(&b, "\treturn nil, errNotImplemented(%q)\n", svc+"."+r.RPC)
+			b.WriteString("}\n\n")
+		}
+
+		fmt.Fprintf(&b, "// Register%s registers every %s route on mux, under rt's prefix. mux\n", svc, svc)
+		b.WriteString("// needs only Method(method, pattern string, http.Handler): a *http.ServeMux\n")
+		b.WriteString("// wrapped in StdMux, or a chi.Router, both satisfy it.\n")
+		fmt.Fprintf(&b, "func Register%s(mux Mux, rt *Runtime, impl %s) {\n", svc, svc)
+		for _, r := range rs {
+			fmt.Fprintf(&b, "\tmux.Method(%q, rt.prefix()+%q, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n", r.Method, r.Path)
+			fmt.Fprintf(&b, "\t\treq := new(v1.%s)\n", r.GoRequest)
+			if r.Body != "*" && len(r.PathFields) > 0 {
+				b.WriteString("\t\tvar err error\n")
+			}
+			if r.Body == "*" {
+				b.WriteString("\t\traw, err := rt.readBody(w, r)\n")
+				b.WriteString("\t\tif err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n")
+				b.WriteString("\t\tif err := rt.verifyBody(r, raw); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n")
+				b.WriteString("\t\tif err := rt.decodeBody(raw, req); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n")
+			}
+			if len(r.Query) > 0 {
+				fmt.Fprintf(&b, "\t\tif err := rt.bindQuery(r, req, %s); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n", goSlice(r.Query))
+			}
+			for _, p := range r.PathFields {
+				// The body may legitimately repeat a path-bound field (a
+				// request message models the whole request). The path is
+				// authoritative; a body value that disagrees is a 400.
+				fmt.Fprintf(&b, "\t\tif req.%s, err = rt.pathParam(r, %q, req.%s); err != nil {\n\t\t\trt.writeError(w, err)\n\t\t\treturn\n\t\t}\n", p.GoField, p.JSONName, p.GoField)
+			}
+			fmt.Fprintf(&b, "\t\tresp, err := impl.%s(r.Context(), req)\n", r.RPC)
+			b.WriteString("\t\trt.respond(w, resp, err)\n")
+			b.WriteString("\t}))\n")
+		}
+		b.WriteString("}\n\n")
+	}
+
+	src, err := format.Source(b.Bytes())
+	if err != nil {
+		// Show the unformatted source: the error's line numbers refer to it.
+		panic(fmt.Sprintf("%v\n%s", err, b.Bytes()))
+	}
+	return src
 }

@@ -90,6 +90,7 @@ check: lint format-check test
 	# binary in the working directory.
 	go build -o /dev/null ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
+	cd $(TS_DIR) && npm test
 
 ## hooks — opt in to the pre-commit hook; unset core.hooksPath to opt out
 hooks:
@@ -97,8 +98,12 @@ hooks:
 	@echo "core.hooksPath set to .githooks"
 
 ## clean — remove generated output and built tools; `make gen` puts them back
+#
+# go/server/routes_gen.go is the one generated file that shares a directory
+# with hand-written source (runtime.go, the tests): it is named, not swept up
+# by directory, so clean cannot take runtime.go with it.
 clean:
-	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(BIN)
+	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src $(BIN)
 
 # ---------------------------------------------------------------------------
 # Release
