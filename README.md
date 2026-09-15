@@ -129,7 +129,9 @@ It is not expressed in the `.proto`: `google.api.http` carries a path per route 
 - **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix — chi's `Route`, `http.StripPrefix` — wants the zero value. A router at the origin root wants `routes.Prefix`.
 - **Any `Mux` that is not a `StdMux` must set `PathValue`**, and a `chi.Router` wants `server.EscapedPathValue`. `net/http`'s `ServeMux` percent-decodes a path segment and chi does not, and the generated client percent-encodes every one of them, so either wrong answer binds a wrong id and answers 200. `Register<Service>` therefore refuses to guess: it panics at registration until the field is set. `go/server/chitest` pins both directions against real chi v5.1.0 in a module of its own, so chi stays out of the published `go.mod`.
 
-**Deliberately excluded:** persistence or a store of any kind. `Unimplemented<Service>` is the whole default implementation; wiring a real one to a database, a cache, or another service is entirely the implementer's, and nothing here assumes a shape for it.
+- **A service whose rpcs do not all sit behind the same middleware needs `server.Except`.** `Register<Service>` registers a whole service on one `Mux`, and the auth boundary does not always follow the service boundary — `metacensus/infra` mounts `AuthRoutes.Login` and `AuthRoutes.SignUp` publicly and `AuthRoutes.Logout` behind its JWT check. `Except` sends the named rpcs to a second router and keeps the patterns in the manifest, so a renamed rpc panics at startup instead of mounting on the wrong side.
+
+**Deliberately excluded:** persistence or a store of any kind. `Unimplemented<Service>` is the whole default implementation; wiring a real one to a database, a cache, or another service is entirely the implementer's, and nothing here assumes a shape for it. The contract's messages are `v1.*`; a backend whose store speaks its own types — infra's `core/shared/types` today — writes that conversion itself, and nothing here generates it.
 
 An implementer writes:
 
@@ -155,13 +157,21 @@ server.RegisterTopicRoutes(
 or on a `chi.Router`, with no wrapper, inside whatever it is already mounted under:
 
 ```go
+rt := &server.Runtime{
+	PathValue:  server.EscapedPathValue, // chi leaves segments escaped
+	VerifyBody: verifyXSignature,
+}
+
 r.Route(routes.Prefix, func(v1 chi.Router) {
 	v1.Group(func(authed chi.Router) {
 		authed.Use(jwtMiddleware)
-		server.RegisterTopicRoutes(authed, &server.Runtime{
-			PathValue:  server.EscapedPathValue, // chi leaves segments escaped
-			VerifyBody: verifyXSignature,
-		}, topics{})
+
+		server.RegisterTopicRoutes(authed, rt, topics{})
+
+		// Login and SignUp are public; the rest of AuthRoutes is not.
+		server.RegisterAuthRoutes(
+			server.Except(authed, v1, rt, "AuthRoutes.Login", "AuthRoutes.SignUp"),
+			rt, auth{})
 	})
 })
 ```
