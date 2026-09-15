@@ -37,22 +37,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          # internal/tools is where the expensive graph lives; cache on both.
+          # routegen is where the expensive graph lives; cache on both
+          # modules, since each resolves its own.
           cache-dependency-path: |
             go.sum
-            internal/tools/go.sum
+            routegen/go.sum
 
       - name: Restore the built code generators
         # Building buf from source is 54s of a ~78s job, and it only changes
-        # when internal/tools does.
+        # when routegen's requirements do.
         uses: actions/cache@v4
         with:
           path: bin
-          key: gentools-${{ runner.os }}-${{ hashFiles('internal/tools/go.sum', 'internal/tools/go.mod', 'Makefile') }}
+          key: gentools-${{ runner.os }}-${{ hashFiles('routegen/go.sum', 'routegen/go.mod', 'Makefile') }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: ts/.nvmrc
           cache: npm
           cache-dependency-path: ts/package-lock.json
 
@@ -62,18 +63,12 @@ jobs:
       - name: Build the pinned code generators
         run: make tools
 
-      - name: Lint the proto sources
-        run: make lint
-
-      - name: Check proto formatting
-        run: make format-check
-
       # Breaking-change detection is off. See #14, which carries the trigger
       # for turning it back on.
       #
       # It compared against the latest release tag. That is the right target
       # once something is published, but nothing consumes this contract and
-      # the only tag, v0.1.0, exists to exercise the release path rather than
+      # the only tag exists to exercise the release path rather than
       # to promise anything — so a throwaway tag became the baseline for every
       # branch. Removing paper.proto (#9) has failed the step on main and on
       # every open PR since. Because it sits here, that failure aborts the job
@@ -113,6 +108,19 @@ jobs:
       #     echo "comparing against ${against:-<nothing released yet>}"
       #     make breaking BREAKING_AGAINST="$against"
 
+      # `make check` and not a list of steps. The Makefile already names what
+      # a check is — lint, format-check, go test, the chi conformance module,
+      # build and vet, the TypeScript check, the client's tests — and CI
+      # re-spelling that list is the same information twice with nothing
+      # making the two agree. They had already drifted: the Makefile ran the
+      # conformance module under GOWORK=off and a pinned GOTOOLCHAIN and this
+      # file did not. A developer running `make check` now runs what CI runs,
+      # which is what the README has always claimed.
+      - name: Check
+        run: make check
+
+      # The one thing `make check` deliberately leaves out, because it is a
+      # question about the commit rather than about the code.
       - name: Regenerate everything
         run: make gen
 
@@ -131,21 +139,3 @@ jobs:
             echo "$untracked"
             exit 1
           fi
-
-      - name: Build and vet the Go module
-        run: |
-          go build -o /dev/null ./...
-          go vet ./...
-
-      - name: Run the schema and route invariants
-        run: go test ./...
-
-      - name: Type-check the TypeScript and assert it has no runtime
-        working-directory: ts
-        run: npm run check
-
-      - name: Build the npm package
-        # Not published here — this only proves the publish build compiles, so a
-        # broken build fails on the PR rather than at release time.
-        working-directory: ts
-        run: npm run build

@@ -1,11 +1,13 @@
 # The MetaCensus API contract. Run from the repository root.
 #
-# buf and protoc-gen-go are `tool` dependencies of internal/tools, a module of
-# its own so their ~90 transitive requirements stay out of the published
-# module's go.mod. `go tool` only runs inside its own module, so instead of
-# running buf from there we build the binaries into ./bin and run them from the
-# repository root. Every relative path in buf.gen.yaml is therefore relative to
-# the root, which is also where they read most naturally.
+# Two modules. The root is the contract — the generated types, the manifest,
+# the wire encoder and the server — and it requires exactly two things.
+# routegen/ is the generator and everything that tests what it emits; it is
+# never imported and never published, so it may require whatever it needs,
+# which is why chi and buf live there. buf and protoc-gen-go are its `tool`
+# dependencies; `go tool` only runs inside its own module, so the binaries are
+# built into ./bin and run from the repository root, which is what every
+# relative path in buf.gen.yaml is relative to.
 #
 # GOWORK=off and GOTOOLCHAIN are load-bearing, both lessons from
 # metacensus/infra#52. A go.work anywhere above this checkout would resolve tool
@@ -16,46 +18,83 @@
 # changed between Go releases, so either one lands as generated-code drift in a
 # PR that never touched a .proto.
 
-.PHONY: all gen lint format format-check breaking test check clean deps hooks tools \
+.PHONY: help all gen generated-paths lint format format-check breaking test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
-GO_DIR    := go
-TS_DIR    := ts
-PROTO     := proto
-TOOLS_DIR := internal/tools
-BIN       := $(CURDIR)/bin
+# `make` with no target lists the targets rather than running the whole suite,
+# matching metacensus/infra. The listing is generated from the `## name — what
+# it does` comments below, so a target and its description cannot drift; infra
+# hand-writes its help text, which is the same information twice.
+.DEFAULT_GOAL := help
+
+GO_DIR   := go
+TS_DIR   := ts
+PROTO    := proto
+ROUTEGEN := routegen
+BIN      := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# The exact Go that builds the generators. Keep in step with the `go` directive
-# in go.mod, which is what CI's setup-go reads.
-GOTOOLCHAIN_PIN ?= go1.24.0
+# Every path `gen` writes, named once. `clean` removes exactly these and the
+# pre-commit hook asks git about exactly these, so the three cannot disagree.
+# go/server/routes_gen.go is the one generated file sharing a directory with
+# hand-written source, which is why the list is of paths rather than of
+# directories.
+GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
+
+# The exact Go that builds the generators, read out of go.mod rather than
+# written here: go.mod is what CI's setup-go reads, and a second copy would
+# have to agree with it forever with nothing making it. `toolchain` wins when
+# present, since Go omits it only when it matches `go`. Lifted from
+# metacensus/infra's Makefile, error guard included — GOTOOLCHAIN= with an
+# empty value is silently accepted, so an unpinned build must fail loudly here
+# rather than produce drifted generated code later.
+GOTOOLCHAIN_PIN ?= $(shell awk '/^toolchain /{t=$$2} /^go /{if (g == "") g = "go" $$2} END{print (t != "" ? t : g)}' go.mod)
+ifeq ($(GOTOOLCHAIN_PIN),)
+$(error could not read the Go toolchain from go.mod; refusing to build the generators unpinned)
+endif
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # The latest release tag: the published contract is what a breaking change
 # breaks. Empty until the first release, which makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
+help:
+	@echo "MetaCensus API contract. Run from the repository root."
+	@echo ""
+	@awk -F' — ' '/^## /{ sub(/^## /, ""); printf "  make %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "  A fresh clone needs nothing first: gen and check install what they need."
+
+## all — an alias for check
 all: check
 
-## tools — build the pinned code generators out of internal/tools
+## tools — build the pinned code generators out of routegen/
 tools: $(BIN)/buf $(BIN)/protoc-gen-go
 
-$(BIN)/buf: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+$(BIN)/buf: $(ROUTEGEN)/go.mod $(ROUTEGEN)/go.sum
 	@echo "building buf from source (~1 min the first time)..."
-	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
+	cd $(ROUTEGEN) && $(TOOLENV) go build -o $(BIN)/buf github.com/bufbuild/buf/cmd/buf
 
-$(BIN)/protoc-gen-go: $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
-	cd $(TOOLS_DIR) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
+$(BIN)/protoc-gen-go: $(ROUTEGEN)/go.mod $(ROUTEGEN)/go.sum
+	cd $(ROUTEGEN) && $(TOOLENV) go build -o $(BIN)/protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go
 
-## deps — install the TypeScript toolchain
+## deps — reinstall the TypeScript toolchain from the lockfile
 deps:
 	cd $(TS_DIR) && npm ci
 
+# The ts-proto plugin buf.gen.yaml invokes, as a prerequisite rather than as a
+# step someone has to know to run first: `make gen` on a fresh clone used to
+# fail inside buf with a missing-plugin path. Re-runs when the lockfile moves.
+TS_PLUGIN := $(TS_DIR)/node_modules/.bin/protoc-gen-ts_proto
+
+$(TS_PLUGIN): $(TS_DIR)/package-lock.json
+	cd $(TS_DIR) && npm ci
+
 ## gen — regenerate Go and TypeScript from the .proto sources
-gen: tools
+gen: tools $(TS_PLUGIN)
 	$(BUF) generate --template $(PROTO)/buf.gen.yaml
-	go run ./$(GO_DIR)/cmd/routegen
+	cd $(ROUTEGEN) && $(TOOLENV) go run .
 
 ## lint — buf's STANDARD rules
 lint: $(BIN)/buf
@@ -80,16 +119,20 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
-## test — the schema and route invariants
+## test — the contract's own invariants, then the generator's
+#
+# routegen is a module of its own, so ./... above cannot see it and it needs
+# its own line. Its tests are the generator's unit tests and the suites that
+# exercise what it emits, including the chi conformance run.
 test:
 	go test ./...
+	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check test
-	# -o /dev/null: cmd/routegen is a main package, so a plain build drops a
-	# binary in the working directory.
-	go build -o /dev/null ./... && go vet ./...
+check: lint format-check test $(TS_PLUGIN)
+	go build ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
+	cd $(TS_DIR) && npm test
 
 ## hooks — opt in to the pre-commit hook; unset core.hooksPath to opt out
 hooks:
@@ -98,7 +141,11 @@ hooks:
 
 ## clean — remove generated output and built tools; `make gen` puts them back
 clean:
-	rm -rf $(GO_DIR)/metacensus $(GO_DIR)/routes $(TS_DIR)/src $(BIN)
+	rm -rf $(GENERATED) $(BIN)
+
+## generated-paths — print what `gen` writes; the pre-commit hook reads this
+generated-paths:
+	@echo $(GENERATED)
 
 # ---------------------------------------------------------------------------
 # Release
@@ -118,6 +165,7 @@ VERSION ?=
 TYPE    ?=
 MESSAGE ?=
 
+## release — tag and push a version; prompts, and refuses a dirty tree
 release: scripts/version.sh
 	@set -e; \
 	VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
@@ -161,21 +209,27 @@ release: scripts/version.sh
 	git push origin "$$TAG" && \
 	echo "Released: $$TAG"
 
+## release-major — release, bumping the major
 release-major:
 	@$(MAKE) release TYPE=major
 
+## release-minor — release, bumping the minor
 release-minor:
 	@$(MAKE) release TYPE=minor
 
+## release-patch — release, bumping the patch
 release-patch:
 	@$(MAKE) release TYPE=patch
 
+## latest — print the most recent version tag
 latest:
 	@git tag -l "v*" | grep -E "^v[0-9]" | sort -V | tail -1
 
+## list — print every version tag
 list:
 	@git tag -l "v*" | grep -E "^v[0-9]" | sort -V
 
+## delete-tag — delete TAG=vX.Y.Z locally and on the remote
 delete-tag:
 	@if [ -z "$(TAG)" ]; then \
 		echo "Usage: make delete-tag TAG=v1.2.3"; \

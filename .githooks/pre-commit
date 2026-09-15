@@ -6,10 +6,10 @@
 
 set -e
 
-staged_protos=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*')
-[ -n "$staged_protos" ] || exit 0
+inputs=$(git diff --cached --name-only --diff-filter=ACMR -- 'proto/*' 'routegen/*')
+[ -n "$inputs" ] || exit 0
 
-echo "pre-commit: .proto staged — checking lint and formatting"
+echo "pre-commit: a generator input is staged — checking lint, formatting and freshness"
 
 # `make lint` builds buf from source if bin/buf is missing, which is about a
 # minute of silence on a fresh clone. Say so rather than looking hung.
@@ -24,5 +24,27 @@ if ! make lint format-check; then
 	echo >&2
 	echo "pre-commit: 'make format' fixes formatting." >&2
 	echo "Run 'make check' before pushing." >&2
+	exit 1
+fi
+
+# The freshness question CI asks, asked while it is still cheap to answer.
+# Editing a .proto or a renderer and committing without regenerating is the
+# failure this repository actually has; it costs about a second warm, and the
+# paths come from the Makefile so this cannot drift from what `gen` writes.
+generated=$(make -s generated-paths)
+make gen >/dev/null
+
+# Two questions, both of which CI asks: did regeneration change a committed
+# file, and did it produce one nobody has added? A new .proto lands as an
+# untracked generated file, which `git diff` cannot see.
+changed=$(git diff --name-only -- $generated)
+untracked=$(git ls-files --others --exclude-standard -- $generated)
+if [ -n "$changed" ] || [ -n "$untracked" ]; then
+	echo >&2
+	echo "pre-commit: regenerating produced output that is not committed:" >&2
+	{ [ -n "$changed" ] && echo "$changed"; [ -n "$untracked" ] && echo "$untracked"; } \
+		| sed 's/^/  /' >&2
+	echo >&2
+	echo "'make gen' has already run. Stage the result and commit again." >&2
 	exit 1
 fi
