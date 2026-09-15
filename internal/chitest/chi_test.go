@@ -2,8 +2,9 @@
 //
 // go/server/mux_test.go proves Mux's signature against a local copy of chi's;
 // that catches a signature drift and nothing a request does. Everything this
-// file pins was invisible to it, and every claim go/server/doc.go makes about
-// "what the router owns" is checked here rather than asserted there.
+// file pins was invisible to it, and every claim server.Mux's doc comment
+// makes about "what the router owns" is checked here rather than asserted
+// there.
 package chitest
 
 import (
@@ -58,7 +59,7 @@ func TestPathValueDecoding(t *testing.T) {
 		}
 		if impl.gotID == id {
 			t.Fatal("chi decoded the segment; StdPathValue would now be the right default " +
-				"and EscapedPathValue wrong — re-read go/server/doc.go before changing it")
+				"and EscapedPathValue wrong — re-read server.Mux's doc comment before changing it")
 		}
 	})
 
@@ -145,8 +146,8 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	}
 }
 
-// What chi answers before a generated handler runs. go/server/doc.go states
-// each of these; this is what makes the statement a check.
+// What chi answers before a generated handler runs. server.Mux's doc comment
+// states each of these; this is what makes the statement a check.
 func TestWhatChiOwns(t *testing.T) {
 	r := chi.NewRouter()
 	server.RegisterTopicRoutes(r, &server.Runtime{Prefix: routes.Prefix}, &topics{})

@@ -36,7 +36,7 @@ type Unimplemented{{.Name}} struct{}
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 {{end}}
 {{define "registerRoute"}}	mux.Method({{printf "%q" .Method}}, rt.prefix()+{{printf "%q" .Path}}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

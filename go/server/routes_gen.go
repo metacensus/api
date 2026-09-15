@@ -42,7 +42,7 @@ func (UnimplementedAuthRoutes) Logout(context.Context, *v1.LogoutRequest) (*v1.L
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 	mux.Method("POST", rt.prefix()+"/login", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.LoginRequest)
@@ -120,7 +120,7 @@ func (UnimplementedHealthRoutes) Healthcheck(context.Context, *v1.HealthcheckReq
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 	mux.Method("GET", rt.prefix()+"/healthcheck", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.HealthcheckRequest)
@@ -178,7 +178,7 @@ func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 	mux.Method("GET", rt.prefix()+"/topic/{topicId}/prop", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.PropListRequest)
@@ -309,7 +309,7 @@ func (UnimplementedProtocolRoutes) CreateProtocol(context.Context, *v1.ProtocolC
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
 	mux.Method("POST", rt.prefix()+"/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.ProtocolCreateRequest)
@@ -386,7 +386,7 @@ func (UnimplementedTopicRoutes) GetMember(context.Context, *v1.MemberGetRequest)
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 	mux.Method("GET", rt.prefix()+"/topic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.TopicListRequest)
@@ -514,7 +514,7 @@ func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1
 // prefix and routes.Prefix for one at the origin root. mux needs only
 // Method(method, pattern string, http.Handler): a *http.ServeMux wrapped in
 // StdMux, or a chi.Router, both satisfy it. A chi.Router also needs
-// rt.PathValue = EscapedPathValue; see doc.go.
+// rt.PathValue = EscapedPathValue; see Mux and EscapedPathValue.
 func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 	mux.Method("GET", rt.prefix()+"/user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.UserListRequest)

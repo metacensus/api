@@ -1,7 +1,15 @@
 // Package servergen renders go/server/routes_gen.go: one handler interface
 // per service, an Unimplemented* per service, and one Register* per service
 // that binds path/query/body and dispatches to it. The hand-written runtime
-// it calls into is go/server/runtime.go.
+// it calls into is package server's own files (binding.go, errors.go,
+// mux.go, response.go, runtime.go).
+//
+// Unimplemented<Service> is kept at a known cost: an implementer who embeds
+// it and later renames an rpc still compiles, and the renamed route answers
+// 501 at runtime instead of failing the build. The alternative — no
+// embedding, so a rename is a compile error — trades that for a service that
+// can never be implemented one route at a time, which is the shape every
+// consumer of this contract is actually in.
 //
 // server.go.tmpl is embedded and parsed at init so a broken template fails
 // `make gen` immediately. Its named blocks are executed by a Go loop that
