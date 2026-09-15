@@ -37,8 +37,8 @@ BUF := $(BIN)/buf
 # Every path `gen` writes, named once. `clean` removes exactly these and the
 # pre-commit hook asks git about exactly these, so the three cannot disagree.
 # go/server/routes_gen.go is the one generated file sharing a directory with
-# hand-written source (runtime.go, doc.go, the tests), which is why the list is
-# of paths rather than of directories.
+# hand-written source, which is why the list is of paths rather than of
+# directories.
 GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
 
 # The exact Go that builds the generators, read out of go.mod rather than
