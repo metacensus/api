@@ -6,11 +6,10 @@
 // keeps a renderer from reaching into another's internals is the import
 // graph, not a convention (see the sibling imports_test.go in cmd/routegen).
 //
-// The rejections here are properties of a route, not of any one renderer: an
-// unsupported http pattern, a body naming a field, a non-string or oneof
-// path parameter, a message-typed query field. A rejection specific to one
-// renderer — clientgen's bytes-in-the-tree check — lives in that renderer
-// instead.
+// The rejections here are properties of a route, not of any one renderer.
+// describe_test.go is the enumeration of them, fed synthetic descriptors; a
+// rejection specific to one renderer — clientgen's bytes-in-the-tree check —
+// lives in that renderer instead.
 package model
 
 import (
@@ -283,9 +282,19 @@ func goNames(mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
 }
 
 // rewriteParams replaces each {field} segment with {jsonName} and returns the
-// parameters in path order alongside the proto names they bound. A segment
-// naming no field of the request is an error: it would be a route no
-// implementation could bind.
+// parameters in path order alongside the proto names they bound.
+//
+// Two shapes google.api.http allows are refused here rather than narrowed,
+// because narrowing them is silent:
+//
+//   - A segment pattern after "=". Every renderer emits a single-segment
+//     {name}, so accepting {id=**} would claim one segment for a template
+//     that means the rest of the path, and accepting {id=a/*/b} would drop
+//     the shape entirely. Both produce a route that generates, compiles, and
+//     answers 404 for exactly the ids the pattern was written for.
+//   - The same parameter twice. net/http's ServeMux panics on a duplicate
+//     wildcard name, so this reached a reader as a stack trace out of an
+//     unrelated test rather than as a rejection naming the route.
 func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []string, map[protoreflect.Name]bool, error) {
 	var out strings.Builder
 	var params []string
@@ -303,10 +312,18 @@ func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []s
 		}
 		shut += open
 
-		name, _, _ := strings.Cut(path[open+1:shut], "=")
+		name, pattern, hasPattern := strings.Cut(path[open+1:shut], "=")
+		if hasPattern {
+			return "", nil, nil, fmt.Errorf(
+				"path parameter %q carries the segment pattern %q; only a bare {%s} is supported",
+				name, pattern, name)
+		}
 		fd := req.Fields().ByName(protoreflect.Name(name))
 		if fd == nil {
 			return "", nil, nil, fmt.Errorf("path parameter %q is not a field of %s", name, req.FullName())
+		}
+		if bound[fd.Name()] {
+			return "", nil, nil, fmt.Errorf("path parameter %q appears twice in %q", name, path)
 		}
 
 		out.WriteString(path[:open])
