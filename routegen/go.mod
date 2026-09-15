@@ -5,8 +5,8 @@
 //
 // Everything about generation lives here: routegen and its renderers, the chi
 // conformance suite, the HTTP server ts/test/wire.test.mjs drives, and buf and
-// protoc-gen-go as `tool` dependencies. Under Go 1.24 a `tool` directive is a
-// real module requirement, and buf drags ~90 transitive ones — the Docker CLI,
+// protoc-gen-go as `tool` dependencies. A `tool` directive is a real module
+// requirement, and buf drags ~90 transitive ones — the Docker CLI,
 // quic-go, the whole buf server graph. github.com/metacensus/api, the
 // contract, requires exactly two things and must keep doing so. That is the
 // whole reason for the split, and it is one reason, which is why there is one
@@ -14,11 +14,17 @@
 // directive that names buf are the same problem.
 //
 // The buf and protoc-gen-go versions are the ones that produced the committed
-// output. **Do not `go mod tidy`.** It resolves new modules at latest and
-// moves the pins, and it cannot complete here anyway: something in buf's test
-// graph reaches grpc-gateway v2.30.0, which requires go >= 1.25, and the
-// generators are pinned to go1.24.0 so that protoc-gen-go stamps a stable
-// version into every .pb.go. Add a requirement by hand.
+// output. **Do not `go mod tidy`.** Add a requirement by hand instead.
+//
+// Tidy runs to completion here (it did not before the go directive moved to
+// 1.27.1 — grpc-gateway v2.30.0, somewhere in buf's graph, wants go >= 1.25).
+// Running it is still wrong, and now fails quietly rather than loudly:
+// measured on go1.27.1, it holds buf at v1.57.2 and chi at v5.2.3 but lifts
+// google.golang.org/protobuf from v1.36.9 to v1.36.11, and protoc-gen-go
+// stamps its own version into every .pb.go, so the next `make gen` rewrites
+// six generated files that no .proto change touched. Moving that pin is a
+// decision to take on purpose, in the same commit as the contract module's
+// own protobuf requirement, not a side effect of tidying.
 //
 // chi is v5.2.3 rather than a version of its own choosing because buf's graph
 // already carries it there; declaring v5.1.0 beside it would be a pin nothing
@@ -28,7 +34,7 @@
 // tree, not against a published version.
 module github.com/metacensus/api/routegen
 
-go 1.24.0
+go 1.27.1
 
 replace github.com/metacensus/api => ../
 

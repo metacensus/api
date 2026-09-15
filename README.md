@@ -61,7 +61,7 @@ make hooks   # optional: lint, format and freshness checks on commit
 
 | Thing | Pinned in | Read by |
 |---|---|---|
-| Go, for the module and for building the generators | `go.mod` | CI's `setup-go` (`go-version-file`), and the Makefile, which derives `GOTOOLCHAIN_PIN` from the same line with `awk` rather than repeating it |
+| Go, for the module, for building the generators, and as the floor a consumer must meet | `go.mod` (`go 1.27.1`; `routegen/go.mod` matches) | CI's `setup-go` (`go-version-file`), and the Makefile, which derives `GOTOOLCHAIN_PIN` from the same line with `awk` rather than repeating it |
 | `buf`, `protoc-gen-go` | `routegen/go.mod` `tool` directives | `make tools`, which rebuilds whenever that module's `go.mod` or `go.sum` moves |
 | `ts-proto`, `typescript` | `ts/package.json` + `ts/package-lock.json` | `npm ci`, which `make gen` runs as a prerequisite when the lockfile is newer than the installed plugin |
 | Node | `ts/.nvmrc` (and a floor in `engines`) | `nvm use`, and CI's `setup-node` (`node-version-file`) |
@@ -69,7 +69,7 @@ make hooks   # optional: lint, format and freshness checks on commit
 
 `buf` and `protoc-gen-go` are `tool` dependencies of **`routegen`**, for the reason the layout section gives: left in the published module they added 90 indirect requirements — the Docker CLI, quic-go, the whole buf server graph — to everything that imported the contract. Do not `go mod tidy` that module. It moves the pins, and it cannot complete anyway: something in buf's graph reaches a version of grpc-gateway that wants a newer Go than the generators are pinned to. Add a requirement by hand.
 
-`make tools` builds the generators with `GOWORK=off` and the pinned `GOTOOLCHAIN`. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a pull request that never touched a `.proto`. The binaries land in `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `routegen` is relative to the root. `routegen` finds the root by walking up for the contract's `go.mod`, so it writes the same four files whether it is run from the root or from its own module directory, and refuses to run outside the repository at all.
+`make gen` and `make test` both run the second module with `GOWORK=off` and the pinned `GOTOOLCHAIN`, derived from the `go` directive. Both are load-bearing, and both are lessons from [metacensus/infra#52](https://github.com/metacensus/infra/pull/52): a `go.work` above the checkout resolves tool versions against the union of its members and silently lifts the pins, and the `go` directive is a floor rather than a ceiling, so an unpinned toolchain builds the plugins against whatever stdlib the developer has. `protoc-gen-go` stamps its own version into every `.pb.go`, so either one surfaces as generated-code drift in a pull request that never touched a `.proto`. The binaries land in `bin/`, and **buf runs from the repository root**, so every relative path in `buf.gen.yaml` and in `routegen` is relative to the root. `routegen` finds the root by walking up for the contract's `go.mod`, so it writes the same four files whether it is run from the root or from its own module directory, and refuses to run outside the repository at all.
 
 ## Consuming it
 
@@ -77,6 +77,8 @@ make hooks   # optional: lint, format and freshness checks on commit
 go get github.com/metacensus/api          # import github.com/metacensus/api/go/metacensus/v1
 npm install @metacensus/api               # types, a route manifest, a client
 ```
+
+**The Go floor is `go 1.27.1`**, the `go` directive in the root `go.mod`. A consumer on an older toolchain gets a build error rather than a fallback, so this is the one number here that constrains somebody else's repository: `metacensus/infra` is on 1.25.7 today and would have to move first. The floor is the language version the contract is developed and generated against; nothing in the generated types needs anything newer than the module system.
 
 Neither is ready to depend on: `go get` resolves `v0.1.0`, which exists to test the release path, and `npm install` resolves the `0.0.0` placeholder rather than any released contract. See "Releasing", below.
 
