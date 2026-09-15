@@ -114,15 +114,21 @@ with `/topic/{topicId}/<resource>/{<resource>Id}` for resources that belong to a
 
 | | rule | enforced |
 | --- | --- | --- |
-| service | `<Domain>Routes`, named for the file | no |
-| rpc | `<Verb><Noun(s)>`, plural for `List` | no |
+| service | `<Domain>Routes`, named for the file it lives in | **yes** |
+| rpc | `<Verb><Noun(s)>`, plural after `List`, singular otherwise | **yes** |
+| rpc ↔ path | the rpc's noun is the resource its path acts on | **yes** |
 | request | `<Rpc>Request` | **yes** |
-| response | the resource, `<Noun>List`, or `<Rpc>Response` | no |
+| response | `List<Noun>s` returns `<Noun>List` | **yes** |
+| response | anything else: the resource, or `<Rpc>Response` | no |
 | method | reads GET, writes POST | **yes** |
 | path | names a resource; the rpc names the verb | **yes** |
 | ids | own id is `id`, a reference is `<noun>_id` | no |
 
-**Three of seven are enforced, and the split is deliberate.** A request message is one per rpc, never shared, and its name carries no design content — so deriving it mechanically costs nothing and drift in it means nothing. A *response* name is the opposite: `GetTopic` returning `Topic`, and `Login` and `SignUp` both returning `Session`, is a decision this contract took and wrote into `buf.yaml`'s lint exceptions, and a `<Rpc>Response` rule would reverse it by wrapping every resource in a one-field envelope. Path parameter naming is judgement too — `GetMember` binds `{userId}` because a membership has no id of its own. The rules that are checked are the ones with one right answer.
+**Two rules are left to judgement, for different reasons.**
+
+The *general* response rule cannot be checked as written. "The resource, or `<Noun>List`, or `<Rpc>Response`" is a disjunction whose last branch swallows everything, so a check would reduce to "the response is not named `*Request`". The `List` half has teeth and is enforced; the rest is a convention, because `GetTopic` returning `Topic` and `Login` and `SignUp` both returning `Session` is a decision this contract took and wrote into `buf.yaml`'s lint exceptions — a `<Rpc>Response` rule would reverse it by wrapping every resource in a one-field envelope.
+
+The **id rule is wrong as stated**, which a check is what proved. Asserting that every `<noun>_id` names a message in the contract flags exactly one field: `Prop.author_id`, where no `Author` message exists, because it names a *role*. `user_id` would satisfy the rule and say less. So the rule stays a convention rather than becoming a check with a permanent exception standing in for a rule nobody has written correctly yet.
 
 **Exceptions go in one list, and cost something.** `go/skips_test.go` is the only place a convention here is deliberately not held, so its history is every exception this contract has granted. An entry carries the violation verbatim — compared, so granting one means having seen the failure — an argument that the test rejects if it merely restates the violation or fits in a few words, and either the issue that removes it or `permanent`, which claims the rule is wrong rather than the code. An entry that stops being needed fails the build until it is deleted.
 
@@ -132,6 +138,6 @@ with `/topic/{topicId}/<resource>/{<resource>Id}` for resources that belong to a
 
 `go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file, and a route manifest that covers every rpc with no two routes sharing a method and path.
 
-`TestNonConformingRoutes` holds the route conventions above: request message named `<Rpc>Request`, reads over GET and writes over POST, no verb in a path. It deliberately leaves response naming and path parameter naming alone. `TestSkipsAreArgued` holds the exception list to its own rules.
+`TestNonConformingRoutes` and `TestNonConformingServices` hold the route conventions above. Both build a map of subject to what it broke and hand it to `holdToConventions`, so a new check is a few lines in that shape and inherits the skip list for free. `TestSkipsAreArgued` holds the exception list to its own rules.
 
 `ts/scripts/check-no-runtime.mjs` asserts the TypeScript is genuinely types: empty `dependencies`, no value imports under `src/`.

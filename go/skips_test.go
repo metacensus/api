@@ -27,6 +27,13 @@ import (
 // An entry that stops being needed fails the build until it is deleted, so
 // nothing here can outlive what it excused.
 var skips = map[string]skip{
+	"service HealthRoutes": {
+		Violation: "declared in common.proto but named for Health",
+		Why: "Health is not a resource and owns no file. Its one route sits in " +
+			"common.proto beside the other things no resource owns, and a " +
+			"health.proto holding a single rpc would be the worse arrangement.",
+		Fix: permanent,
+	},
 	"route GET /healthcheck": {
 		Violation: "write over GET",
 		Why: "A read whose name does not say so. isRead knows List, Get and " +

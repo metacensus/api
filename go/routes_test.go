@@ -1,6 +1,7 @@
 package contract_test
 
 import (
+	"path"
 	"strings"
 	"testing"
 
@@ -78,6 +79,49 @@ func isRead(rpc string) bool {
 	return false
 }
 
+// verbs a route name may start with, and whether the noun after one reads
+// plural. An rpc starting with none of these acts on no resource — Login,
+// Logout, Healthcheck — and the noun rules below do not apply to it.
+var verbs = map[string]bool{
+	"List":   true,
+	"Get":    false,
+	"Create": false,
+	"Set":    false,
+}
+
+// splitRPC splits <Verb><Noun>, reporting false when the rpc starts with no
+// verb above.
+func splitRPC(rpc string) (verb, noun string, ok bool) {
+	for verb, plural := range verbs {
+		if noun, found := strings.CutPrefix(rpc, verb); found && noun != "" {
+			_ = plural
+			return verb, noun, true
+		}
+	}
+	return "", "", false
+}
+
+// singular strips one trailing s. Naive on purpose: an irregular plural is a
+// skip, not a reason to carry a word list.
+func singular(noun string) string {
+	if strings.HasSuffix(noun, "s") && !strings.HasSuffix(noun, "ss") {
+		return noun[:len(noun)-1]
+	}
+	return noun
+}
+
+// resourceOf is the last segment of a path that is not a parameter: what the
+// route acts on.
+func resourceOf(p string) string {
+	var last string
+	for _, segment := range strings.Split(p, "/") {
+		if segment != "" && !strings.HasPrefix(segment, "{") {
+			last = segment
+		}
+	}
+	return last
+}
+
 func verbSegment(path string) string {
 	verbs := map[string]bool{"create": true, "edit": true, "update": true, "delete": true, "lookup": true}
 	for _, segment := range strings.Split(path, "/") {
@@ -109,6 +153,21 @@ func TestNonConformingRoutes(t *testing.T) {
 		if verb := verbSegment(r.Path); verb != "" {
 			reasons[key] = append(reasons[key], "verb in path: "+verb)
 		}
+		if verb, noun, ok := splitRPC(r.RPC); ok {
+			if plural := strings.HasSuffix(noun, "s"); plural != verbs[verb] {
+				reasons[key] = append(reasons[key], verb+" of "+noun)
+			}
+			if res := resourceOf(r.Path); !strings.EqualFold(singular(noun), res) {
+				reasons[key] = append(reasons[key],
+					r.RPC+" acts on "+res+", not "+strings.ToLower(singular(noun)))
+			}
+			if verb == "List" {
+				if want := singular(noun) + "List"; r.Response != want {
+					reasons[key] = append(reasons[key],
+						"returns "+r.Response+", not "+want)
+				}
+			}
+		}
 	}
 
 	found := map[string]string{}
@@ -116,6 +175,28 @@ func TestNonConformingRoutes(t *testing.T) {
 		found[key] = strings.Join(rs, "; ")
 	}
 	holdToConventions(t, "route", found)
+}
+
+// A service is named for the file it lives in, so a reader looking for a
+// resource's routes knows which file to open. buf's service_suffix holds the
+// Routes half; this holds the domain half.
+func TestNonConformingServices(t *testing.T) {
+	found := map[string]string{}
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		if string(fd.Package()) != protoPkg {
+			return true
+		}
+		file := strings.TrimSuffix(path.Base(fd.Path()), ".proto")
+		services := fd.Services()
+		for i := 0; i < services.Len(); i++ {
+			name := string(services.Get(i).Name())
+			if domain := strings.TrimSuffix(name, "Routes"); !strings.EqualFold(domain, file) {
+				found[name] = "declared in " + file + ".proto but named for " + domain
+			}
+		}
+		return true
+	})
+	holdToConventions(t, "service", found)
 }
 
 // TestPrefix pins the shape of routes.Prefix and its relationship to the paths
