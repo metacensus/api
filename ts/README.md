@@ -63,9 +63,10 @@ const pub = new PublicClient(transport);
 await pub.submitPartnerInterest({ name, email, interests, message, website: "" });
 ```
 
-One package because the SPA calls both surfaces from one build; two entry points
-because a consumer of only the public surface should not acquire the
-authenticated types. `PublicClient` sends no credentials of its own — that, as
+One package because the SPA calls both surfaces from one build; an entry point
+per surface because a consumer of only the public surface should not acquire the
+authenticated types. `@metacensus/api/signing` is a third, splitting by concern
+rather than by surface — nothing on the public surface is ever signed. `PublicClient` sends no credentials of its own — that, as
 above, is the transport's business, and the transport you pass here is not the
 one you pass `Client`.
 

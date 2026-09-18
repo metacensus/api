@@ -22,10 +22,12 @@ const srcRoot = join(pkgRoot, "src");
 // this prefix is therefore one surface's, and exactly one entry point may
 // export it.
 //
-// Everything else under src/ is shared on purpose and both entry points may
-// name it: the route manifest, because "every MetaCensus route on one screen"
-// is why the contract is one repository; and the client, for the reason its
-// own generated header gives.
+// Everything else under src/ is outside the split, and any number of entry
+// points may name it — a module there is shared on purpose or belongs to a
+// concern rather than a surface. Which modules those are is not listed here:
+// the walk below finds them, and a list beside it would go stale by growth
+// rather than by edit. Each such module says in its own header why it sits
+// outside the split.
 const perSurface = "src/metacensus/";
 
 const failures = [];
@@ -85,9 +87,9 @@ for (const rel of allExported) {
   const owners = entryPoints.filter((e) => exported.get(e).has(rel));
   if (owners.length > 1) {
     failures.push(
-      `${rel} is exported by ${owners.join(" and ")}. A module belongs to one ` +
-        `surface; two entry points exist so a consumer of one does not acquire ` +
-        `the other.`,
+      `${rel} is exported by ${owners.join(" and ")}. A module under ` +
+        `${perSurface} belongs to one surface; the entry points are split so ` +
+        `that a consumer of one surface does not acquire another's types.`,
     );
   }
 }
