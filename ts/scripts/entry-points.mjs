@@ -3,9 +3,9 @@
 //
 // Both guards here used to hold the literal ["index.ts", "public.ts"] while
 // their comments claimed they covered what package.json points at. A third
-// subpath export — `@metacensus/api/client` is an open question in README.md —
-// would have shipped unchecked by either of them, which is the shape of hole
-// they exist to close.
+// subpath export would have shipped unchecked by either of them, which is the
+// shape of hole they exist to close — and `@metacensus/api/signing` is now
+// that third export, added without either guard being touched.
 
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
