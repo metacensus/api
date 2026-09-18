@@ -72,8 +72,17 @@ func TestMuxAcceptsAChiShapedRouter(t *testing.T) {
 		Prefix:    routes.Prefix,
 		PathValue: server.EscapedPathValue,
 	}, server.UnimplementedTopicRoutes{})
-	if len(fake.registered) != 6 {
-		t.Fatalf("got %d registrations, want 6 (one per TopicRoutes rpc)", len(fake.registered))
+	// One registration per TopicRoutes rpc. The expected number is read off
+	// the manifest rather than written here, so adding or removing an rpc
+	// does not leave a stale literal behind to be corrected by hand.
+	want := 0
+	for _, r := range routes.Routes {
+		if r.Service == "TopicRoutes" {
+			want++
+		}
+	}
+	if len(fake.registered) != want {
+		t.Fatalf("got %d registrations, want %d (one per TopicRoutes rpc)", len(fake.registered), want)
 	}
 	for _, want := range []string{"GET /metacensus/api/v1/topic", "POST /metacensus/api/v1/topic"} {
 		found := false

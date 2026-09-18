@@ -286,52 +286,6 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 	}))
 }
 
-// ProtocolRoutes is what an implementation of the ProtocolRoutes service provides.
-// One method per route; the request carries path, query and body fields
-// already bound. Its routes hang off routes.Prefix.
-type ProtocolRoutes interface {
-	// POST /protocol
-	CreateProtocol(context.Context, *v1.ProtocolCreateRequest) (*v1.Protocol, error)
-}
-
-// UnimplementedProtocolRoutes answers every ProtocolRoutes route with 501. Embed it to
-// implement a service one route at a time.
-type UnimplementedProtocolRoutes struct{}
-
-func (UnimplementedProtocolRoutes) CreateProtocol(context.Context, *v1.ProtocolCreateRequest) (*v1.Protocol, error) {
-	return nil, errNotImplemented("ProtocolRoutes.CreateProtocol")
-}
-
-// RegisterProtocolRoutes registers every ProtocolRoutes route on mux, under rt.Prefix,
-// which for this service is routes.Prefix.
-//
-// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
-func RegisterProtocolRoutes(mux Mux, rt *Runtime, impl ProtocolRoutes) {
-	rt.checkPathValue(mux)
-	mux.Method("POST", rt.Prefix+"/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := new(v1.ProtocolCreateRequest)
-		raw, err := rt.readBody(w, r)
-		if err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.decodeBody(raw, req); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.bindQuery(r, req, nil); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		resp, err := impl.CreateProtocol(r.Context(), req)
-		rt.respond(w, resp, err)
-	}))
-}
-
 // TopicRoutes is what an implementation of the TopicRoutes service provides.
 // One method per route; the request carries path, query and body fields
 // already bound. Its routes hang off routes.Prefix.
@@ -342,8 +296,6 @@ type TopicRoutes interface {
 	GetTopic(context.Context, *v1.TopicGetRequest) (*v1.Topic, error)
 	// POST /topic
 	CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.Topic, error)
-	// GET /topic/{topicId}/protocol
-	GetProtocol(context.Context, *v1.TopicProtocolRequest) (*v1.Protocol, error)
 	// GET /topic/{topicId}/member
 	ListMembers(context.Context, *v1.MemberListRequest) (*v1.MemberList, error)
 	// GET /topic/{topicId}/member/{userId}
@@ -364,10 +316,6 @@ func (UnimplementedTopicRoutes) GetTopic(context.Context, *v1.TopicGetRequest) (
 
 func (UnimplementedTopicRoutes) CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.Topic, error) {
 	return nil, errNotImplemented("TopicRoutes.CreateTopic")
-}
-
-func (UnimplementedTopicRoutes) GetProtocol(context.Context, *v1.TopicProtocolRequest) (*v1.Protocol, error) {
-	return nil, errNotImplemented("TopicRoutes.GetProtocol")
 }
 
 func (UnimplementedTopicRoutes) ListMembers(context.Context, *v1.MemberListRequest) (*v1.MemberList, error) {
@@ -427,20 +375,6 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 			return
 		}
 		resp, err := impl.CreateTopic(r.Context(), req)
-		rt.respond(w, resp, err)
-	}))
-	mux.Method("GET", rt.Prefix+"/topic/{topicId}/protocol", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := new(v1.TopicProtocolRequest)
-		var err error
-		if err := rt.bindQuery(r, req, nil); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		resp, err := impl.GetProtocol(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
 	mux.Method("GET", rt.Prefix+"/topic/{topicId}/member", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

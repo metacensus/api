@@ -20,8 +20,7 @@ import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/p
 import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse } from "./metacensus/v1/common.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "./metacensus/v1/prop.js";
-import type { Protocol, ProtocolCreateRequest } from "./metacensus/v1/protocol.js";
-import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicProtocolRequest } from "./metacensus/v1/topic.js";
+import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "./metacensus/v1/user.js";
 
 // The same literal as route-manifest.ts's apiPrefix, emitted by the one
@@ -154,12 +153,6 @@ export class Client {
     return this.call("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify(body));
   }
 
-  // ProtocolRoutes.CreateProtocol: POST /protocol
-  createProtocol(req: ProtocolCreateRequest): Promise<Protocol> {
-    const body = req;
-    return this.call("POST", "/protocol", JSON.stringify(body));
-  }
-
   // TopicRoutes.ListTopics: GET /topic
   listTopics(req: TopicListRequest): Promise<TopicList> {
     return this.call("GET", "/topic", undefined);
@@ -174,11 +167,6 @@ export class Client {
   createTopic(req: TopicCreateRequest): Promise<Topic> {
     const body = req;
     return this.call("POST", "/topic", JSON.stringify(body));
-  }
-
-  // TopicRoutes.GetProtocol: GET /topic/{topicId}/protocol
-  getProtocol(req: TopicProtocolRequest): Promise<Protocol> {
-    return this.call("GET", `/topic/${param(req.topicId)}/protocol`, undefined);
   }
 
   // TopicRoutes.ListMembers: GET /topic/{topicId}/member

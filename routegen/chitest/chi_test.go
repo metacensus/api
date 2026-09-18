@@ -180,7 +180,6 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	server.RegisterAuthRoutes(r, rt, server.UnimplementedAuthRoutes{})
 	server.RegisterHealthRoutes(r, rt, server.UnimplementedHealthRoutes{})
 	server.RegisterPropRoutes(r, rt, server.UnimplementedPropRoutes{})
-	server.RegisterProtocolRoutes(r, rt, server.UnimplementedProtocolRoutes{})
 	server.RegisterTopicRoutes(r, rt, server.UnimplementedTopicRoutes{})
 	server.RegisterUserRoutes(r, rt, server.UnimplementedUserRoutes{})
 

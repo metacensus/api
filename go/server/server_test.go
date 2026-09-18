@@ -48,9 +48,10 @@ func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v
 	return &v1.Prop{Id: "p", AuthorId: "u", Type: req.Type, Description: req.Description}, nil
 }
 
-// Registering every service proves the 19 patterns do not conflict under
-// ServeMux's rules, which would panic here rather than at runtime in a
-// backend.
+// Registering every service proves the manifest's patterns do not conflict
+// under ServeMux's rules, which would panic here rather than at runtime in a
+// backend. The count is deliberately not written here: it was already wrong,
+// and go/routes/manifest.go is the table.
 func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, props server.PropRoutes) *http.ServeMux {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -58,7 +59,6 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 	server.RegisterAuthRoutes(std, rt, server.UnimplementedAuthRoutes{})
 	server.RegisterHealthRoutes(std, rt, server.UnimplementedHealthRoutes{})
 	server.RegisterPropRoutes(std, rt, props)
-	server.RegisterProtocolRoutes(std, rt, server.UnimplementedProtocolRoutes{})
 	server.RegisterTopicRoutes(std, rt, topics)
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
 
