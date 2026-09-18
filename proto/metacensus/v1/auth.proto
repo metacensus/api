@@ -8,12 +8,17 @@ import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
-// Route declarations, not a gRPC commitment: see contract/README.md.
+// Route declarations, not a gRPC commitment: see README.md.
 //
-// **These are the two routes a login token cannot be required for, and the two
-// writes that do not carry a user signature over their own content.** Login and
-// Logout move no content; every other write on this surface carries one. See
-// README.md, "Two identities".
+// **Login and Logout are the two writes on this surface that carry no user
+// signature**, because neither moves content a participant could vouch for:
+// Login hands over a password and Logout surrenders a token. Every other write
+// carries one, and TestEveryWriteCarriesASignature holds that set.
+//
+// Which routes a session token is required for is not expressed here, or
+// anywhere in this contract — it is the middleware's, in each implementation.
+// SignUp is the one route where it could not be required whatever the policy,
+// since it is what mints the account. See README.md, "The signing chain".
 service AuthRoutes {
   rpc Login(LoginRequest) returns (Session) {
     option (google.api.http) = {

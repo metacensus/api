@@ -149,8 +149,9 @@ func Digest(content proto.Message, sig *v1.UserSignature) ([]byte, error) {
 //
 // It sets nothing else: Spec, ContentType, Alg, SigningTime, KeyId and
 // SignerId are the signer's claims and are inside the digest, so filling them
-// in here would be this package signing them on the caller's behalf. Attributes
-// does that explicitly, for a caller that wants the conventional set.
+// in here would be this package signing them on the caller's behalf. A caller
+// builds them; checkAttributes is what refuses a set this package cannot speak
+// for.
 func Sign(priv *ecdsa.PrivateKey, content proto.Message, sig *v1.UserSignature) error {
 	if err := checkAttributes(content, sig); err != nil {
 		return err

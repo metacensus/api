@@ -232,7 +232,7 @@ Two identities, and they answer different questions.
 
 A **login token** — username and password, sent on every request, verified by the API server — says who is *connected*. It grants access to the API and, on its own, permits no write. A **signing keypair** says who *authored* a record. `Prop.author_id` and `Prop.created` used to be the first identity pretending to be the second: the server's assertion about a caller, indistinguishable from the server's assertion about anyone. They are gone, and the signature carries both facts instead.
 
-Every write on `metacensus.v1` therefore carries two fields — a `content` message and a `userSignature` over it — and `TestEveryWriteCarriesASignature` is what makes that a property rather than a habit. Its exception list holds `Login` and `Logout`, which move no content, and nothing else. The public surface is exempt because it has no identities at all.
+Every write on `metacensus.v1` therefore carries two fields — a `content` message and a `userSignature` over it — and `TestEveryWriteCarriesASignature` is what makes that a property rather than a habit. Its exception list is `unsignedWrites` in `go/signing_test.go`, each entry carrying the reason it moves no content; the test fails on an entry that has stopped being true as readily as on a write that has stopped being signed. The public surface is exempt because it has no identities at all.
 
 ### The stored shape
 
@@ -308,7 +308,7 @@ Any tolerance over the difference is a policy number and belongs in infra's chai
 
 ### Computing it
 
-`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Both are dependency-free: the Go side is stdlib, so the module stays at two requirements; the TypeScript side writes its ~60 lines of JCS rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds and both npm guards pass unmodified.
+`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Both are dependency-free: the Go side is stdlib, so the module stays at two requirements; the TypeScript side writes its ~60 lines of JCS rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds. Neither guard needed a new exception; `check-entry-points.mjs` changed only to stop listing which modules sit outside the surface split, which is a set that now grows.
 
 ```go
 sig := &v1.UserSignature{
@@ -639,14 +639,13 @@ Two scripts guard the npm package, both run by `npm run check`:
 
 `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the clients: every method the manifest declares, on the client for that route's surface, compared against the route it says it is; and `wire.test.mjs`, which builds `routegen/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have.
 
-**`wire.test.mjs` is now the gate on signature validity**, not only on readability. The digest is taken over the document those two generators emit, so the pairing it pins is what makes a signature made in one language verifiable in the other; it has each side verify what the other signed. A fixture doing both halves in one process is deliberately not the deployment — verification belongs behind persistence — but the split would hide the one thing worth checking.
+**`wire.test.mjs` is now the gate on signature validity**, not only on readability; see "The signing chain" above for why the digest depends on the pairing it pins.
 
 ## Open questions
 
 Written down, not tracked — the four ui issues that held this work were closed as not-planned when the contract moved here, and nothing has replaced them. Each of these is a decision nobody has standing to take yet because the consumer that would settle it does not exist.
 
 - **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` envelope and the clients hand back the response text unparsed, on both surfaces. A real message (an error-code enum, field-level validation errors) is the obvious next step and is exactly the kind of schema that goes wrong when it is invented before a second consumer exists. See "Errors on the two surfaces" above for the trigger. Refs [#3](https://github.com/metacensus/api/issues/3).
-- **What a verifier does when the two times disagree.** A record carries the time its signer claimed (`userSignature.signingTime`, inside the digest) and the time the server recorded (`recorded`, outside it). The pair bounds the *participant*, not the server, and the contract deliberately states no tolerance: a policy number written here would be a wire break to change, so it belongs in infra's chaincode configuration. What the contract does say is that ordering and conflict resolution use `recorded` and never `signingTime`, or a participant orders their own writes.
 - **Key rotation.** `userSignature.keyId` exists from the first release so that a second key is a lookup rather than a reshaping, but no route enrols one and nothing says what happens to records signed by a key that has been retired. Sign-up is the only enrolment today.
 - **Should the client be an entry point of its own?** `@metacensus/api` and `@metacensus/api/public` split by *surface*; neither splits the client away from the types, so a consumer that only wants `Topic` still resolves `src/client.ts`. `sideEffects: false` lets a bundler drop it, which is why this is not urgent, but a `@metacensus/api/client` export would make it unconditional. `@metacensus/api/signing` has since made the same split for the same reason, which is an argument that the pattern works rather than a decision about this one. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Should the generated client emit a query parameter holding its zero value?** No route declares a query field, so both answers are untested against a real caller, and `EmitDefaultValues` on the response side argues one way while URL length argues the other. Refs [#4](https://github.com/metacensus/api/issues/4).

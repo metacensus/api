@@ -13,6 +13,23 @@ import { fileURLToPath } from "node:url";
 
 import { entryPoints as publishedEntryPoints } from "./entry-points.mjs";
 
+// tsconfig's `include` is the other list of entry points, and it is the one
+// nothing derived. A subpath export added to package.json and missed here
+// compiles nothing, emits no dist/<name>.js, and still passes every check
+// above — the export is broken and no failure says so, which is the same
+// absence-not-failure shape this file exists for, one level down.
+//
+// JSONC, so the array is read rather than parsed: these two files carry
+// comments and JSON.parse will not have them.
+const INCLUDE = /"include"\s*:\s*\[([^\]]*)\]/;
+
+function includeList(pkgRoot, file) {
+  const source = readFileSync(join(pkgRoot, file), "utf8");
+  const m = source.match(INCLUDE);
+  if (!m) return null;
+  return [...m[1].matchAll(/"([^"]+)"/g)].map(([, v]) => v);
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
@@ -69,6 +86,22 @@ for (const entry of entryPoints) {
   exported.set(entry, paths);
 }
 
+for (const tsconfig of ["tsconfig.json", "tsconfig.build.json"]) {
+  const include = includeList(pkgRoot, tsconfig);
+  if (include === null) {
+    failures.push(`${tsconfig}: no \`include\` array; this guard cannot see what tsc compiles.`);
+    continue;
+  }
+  for (const entry of entryPoints) {
+    if (!include.includes(entry)) {
+      failures.push(
+        `${tsconfig} does not include ${entry}, which package.json publishes. ` +
+          `tsc would emit no dist/ output for it and the export would resolve to nothing.`,
+      );
+    }
+  }
+}
+
 const allExported = new Set([...exported.values()].flatMap((s) => [...s]));
 
 for (const file of walk(srcRoot)) {
@@ -102,5 +135,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "ts/: every generated module is exported, and no surface's types by more than one entry point.",
+  "ts/: every generated module is exported, no surface's types by more than one entry point, " +
+    "and every published entry point is compiled.",
 );
