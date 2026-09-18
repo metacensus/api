@@ -10,7 +10,6 @@
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
 export * from "./src/metacensus/v1/prop.js";
-export * from "./src/metacensus/v1/protocol.js";
 export * from "./src/metacensus/v1/topic.js";
 export * from "./src/metacensus/v1/user.js";
 export * from "./src/route-manifest.js";

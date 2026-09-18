@@ -34,10 +34,6 @@ export interface TopicCreateRequest {
   description: string;
 }
 
-export interface TopicProtocolRequest {
-  topicId: string;
-}
-
 /**
  * Member is a user's membership of a topic. No backend implements the member
  * routes yet.
