@@ -5,26 +5,51 @@
 // source: metacensus/v1/prop.proto
 
 /* eslint-disable */
+import type { UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
 /** Propositions and votes: the consensus mechanism. */
 
 /**
- * Prop is a motion a topic's members vote on. It can be functional, changing
- * the topic, or simply establish consensus.
+ * Prop is a motion a topic's members vote on, as a signed record: the server's
+ * own fields, the content its author signed, and the signature over it.
+ *
+ * `author_id` and `created` used to sit here. They are gone, and nothing
+ * replaced them, because they were the unattested versions of what the
+ * signature now carries: the author is `user_signature.signer_id` and the
+ * authoring time is `user_signature.signing_time`, both inside the digest.
  */
 export interface Prop {
+  /** Minted by the server, outside the signature: the prop's address. */
   id: string;
-  authorId: string;
-  created?: string | undefined;
-  type: Prop_Type;
-  /** The text of the proposition, and the text `Vote.citations` index into. */
+  /** When the server recorded the write. The server's observation. */
+  recorded?: string | undefined;
+  content?: PropContent | undefined;
+  userSignature?: UserSignature | undefined;
+}
+
+/**
+ * PropContent is what a prop's author signs.
+ *
+ * It carries `topic_id` because a prop's topic is part of what the prop
+ * *means* — the same words put to a different topic are put to different voters
+ * — and the rule is that every id the path binds is inside the content and
+ * covered by the signature. It does not carry the prop's own id, which the
+ * server mints.
+ */
+export interface PropContent {
+  topicId: string;
+  type: PropContent_Type;
+  /**
+   * The text of the proposition, and the text `VoteContent.citations` index
+   * into.
+   */
   description: string;
 }
 
 /** Type is what the proposition would do if it passed. */
-export enum Prop_Type {
+export enum PropContent_Type {
   Unspecified = "Unspecified",
   Statement = "Statement",
   TopicQuestion = "TopicQuestion",
@@ -38,11 +63,38 @@ export enum Prop_Type {
 /**
  * Vote is one member's position on one prop, keyed by `(propId, userId)`: a
  * second vote from the same user replaces the first rather than adding to it.
+ *
+ * It has no minted id — nothing about it is server-chosen but the recording
+ * time — because both halves of its key are in the content the voter signed.
  */
 export interface Vote {
+  /**
+   * When the server recorded the vote. Overwritten on every recast, and the
+   * only ordering a reader may use: `user_signature.signing_time` is the
+   * voter's own claim.
+   */
+  recorded?: string | undefined;
+  content?: VoteContent | undefined;
+  userSignature?: UserSignature | undefined;
+}
+
+/**
+ * VoteContent is what a voter signs.
+ *
+ * It carries every id that composes the vote's key, and every id the path
+ * binds: `prop_id` and `user_id` are the key, `topic_id` is the path's. That
+ * `user_id` is also `user_signature.signer_id` is deliberate redundancy rather
+ * than an oversight — the rule that content carries its own key is worth more
+ * than the observation that one particular id happens to be implied elsewhere.
+ * Both are inside one digest, so persistence rejects a record whose `user_id`
+ * and `signer_id` disagree: it is validly signed and self-inconsistent, which
+ * is the only way those two can differ.
+ */
+export interface VoteContent {
+  topicId: string;
   propId: string;
   userId: string;
-  position: Vote_Position;
+  position: VoteContent_Position;
   /** Free-text rationale. */
   explanation: string;
   /**
@@ -50,11 +102,9 @@ export interface Vote {
    * for an `Against` vote; cleared when the position changes to any other.
    */
   citations: PropCitation[];
-  /** When the vote was most recently cast. Overwritten on every recast. */
-  lastCast?: string | undefined;
 }
 
-export enum Vote_Position {
+export enum VoteContent_Position {
   Unspecified = "Unspecified",
   For = "For",
   Against = "Against",
@@ -80,11 +130,20 @@ export interface PropGetRequest {
   propId: string;
 }
 
-/** PropCreateRequest takes no author: it is the authenticated user. */
+/**
+ * PropCreateRequest takes no author: it is `user_signature.signer_id`.
+ *
+ * `topic_id` appears twice on purpose — once at the top level, where the route
+ * binds it from the path, and once inside `content`, where it is signed. They
+ * must agree, and the generated binding refuses the request when they do not.
+ * That check is a good error message rather than a control: persistence keys
+ * the record off `content`, so a server that skipped the comparison would write
+ * the record the signature describes, not the one the URL asked for.
+ */
 export interface PropCreateRequest {
   topicId: string;
-  type: Prop_Type;
-  description: string;
+  content?: PropContent | undefined;
+  userSignature?: UserSignature | undefined;
 }
 
 export interface VoteListRequest {
@@ -99,12 +158,12 @@ export interface VoteList {
 
 /**
  * VoteSetRequest sets rather than creates: it replaces the caller's previous
- * vote on this prop.
+ * vote on this prop. Both path ids are repeated inside `content`, signed, and
+ * checked against the path; see PropCreateRequest.
  */
 export interface VoteSetRequest {
   topicId: string;
   propId: string;
-  position: Vote_Position;
-  explanation: string;
-  citations: PropCitation[];
+  content?: VoteContent | undefined;
+  userSignature?: UserSignature | undefined;
 }

@@ -13,10 +13,12 @@ import (
 )
 
 // readBody reads the whole body under the cap. It is the only place the body
-// is read, so what it returns is what VerifyBody sees and what decodeBody
-// parses: one set of octets for both. Request Content-Type is not inspected,
-// and a body sent to a route that declares none is never read — binding is
-// driven by the route's declaration, not by the request.
+// is read. Nothing inspects the octets it returns — decodeBody parses them and
+// they are then done with, because a participant's signature is checked against
+// the decoded message rather than against the bytes; see runtime.go. Request
+// Content-Type is not inspected, and a body sent to a route that declares none
+// is never read — binding is driven by the route's declaration, not by the
+// request.
 func (rt *Runtime) readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, rt.maxBody()))
 	if err != nil {
@@ -29,21 +31,6 @@ func (rt *Runtime) readBody(w http.ResponseWriter, r *http.Request) ([]byte, err
 			Message: "could not read request body", Err: err}
 	}
 	return raw, nil
-}
-
-func (rt *Runtime) verifyBody(r *http.Request, raw []byte) error {
-	if rt.VerifyBody == nil {
-		return nil
-	}
-	if err := rt.VerifyBody(r, raw); err != nil {
-		var e *Error
-		if errors.As(err, &e) {
-			return e
-		}
-		return &Error{Status: http.StatusUnauthorized, Code: "body_verification_failed",
-			Message: "request body failed verification", Err: err}
-	}
-	return nil
 }
 
 // decodeBody parses the body with the contract's UnmarshalOptions: unknown
@@ -82,6 +69,45 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 			"%q is %q in the path and %q in the body", name, v, fromBody)
 	}
 	return v, nil
+}
+
+// requireField fails a signed request that arrived without one of the two
+// halves a signature needs. It is a shape check, not a crypto one: whether the
+// signature is *good* is decided inside the chaincode boundary, and this
+// package never asks. What it does is turn the absence into a 400 naming the
+// field, instead of a message that reaches persistence and fails there with
+// less to say.
+//
+// `content` and `user_signature` are message-typed, so proto3 gives them real
+// presence and an omitted one decodes to nil. A caller cannot express "present
+// but empty" for them and does not need to.
+func requireField(present bool, jsonName string) error {
+	if present {
+		return nil
+	}
+	return Errorf(http.StatusBadRequest, "field_missing",
+		"%q is required: this route carries signed content", jsonName)
+}
+
+// contentParam fails when a path-bound id and the copy inside the signed
+// content disagree.
+//
+// Every id the path binds is repeated inside content and covered by the
+// signature, so that a record cannot be filed under one address while
+// attesting to another. **This comparison is a better error message, not a
+// control.** Persistence keys the record off `content`, which is the signed
+// copy; a server that skipped this check would write the record the signature
+// describes rather than the one the URL asked for, which is wrong but not
+// forgeable. Do not build anything on it that assumes otherwise.
+//
+// Path parameters are bound before this runs and win over the body, so
+// fromPath is what the URL actually said.
+func contentParam(jsonName, fromPath, fromContent string) error {
+	if fromPath == fromContent {
+		return nil
+	}
+	return Errorf(http.StatusBadRequest, "path_content_conflict",
+		"%q is %q in the path and %q in the signed content", jsonName, fromPath, fromContent)
 }
 
 // bindQuery sets the named fields of m from the query string. Only fields in

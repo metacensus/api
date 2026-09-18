@@ -12,6 +12,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,6 +24,65 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// Alg is the signature algorithm, and the vocabulary is closed: a value this
+// enum does not name fails to decode rather than reaching a verifier that
+// would have to decide what to do with it.
+//
+// Closing it has a cost worth knowing before adding to it. protojson and
+// ts-proto's `unrecognizedEnum=false` both refuse an unknown value, so a
+// reader on an older build of the contract cannot decode a record signed with
+// a newer algorithm — not even to migrate it. Adding a value is therefore a
+// contract release that has to reach every reader *before* any signer starts
+// emitting it.
+type UserSignature_Alg int32
+
+const (
+	UserSignature_Unspecified UserSignature_Alg = 0
+	// ECDSA on P-384 with SHA-384. `value` is the JOSE fixed-width `r || s`,
+	// never a DER SEQUENCE: two DER spellings of one signature would be two
+	// strings for one fact.
+	UserSignature_Es384 UserSignature_Alg = 1
+)
+
+// Enum value maps for UserSignature_Alg.
+var (
+	UserSignature_Alg_name = map[int32]string{
+		0: "Unspecified",
+		1: "Es384",
+	}
+	UserSignature_Alg_value = map[string]int32{
+		"Unspecified": 0,
+		"Es384":       1,
+	}
+)
+
+func (x UserSignature_Alg) Enum() *UserSignature_Alg {
+	p := new(UserSignature_Alg)
+	*p = x
+	return p
+}
+
+func (x UserSignature_Alg) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (UserSignature_Alg) Descriptor() protoreflect.EnumDescriptor {
+	return file_metacensus_v1_common_proto_enumTypes[0].Descriptor()
+}
+
+func (UserSignature_Alg) Type() protoreflect.EnumType {
+	return &file_metacensus_v1_common_proto_enumTypes[0]
+}
+
+func (x UserSignature_Alg) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use UserSignature_Alg.Descriptor instead.
+func (UserSignature_Alg) EnumDescriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3, 0}
+}
 
 // ListMetadata is the pagination envelope for list responses. No route
 // paginates yet, so nothing references it.
@@ -169,18 +229,274 @@ func (x *HealthcheckResponse) GetStatus() string {
 	return ""
 }
 
+// UserSignature is one participant vouching for one content message.
+//
+// **It is not verified at the API edge.** The signature travels in the request
+// body precisely so that it reaches the persistence layer intact and is checked
+// inside the chaincode boundary, where the record is written. An API server
+// decodes a request, re-encodes it and hands it on; nothing in that path needs
+// the octets that arrived, because the digest below is taken over the *decoded*
+// message rather than over the bytes. See README.md, "The signing chain".
+//
+// The fields other than `value` are the signature's **signed attributes**: they
+// are inside the digest, so a signature cannot be re-attributed to another
+// signer, re-dated, or reinterpreted under another set of rules. That is also
+// why timestamps and the version marker live here rather than on every content
+// type — they are readable before anything is parsed, and they do not have to be
+// repeated onto each resource.
+type UserSignature struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The signing user's id.
+	//
+	// Empty on exactly one record: the sign-up that enrols the key, where no id
+	// has been minted yet and `public_key` carries the key inline instead. On
+	// every other record persistence requires it, and requires it to equal the
+	// `user_id` the content carries where the content carries one.
+	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
+	// base64url, unpadded, of SHA-256 over the SPKI DER of `public_key`.
+	//
+	// Derived rather than minted, so a client can compute it before it has an
+	// account and a verifier can check it rather than trust it. It exists from
+	// the first release so that key rotation lands as a second key rather than as
+	// a reshaping of this message.
+	KeyId string            `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	Alg   UserSignature_Alg `protobuf:"varint,3,opt,name=alg,proto3,enum=metacensus.v1.UserSignature_Alg" json:"alg,omitempty"`
+	// base64url, unpadded, of the signer's public key as SPKI DER.
+	//
+	// Carried inline **only** on the sign-up that enrols it, which is the one
+	// record whose signer cannot be looked up because it does not exist yet.
+	// Empty everywhere else, where a verifier resolves `key_id` against the key
+	// the signer enrolled. One encoding, not PEM: a PEM body's line breaks and
+	// header spelling are two documents for one key, and both would hash.
+	PublicKey string `protobuf:"bytes,4,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	// When the signer says it signed. A claim by the participant, never an
+	// observation: it is inside the digest, so the participant chose it.
+	//
+	// The recording time beside it on the stored record is the server's and sits
+	// outside the signature. The pair bounds the *participant* — a verifier can
+	// say "this signer claims T, we recorded T-prime" — and it bounds nothing
+	// about the server. Any tolerance over the difference is a policy number, and
+	// policy numbers belong in the chaincode's configuration: one written here
+	// would be a wire break to change.
+	//
+	// Ordering and conflict resolution use the recorded time, never this one, or
+	// a participant orders their own writes.
+	SigningTime *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=signing_time,json=signingTime,proto3" json:"signing_time,omitempty"`
+	// How this signature is to be computed and checked, exactly:
+	// `"metacensus.sig/1"` is JCS (RFC 8785) over the document
+	// `{"content": <content>, "signature": <this message with value "">}`,
+	// digested with SHA-384.
+	//
+	// It is inside the signature because a marker saying how a record should be
+	// read is worthless outside it: the same bytes would be reinterpretable under
+	// whatever rules an attacker preferred. Changing the canonicalization, the
+	// digest or the encoding of `value` changes this string.
+	Spec string `protobuf:"bytes,6,opt,name=spec,proto3" json:"spec,omitempty"`
+	// The full proto name of the message `content` holds, e.g.
+	// `"metacensus.v1.PropContent"`.
+	//
+	// Separate from `spec` so that neither has to be parsed out of the other. It
+	// is what stops a signature over one content type being replayed as another
+	// whose JSON happens to have the same shape — two messages of two strings are
+	// one document once they are canonical.
+	ContentType string `protobuf:"bytes,7,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	// base64url, unpadded, of the signature over the digest.
+	//
+	// Excluded from its own digest by being set to the empty string rather than
+	// by being dropped: `EmitDefaultValues` on the Go side and `useOptionals=messages`
+	// on the TypeScript side already agree that every scalar is present, and that
+	// agreement is tested (ts/test/wire.test.mjs). An omission rule would be a
+	// sixth thing the two generators have to agree about and nothing would check
+	// it.
+	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserSignature) Reset() {
+	*x = UserSignature{}
+	mi := &file_metacensus_v1_common_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserSignature) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserSignature) ProtoMessage() {}
+
+func (x *UserSignature) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_common_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserSignature.ProtoReflect.Descriptor instead.
+func (*UserSignature) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UserSignature) GetSignerId() string {
+	if x != nil {
+		return x.SignerId
+	}
+	return ""
+}
+
+func (x *UserSignature) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *UserSignature) GetAlg() UserSignature_Alg {
+	if x != nil {
+		return x.Alg
+	}
+	return UserSignature_Unspecified
+}
+
+func (x *UserSignature) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *UserSignature) GetSigningTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SigningTime
+	}
+	return nil
+}
+
+func (x *UserSignature) GetSpec() string {
+	if x != nil {
+		return x.Spec
+	}
+	return ""
+}
+
+func (x *UserSignature) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *UserSignature) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// UserContent is the part of a user record its owner signs.
+//
+// It is here rather than in user.proto because two resource files need it and
+// the cross-file rule sanctions exactly this file for that: `SignUpRequest` in
+// auth.proto signs it at enrolment and `User` in user.proto stores it. They
+// have to be one message rather than two of the same shape — a signature made
+// over `SignUpContent` would not verify against a record holding `UserContent`,
+// and the whole point of the chain is that a record stays verifiable after it
+// is stored.
+type UserContent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Country       string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserContent) Reset() {
+	*x = UserContent{}
+	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserContent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserContent) ProtoMessage() {}
+
+func (x *UserContent) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserContent.ProtoReflect.Descriptor instead.
+func (*UserContent) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UserContent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UserContent) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *UserContent) GetCountry() string {
+	if x != nil {
+		return x.Country
+	}
+	return ""
+}
+
 var File_metacensus_v1_common_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\"N\n" +
+	"\x1ametacensus/v1/common.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"N\n" +
 	"\fListMetadata\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x05R\x05total\"\x14\n" +
 	"\x12HealthcheckRequest\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status2z\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\xc5\x02\n" +
+	"\rUserSignature\x12\x1b\n" +
+	"\tsigner_id\x18\x01 \x01(\tR\bsignerId\x12\x15\n" +
+	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x122\n" +
+	"\x03alg\x18\x03 \x01(\x0e2 .metacensus.v1.UserSignature.AlgR\x03alg\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x04 \x01(\tR\tpublicKey\x12=\n" +
+	"\fsigning_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vsigningTime\x12\x12\n" +
+	"\x04spec\x18\x06 \x01(\tR\x04spec\x12!\n" +
+	"\fcontent_type\x18\a \x01(\tR\vcontentType\x12\x14\n" +
+	"\x05value\x18\b \x01(\tR\x05value\"!\n" +
+	"\x03Alg\x12\x0f\n" +
+	"\vUnspecified\x10\x00\x12\t\n" +
+	"\x05Es384\x10\x01\"Q\n" +
+	"\vUserContent\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x18\n" +
+	"\acountry\x18\x03 \x01(\tR\acountry2z\n" +
 	"\fHealthRoutes\x12j\n" +
 	"\vHealthcheck\x12!.metacensus.v1.HealthcheckRequest\x1a\".metacensus.v1.HealthcheckResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/healthcheckB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
@@ -196,20 +512,27 @@ func file_metacensus_v1_common_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_common_proto_rawDescData
 }
 
-var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_metacensus_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_common_proto_goTypes = []any{
-	(*ListMetadata)(nil),        // 0: metacensus.v1.ListMetadata
-	(*HealthcheckRequest)(nil),  // 1: metacensus.v1.HealthcheckRequest
-	(*HealthcheckResponse)(nil), // 2: metacensus.v1.HealthcheckResponse
+	(UserSignature_Alg)(0),        // 0: metacensus.v1.UserSignature.Alg
+	(*ListMetadata)(nil),          // 1: metacensus.v1.ListMetadata
+	(*HealthcheckRequest)(nil),    // 2: metacensus.v1.HealthcheckRequest
+	(*HealthcheckResponse)(nil),   // 3: metacensus.v1.HealthcheckResponse
+	(*UserSignature)(nil),         // 4: metacensus.v1.UserSignature
+	(*UserContent)(nil),           // 5: metacensus.v1.UserContent
+	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
-	1, // 0: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
-	2, // 1: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: metacensus.v1.UserSignature.alg:type_name -> metacensus.v1.UserSignature.Alg
+	6, // 1: metacensus.v1.UserSignature.signing_time:type_name -> google.protobuf.Timestamp
+	2, // 2: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
+	3, // 3: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_common_proto_init() }
@@ -222,13 +545,14 @@ func file_metacensus_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_common_proto_rawDesc), len(file_metacensus_v1_common_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_common_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_common_proto_depIdxs,
+		EnumInfos:         file_metacensus_v1_common_proto_enumTypes,
 		MessageInfos:      file_metacensus_v1_common_proto_msgTypes,
 	}.Build()
 	File_metacensus_v1_common_proto = out.File

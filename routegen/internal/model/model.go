@@ -176,6 +176,17 @@ type Route struct {
 	Request  string
 	Response string
 
+	// Signed is true when this route carries content a participant signed:
+	// a Content field and a UserSignature over it. Every write on the
+	// authenticated surface is signed except the two auth routes that move
+	// no content; describe below is what decides, and
+	// TestEveryWriteCarriesASignature is what holds the set.
+	//
+	// It is on the manifest so that a consumer can ask "which routes need a
+	// signing key?" without reflecting over descriptors, which is the same
+	// reason the prefixes are here rather than in each repository.
+	Signed bool
+
 	// The server and client renderings need the Go side of the same facts:
 	// the Go type names protoc-gen-go gave the messages and, per path
 	// parameter, the Go struct field it binds. None of these are derived by
@@ -183,6 +194,17 @@ type Route struct {
 	GoRequest  string
 	GoResponse string
 	PathFields []PathField
+
+	// ContentGoField and SignatureGoField are the Go struct fields carrying
+	// the signed content and the signature, empty on an unsigned route.
+	ContentGoField   string
+	SignatureGoField string
+
+	// ContentParams is one entry per path parameter, pairing the top-level
+	// field the path binds with the field inside content that repeats it.
+	// Both are signed on the content side and neither is on the path side,
+	// so the generated binding compares them; see contentParam.
+	ContentParams []ContentParam
 
 	// Descriptor is the rpc this route was read from. Every field above is
 	// derived from it; clientgen keeps it because its own rejections and its
@@ -197,6 +219,31 @@ type PathField struct {
 	JSONName string
 	GoField  string
 }
+
+// ContentParam pairs a path parameter with its two homes on a signed
+// request: the top-level field the route binds from the path, and the field
+// inside the signed content that repeats it.
+//
+// The repetition is the design: every id the path binds is inside the
+// content and covered by the signature, so that a record cannot be filed
+// under one address while attesting to another. Nothing but the signed copy
+// decides where the record goes — persistence keys off content — which is
+// why the generated comparison is a better error message rather than a
+// control.
+type ContentParam struct {
+	JSONName       string
+	PathGoField    string
+	ContentGoField string
+}
+
+// The two fields a signed request carries, by proto name, and the type the
+// signature must have. Named here because describe, the server rendering and
+// the schema tests all have to agree about them.
+const (
+	ContentField   = "content"
+	SignatureField = "user_signature"
+	SignatureType  = "metacensus.v1.UserSignature"
+)
 
 // Walk reads every service in every contract package off the descriptors
 // this package's blank imports registered, and returns one Route per rpc, in
@@ -327,21 +374,38 @@ func describe(pkg Package, md protoreflect.MethodDescriptor) (Route, error) {
 		}
 	}
 
+	signed, contentField, sigField, contentParams, err := describeSigned(pkg, md.Input(), req, params)
+	if err != nil {
+		return Route{}, fmt.Errorf("%s: %w", md.Name(), err)
+	}
+	if signed && body != "*" {
+		// Signed content reaches the persistence layer intact or not at all,
+		// and a query string cannot carry a message. This is unreachable
+		// today — describeSigned already required a message-typed field, which
+		// queryParams refuses — but the two rules are independent and only
+		// one of them is about signing.
+		return Route{}, fmt.Errorf("%s: carries signed content but no body; it cannot travel", md.Name())
+	}
+
 	return Route{
-		Pkg:        pkg,
-		Service:    string(md.Parent().Name()),
-		RPC:        string(md.Name()),
-		Method:     method,
-		Path:       path,
-		Params:     params,
-		Query:      query,
-		Body:       body,
-		Request:    string(md.Input().Name()),
-		Response:   string(md.Output().Name()),
-		GoRequest:  req.typeName,
-		GoResponse: resp.typeName,
-		PathFields: pathFields,
-		Descriptor: md,
+		Pkg:              pkg,
+		Service:          string(md.Parent().Name()),
+		RPC:              string(md.Name()),
+		Method:           method,
+		Path:             path,
+		Params:           params,
+		Query:            query,
+		Body:             body,
+		Request:          string(md.Input().Name()),
+		Response:         string(md.Output().Name()),
+		Signed:           signed,
+		GoRequest:        req.typeName,
+		GoResponse:       resp.typeName,
+		PathFields:       pathFields,
+		ContentGoField:   contentField,
+		SignatureGoField: sigField,
+		ContentParams:    contentParams,
+		Descriptor:       md,
 	}, nil
 }
 
@@ -368,43 +432,125 @@ type goType struct {
 func goNames(pkg Package, mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
 	var out [2]goType
 	for i, md := range mds {
-		mt, err := protoregistry.GlobalTypes.FindMessageByName(md.FullName())
+		gt, err := goTypeOf(pkg, md)
 		if err != nil {
-			return goType{}, goType{}, fmt.Errorf("%s: not registered as a Go type: %w", md.FullName(), err)
+			return goType{}, goType{}, err
 		}
-		t := reflect.TypeOf(mt.New().Interface())
-		if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct {
-			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not a pointer to struct", md.FullName(), t)
-		}
-		// The route's own package, not "some generated package": a message
-		// resolving elsewhere is a shape the server rendering has no import
-		// alias for, and a cross-surface field besides — which
-		// TestNoMessageFieldCrossesResourceFiles refuses outright.
-		if t.Elem().PkgPath() != pkg.GoImport {
-			return goType{}, goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, pkg.GoImport)
-		}
-		out[i] = goType{typeName: t.Elem().Name(), fields: map[protoreflect.Name]string{}}
-		for j := 0; j < t.Elem().NumField(); j++ {
-			sf := t.Elem().Field(j)
-			for _, part := range strings.Split(sf.Tag.Get("protobuf"), ",") {
-				if name, ok := strings.CutPrefix(part, "name="); ok {
-					out[i].fields[protoreflect.Name(name)] = sf.Name
-				}
-			}
-		}
-		// Every field the descriptor declares must have been found on the
-		// struct, or the tag format has changed under us.
-		for j := 0; j < md.Fields().Len(); j++ {
-			fd := md.Fields().Get(j)
-			if fd.ContainingOneof() != nil {
-				continue // oneof members sit behind an interface field
-			}
-			if _, ok := out[i].fields[fd.Name()]; !ok {
-				return goType{}, goType{}, fmt.Errorf("%s: no struct field tagged name=%s on %s", md.FullName(), fd.Name(), t)
+		out[i] = gt
+	}
+	return out[0], out[1], nil
+}
+
+// goTypeOf reads one message's generated Go names. Split out of goNames so
+// that a signed route can read the *content* message's fields too: the
+// generated binding compares a path parameter against the copy inside
+// content, and that comparison needs the Go field name on both sides.
+func goTypeOf(pkg Package, md protoreflect.MessageDescriptor) (goType, error) {
+	mt, err := protoregistry.GlobalTypes.FindMessageByName(md.FullName())
+	if err != nil {
+		return goType{}, fmt.Errorf("%s: not registered as a Go type: %w", md.FullName(), err)
+	}
+	t := reflect.TypeOf(mt.New().Interface())
+	if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct {
+		return goType{}, fmt.Errorf("%s: Go type %s is not a pointer to struct", md.FullName(), t)
+	}
+	// The route's own package, not "some generated package": a message
+	// resolving elsewhere is a shape the server rendering has no import
+	// alias for, and a cross-surface field besides — which
+	// TestNoMessageFieldCrossesResourceFiles refuses outright.
+	if t.Elem().PkgPath() != pkg.GoImport {
+		return goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, pkg.GoImport)
+	}
+	out := goType{typeName: t.Elem().Name(), fields: map[protoreflect.Name]string{}}
+	for j := 0; j < t.Elem().NumField(); j++ {
+		sf := t.Elem().Field(j)
+		for _, part := range strings.Split(sf.Tag.Get("protobuf"), ",") {
+			if name, ok := strings.CutPrefix(part, "name="); ok {
+				out.fields[protoreflect.Name(name)] = sf.Name
 			}
 		}
 	}
-	return out[0], out[1], nil
+	// Every field the descriptor declares must have been found on the
+	// struct, or the tag format has changed under us.
+	for j := 0; j < md.Fields().Len(); j++ {
+		fd := md.Fields().Get(j)
+		if fd.ContainingOneof() != nil {
+			continue // oneof members sit behind an interface field
+		}
+		if _, ok := out.fields[fd.Name()]; !ok {
+			return goType{}, fmt.Errorf("%s: no struct field tagged name=%s on %s", md.FullName(), fd.Name(), t)
+		}
+	}
+	return out, nil
+}
+
+// describeSigned reads the signed half of a request: the content field, the
+// signature over it, and the path parameters content has to repeat.
+//
+// The rejections here are the signing rules made mechanical, so that a
+// misshapen signed route fails `make gen` rather than reaching a verifier:
+//
+//   - content and signature travel together. A signature over nothing
+//     attests to nothing, and content nobody signed is the shape this whole
+//     change exists to remove.
+//   - the signature is a UserSignature. Any other message would be a second
+//     spelling of the one thing every verifier reads first.
+//   - every id the path binds is repeated inside content, as a string. This
+//     is the rule: an id that changes what the content *means* must be
+//     covered by the signature, and an id in the path is in that set by
+//     construction — a prop's topic decides who votes on it. A signed route
+//     whose content omits one is refused here, where the message can name
+//     the field, rather than by a verifier that only sees a document.
+func describeSigned(pkg Package, md protoreflect.MessageDescriptor, req goType, params []string) (bool, string, string, []ContentParam, error) {
+	fields := md.Fields()
+	content := fields.ByName(ContentField)
+	sig := fields.ByName(SignatureField)
+
+	switch {
+	case content == nil && sig == nil:
+		return false, "", "", nil, nil
+	case content == nil:
+		return false, "", "", nil, fmt.Errorf("%s carries %s but no %s; a signature over nothing attests to nothing",
+			md.FullName(), SignatureField, ContentField)
+	case sig == nil:
+		return false, "", "", nil, fmt.Errorf("%s carries %s but no %s; content nobody signed is what the signing chain exists to remove",
+			md.FullName(), ContentField, SignatureField)
+	}
+
+	for _, fd := range []protoreflect.FieldDescriptor{content, sig} {
+		if fd.Kind() != protoreflect.MessageKind || fd.IsList() || fd.IsMap() {
+			return false, "", "", nil, fmt.Errorf("%s.%s is %s; it must be a singular message", md.FullName(), fd.Name(), fd.Kind())
+		}
+	}
+	if got := string(sig.Message().FullName()); got != SignatureType {
+		return false, "", "", nil, fmt.Errorf("%s.%s is a %s, not a %s", md.FullName(), SignatureField, got, SignatureType)
+	}
+
+	contentType, err := goTypeOf(pkg, content.Message())
+	if err != nil {
+		return false, "", "", nil, err
+	}
+
+	var out []ContentParam
+	for _, p := range params {
+		cfd := content.Message().Fields().ByJSONName(p)
+		if cfd == nil {
+			return false, "", "", nil, fmt.Errorf(
+				"%s binds path parameter %q but %s does not carry it. Every id the path "+
+					"binds is part of what the content means and must be inside the "+
+					"signature, or a record can be filed under one address while "+
+					"attesting to another", md.FullName(), p, content.Message().FullName())
+		}
+		if cfd.Kind() != protoreflect.StringKind || cfd.IsList() {
+			return false, "", "", nil, fmt.Errorf("%s.%s is %s, not a singular string", content.Message().FullName(), cfd.Name(), cfd.Kind())
+		}
+		out = append(out, ContentParam{
+			JSONName:       p,
+			PathGoField:    req.fields[fields.ByJSONName(p).Name()],
+			ContentGoField: contentType.fields[cfd.Name()],
+		})
+	}
+	return true, req.fields[content.Name()], req.fields[sig.Name()], out, nil
 }
 
 // rewriteParams replaces each {field} segment with {jsonName} and returns the

@@ -5,6 +5,7 @@ package metacensus.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
@@ -34,12 +35,29 @@ service TopicRoutes {
   }
 }
 
-// Topic is a systematic review in progress.
+// Topic is a systematic review in progress, as a signed record: the server's
+// own fields, the content its author signed, and the signature over it.
 message Topic {
+  // Minted by the server, outside the signature. The topic's address, not part
+  // of what it means.
   string id = 1;
-  google.protobuf.Timestamp created = 2;
-  string name = 3;
-  string description = 4;
+
+  // When the server recorded the write; the server's observation, outside the
+  // signature. UserSignature.signing_time is the author's claim.
+  google.protobuf.Timestamp recorded = 2;
+
+  TopicContent content = 3;
+
+  UserSignature user_signature = 4;
+
+  // 5 is left free for an institutional signature; see User.
+}
+
+// TopicContent is what a topic's author signs. It carries no id: a topic's key
+// is minted by the server, and there is no other id in scope here.
+message TopicContent {
+  string name = 1;
+  string description = 2;
 }
 
 message TopicListRequest {}
@@ -53,12 +71,12 @@ message TopicGetRequest {
 }
 
 message TopicCreateRequest {
-  string name = 1;
-  string description = 2;
+  TopicContent content = 1;
+  UserSignature user_signature = 2;
 }
 
 // Member is a user's membership of a topic. No backend implements the member
-// routes yet.
+// routes yet, and no route writes one, so it carries no signature.
 message Member {
   // The member's user id, not an id of the membership itself.
   string id = 1;

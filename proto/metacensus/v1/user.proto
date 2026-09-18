@@ -5,6 +5,7 @@ package metacensus.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
@@ -23,12 +24,30 @@ service UserRoutes {
   }
 }
 
+// User is a signed record: the server's own fields, the content its owner
+// signed, and the signature over that content.
+//
+// **This surface is also the key directory.** `user_signature.public_key` on a
+// user's enrolling signature is how anyone verifies that user's other
+// signatures, so reading a user is how a verifier resolves a `key_id`.
 message User {
+  // Minted by the server, and therefore outside the signature: a client cannot
+  // be trusted to choose its own key, so it cannot have signed one. This id is
+  // the record's *address*; nothing it addresses changes meaning when it
+  // changes.
   string id = 1;
-  string name = 2;
-  string email = 3;
-  string country = 4;
-  google.protobuf.Timestamp created = 5;
+
+  // When the server recorded the write. The server's observation, outside the
+  // signature; `content`'s signature carries the claimed time. See
+  // UserSignature.signing_time for what the pair does and does not bound.
+  google.protobuf.Timestamp recorded = 2;
+
+  UserContent content = 3;
+
+  UserSignature user_signature = 4;
+
+  // 5 is left free: an institutional signature over `user_signature.value`
+  // lands there as a field addition, with nothing above it reshaped.
 }
 
 message UserListRequest {}

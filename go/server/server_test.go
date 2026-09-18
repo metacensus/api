@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -30,12 +29,14 @@ func (f *fakeTopics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.T
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &v1.Topic{Id: req.TopicId, Name: "t"}, nil
+	return &v1.Topic{Id: req.TopicId, Content: &v1.TopicContent{Name: "t"}}, nil
 }
 
+// The server wraps and never modifies: the content it answers with is the
+// content it was handed, and the id beside it is the server's own.
 func (f *fakeTopics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.Topic, error) {
 	f.gotCreate = req
-	return &v1.Topic{Id: "new", Name: req.Name, Description: req.Description}, nil
+	return &v1.Topic{Id: "new", Content: req.Content, UserSignature: req.UserSignature}, nil
 }
 
 type fakeProps struct {
@@ -45,7 +46,18 @@ type fakeProps struct {
 
 func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.Prop, error) {
 	f.got = req
-	return &v1.Prop{Id: "p", AuthorId: "u", Type: req.Type, Description: req.Description}, nil
+	return &v1.Prop{Id: "p", Content: req.Content, UserSignature: req.UserSignature}, nil
+}
+
+// signedBody wraps a content document in the envelope every write carries.
+//
+// The signature is empty on purpose. This package checks that the two halves
+// are there and that the ids agree; whether the signature is *good* is decided
+// by the persistence layer inside the chaincode boundary, and nothing here
+// ever asks. A test that had to mint a real key to exercise binding would be
+// testing the wrong boundary.
+func signedBody(content string) string {
+	return `{"content":` + content + `,"userSignature":{}}`
 }
 
 // Registering every service proves the manifest's patterns do not conflict
@@ -64,7 +76,7 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 
 	// The public surface hangs off its own prefix, so it gets its own
 	// Runtime — a copy of rt with only Prefix changed, so a test setting
-	// MaxBodyBytes or VerifyBody sets it for both surfaces. This is how a
+	// MaxBodyBytes sets it for both surfaces. This is how a
 	// process serving both actually mounts them: Prefix is the one field
 	// that is per surface.
 	pub := *rt
@@ -108,8 +120,9 @@ func TestGetBindsPathParam(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type %q", ct)
 	}
-	// EmitDefaultValues: the empty description and absent created are the
-	// contract's presence rules, not encoding/json's.
+	// EmitDefaultValues: the empty description inside content and the absent
+	// recorded and userSignature are the contract's presence rules, not
+	// encoding/json's.
 	var got v1.Topic
 	if err := contract.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
@@ -117,7 +130,7 @@ func TestGetBindsPathParam(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"description":""`) {
 		t.Errorf("default-valued scalar not emitted: %s", rec.Body.String())
 	}
-	if strings.Contains(rec.Body.String(), `"created"`) {
+	if strings.Contains(rec.Body.String(), `"recorded"`) {
 		t.Errorf("absent message field emitted: %s", rec.Body.String())
 	}
 }
@@ -126,16 +139,17 @@ func TestPostDecodesBodyWithContractOptions(t *testing.T) {
 	topics := &fakeTopics{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
 
-	rec := do(t, mux, "POST", "/topic", `{"name":"n","description":"d"}`)
+	rec := do(t, mux, "POST", "/topic", signedBody(`{"name":"n","description":"d"}`))
 	if rec.Code != 200 {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
-	if topics.gotCreate.GetName() != "n" || topics.gotCreate.GetDescription() != "d" {
+	if c := topics.gotCreate.GetContent(); c.GetName() != "n" || c.GetDescription() != "d" {
 		t.Errorf("body bound as %v", topics.gotCreate)
 	}
 
-	// Unknown fields are rejected, as UnmarshalOptions says.
-	rec = do(t, mux, "POST", "/topic", `{"name":"n","bogus":1}`)
+	// Unknown fields are rejected, as UnmarshalOptions says — inside the
+	// nested content as much as at the top level.
+	rec = do(t, mux, "POST", "/topic", signedBody(`{"name":"n","bogus":1}`))
 	if rec.Code != 400 {
 		t.Fatalf("unknown field: status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -145,7 +159,8 @@ func TestPostDecodesBodyWithContractOptions(t *testing.T) {
 
 	// snake_case is not the wire spelling; protojson accepts it anyway. This
 	// pins that fact rather than endorsing it.
-	rec = do(t, mux, "POST", "/topic/t1/prop", `{"topic_id":"t1","type":"Statement","description":"x"}`)
+	rec = do(t, mux, "POST", "/topic/t1/prop",
+		`{"topic_id":"t1","content":{"topic_id":"t1","type":"Statement","description":"x"},"user_signature":{}}`)
 	if rec.Code != 200 {
 		t.Errorf("snake_case body: status %d: %s", rec.Code, rec.Body.String())
 	}
@@ -155,28 +170,92 @@ func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 	props := &fakeProps{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, props)
 
+	content := `{"topicId":"t1","type":"Statement","description":"x"}`
+
 	// Body repeats the path-bound field with the same value: fine.
-	rec := do(t, mux, "POST", "/topic/t1/prop", `{"topicId":"t1","type":"Statement","description":"x"}`)
+	rec := do(t, mux, "POST", "/topic/t1/prop", `{"topicId":"t1","content":`+content+`,"userSignature":{}}`)
 	if rec.Code != 200 {
 		t.Fatalf("agreeing body: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if props.got.GetTopicId() != "t1" || props.got.GetType() != v1.Prop_Statement {
+	if props.got.GetTopicId() != "t1" || props.got.GetContent().GetType() != v1.PropContent_Statement {
 		t.Errorf("bound %v", props.got)
 	}
 
-	// Body omits it: the path fills it in.
-	rec = do(t, mux, "POST", "/topic/t2/prop", `{"type":"Statement","description":"x"}`)
-	if rec.Code != 200 || props.got.GetTopicId() != "t2" {
+	// Body omits the top-level copy: the path fills it in. The signed copy
+	// inside content is the caller's and is never filled in for them.
+	rec = do(t, mux, "POST", "/topic/t1/prop", signedBody(content))
+	if rec.Code != 200 || props.got.GetTopicId() != "t1" {
 		t.Errorf("absent in body: status %d topicId %q", rec.Code, props.got.GetTopicId())
 	}
 
-	// Body disagrees: 400.
-	rec = do(t, mux, "POST", "/topic/t3/prop", `{"topicId":"other","type":"Statement","description":"x"}`)
+	// Top-level copy disagrees with the path: 400.
+	rec = do(t, mux, "POST", "/topic/t1/prop", `{"topicId":"other","content":`+content+`,"userSignature":{}}`)
 	if rec.Code != 400 {
 		t.Fatalf("disagreeing body: status %d: %s", rec.Code, rec.Body.String())
 	}
 	if code, _ := errorBody(t, rec); code != "path_body_conflict" {
 		t.Errorf("code %q", code)
+	}
+}
+
+// Every id the path binds is repeated inside the signed content, so the two
+// can disagree — and that is the one disagreement worth naming: a record filed
+// under one address while attesting to another.
+//
+// It is a 400 for the error message's sake, not as a control. Persistence keys
+// the record off content, which is the signed copy, so a server that skipped
+// this would write the record the signature describes rather than the one the
+// URL asked for.
+func TestPathAndSignedContentMustAgree(t *testing.T) {
+	props := &fakeProps{}
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, props)
+
+	rec := do(t, mux, "POST", "/topic/t1/prop",
+		signedBody(`{"topicId":"somewhere-else","type":"Statement","description":"x"}`))
+	if rec.Code != 400 {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	code, msg := errorBody(t, rec)
+	if code != "path_content_conflict" {
+		t.Errorf("code %q", code)
+	}
+	if !strings.Contains(msg, "somewhere-else") || !strings.Contains(msg, "t1") {
+		t.Errorf("message %q names neither value", msg)
+	}
+
+	// The signed copy left empty is still a disagreement: it is not a field
+	// the server may fill in, because filling it in would be the server
+	// choosing part of what the signature covers.
+	rec = do(t, mux, "POST", "/topic/t1/prop", signedBody(`{"type":"Statement","description":"x"}`))
+	if rec.Code != 400 {
+		t.Errorf("empty signed copy: status %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// A signed route needs both halves, and neither is something the server can
+// supply. This is a shape check: it never looks at the signature's value, and
+// the empty signature below is accepted precisely because verification is not
+// this layer's job.
+func TestSignedRouteRequiresBothHalves(t *testing.T) {
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, &fakeProps{})
+
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"no signature", `{"content":{"name":"n","description":"d"}}`},
+		{"no content", `{"userSignature":{}}`},
+		{"neither", `{}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := do(t, mux, "POST", "/topic", tc.body)
+			if rec.Code != 400 {
+				t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+			}
+			if code, _ := errorBody(t, rec); code != "field_missing" {
+				t.Errorf("code %q", code)
+			}
+		})
 	}
 }
 
@@ -193,43 +272,32 @@ func TestBodySizeCap(t *testing.T) {
 	}
 }
 
-func TestVerifyBodySeesRawOctets(t *testing.T) {
-	// Whitespace and key order that protojson would never reproduce: the
-	// hook must see exactly what was sent.
-	sent := "{ \"description\" : \"d\",\n\t\"name\":\"n\" }"
-	var seen []byte
-	rt := &server.Runtime{Prefix: routes.Prefix, VerifyBody: func(r *http.Request, raw []byte) error {
-		seen = append([]byte(nil), raw...)
-		if r.Header.Get("X-Signature") == "" {
-			return errors.New("no signature")
-		}
-		return nil
-	}}
-	mux := registerAll(t, rt, &fakeTopics{}, &fakeProps{})
+// What used to be TestVerifyBodySeesRawOctets.
+//
+// The seam it tested is gone: a signature is checked against the decoded
+// message, inside the chaincode boundary, so nothing needs the octets that
+// arrived and this package offers no hook that sees them. What is worth
+// keeping is the property that made the old seam necessary — protojson's
+// output is not byte-stable — as the reason the design does not depend on it.
+//
+// A body whose whitespace and key order protojson would never reproduce is
+// accepted, reaches the handler as an ordinary message, and is answered with a
+// document that looks nothing like it. A digest over the bytes could not have
+// survived that; a digest over the message does.
+func TestABodyIsAcceptedHoweverItWasSpelled(t *testing.T) {
+	topics := &fakeTopics{}
+	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
 
-	req := httptest.NewRequest("POST", routes.Prefix+"/topic", strings.NewReader(sent))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-	if rec.Code != 401 {
-		t.Fatalf("unsigned: status %d: %s", rec.Code, rec.Body.String())
-	}
-	if !bytes.Equal(seen, []byte(sent)) {
-		t.Errorf("hook saw %q, want %q", seen, sent)
-	}
-
-	req = httptest.NewRequest("POST", routes.Prefix+"/topic", strings.NewReader(sent))
-	req.Header.Set("X-Signature", "x")
-	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
+	sent := "{ \"userSignature\" : {},\n\t\"content\":{ \"description\" : \"d\",\n\t\"name\":\"n\" } }"
+	rec := do(t, mux, "POST", "/topic", sent)
 	if rec.Code != 200 {
-		t.Fatalf("signed: status %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}
-
-	// The hook is not consulted for a route without a body.
-	seen = nil
-	rec = do(t, mux, "GET", "/topic/x", "")
-	if rec.Code != 200 || seen != nil {
-		t.Errorf("GET: status %d, hook saw %v", rec.Code, seen)
+	if c := topics.gotCreate.GetContent(); c.GetName() != "n" || c.GetDescription() != "d" {
+		t.Errorf("bound %v", topics.gotCreate)
+	}
+	if rec.Body.String() == sent {
+		t.Error("the response reproduced the request octets; this test assumes it cannot")
 	}
 }
 

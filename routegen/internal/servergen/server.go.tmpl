@@ -47,10 +47,6 @@ func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
@@ -64,6 +60,24 @@ func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 			rt.writeError(w, err)
 			return
 		}
+{{end -}}
+{{if .Signed}}		// Signed route: the two halves must be present, and every id the
+		// path bound must match its signed copy. Neither check looks at the
+		// signature itself — that is persistence's, inside the chaincode
+		// boundary. See requireField and contentParam.
+		if err := requireField(req.{{.ContentGoField}} != nil, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.{{.SignatureGoField}} != nil, "userSignature"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+{{range .ContentParams}}		if err := contentParam({{printf "%q" .JSONName}}, req.{{.PathGoField}}, req.{{$.ContentGoField}}.{{.ContentGoField}}); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+{{end -}}
 {{end -}}
 		resp, err := impl.{{.RPC}}(r.Context(), req)
 		rt.respond(w, resp, err)
