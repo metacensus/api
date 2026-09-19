@@ -271,12 +271,12 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xc9\x01\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcf\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
 	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.UserContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"\x11\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\x11\n" +
 	"\x0fUserListRequest\"5\n" +
 	"\bUserList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +

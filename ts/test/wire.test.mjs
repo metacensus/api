@@ -132,10 +132,9 @@ after(() => {
  * A syntactically complete signature that signs nothing.
  *
  * go/server checks that both halves of a signed request are present and that
- * the ids agree; it never looks at the value, because verification happens in
- * the persistence layer inside the chaincode boundary. The tests above are
- * about encoding, so they send this; the tests at the bottom of this file are
- * about signatures, and make real ones.
+ * the ids agree; it never looks at the value. The tests above are about
+ * encoding, so they send this; the tests at the bottom of this file are about
+ * signatures, and make real ones.
  */
 function emptySignature() {
   return {

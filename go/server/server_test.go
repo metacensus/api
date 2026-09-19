@@ -51,11 +51,10 @@ func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v
 
 // signedBody wraps a content document in the envelope every write carries.
 //
-// The signature is empty on purpose. This package checks that the two halves
-// are there and that the ids agree; whether the signature is *good* is decided
-// by the persistence layer inside the chaincode boundary, and nothing here
-// ever asks. A test that had to mint a real key to exercise binding would be
-// testing the wrong boundary.
+// The signature is empty on purpose: this package checks that the two halves
+// are there and that the ids agree, never whether the signature is good. A
+// test that had to mint a real key to exercise binding would be testing the
+// wrong boundary.
 func signedBody(content string) string {
 	return `{"content":` + content + `,"userSignature":{}}`
 }
@@ -274,11 +273,9 @@ func TestBodySizeCap(t *testing.T) {
 
 // What used to be TestVerifyBodySeesRawOctets.
 //
-// The seam it tested is gone: a signature is checked against the decoded
-// message, inside the chaincode boundary, so nothing needs the octets that
-// arrived and this package offers no hook that sees them. What is worth
-// keeping is the property that made the old seam necessary — protojson's
-// output is not byte-stable — as the reason the design does not depend on it.
+// The seam it tested is gone, and no hook here sees raw octets. What is worth
+// keeping is the property that made that seam necessary — protojson's output
+// is not byte-stable — now as the reason the design does not depend on it.
 //
 // A body whose whitespace and key order protojson would never reproduce is
 // accepted, reaches the handler as an ordinary message, and is answered with a

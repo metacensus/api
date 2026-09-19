@@ -86,9 +86,10 @@ export interface Vote {
  * `user_id` is also `user_signature.signer_id` is deliberate redundancy rather
  * than an oversight — the rule that content carries its own key is worth more
  * than the observation that one particular id happens to be implied elsewhere.
- * Both are inside one digest, so persistence rejects a record whose `user_id`
- * and `signer_id` disagree: it is validly signed and self-inconsistent, which
- * is the only way those two can differ.
+ * Both are inside one digest, so a record whose `user_id` and `signer_id`
+ * disagree is validly signed and self-inconsistent, which is the only way the
+ * two can differ. Refusing it is persistence's, and owed rather than done; see
+ * README.md, "Open questions".
  */
 export interface VoteContent {
   topicId: string;

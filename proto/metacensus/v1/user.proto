@@ -46,8 +46,12 @@ message User {
 
   UserSignature user_signature = 4;
 
-  // 5 is left free: an institutional signature over `user_signature.value`
-  // lands there as a field addition, with nothing above it reshaped.
+  // Held for an institutional signature over `user_signature.value` — it
+  // endorses the author, not the data — so it lands as a field addition with
+  // nothing above it reshaped. `reserved` is what holds it: protoc refuses the
+  // number, where a comment only asks. Every signed record reserves the number
+  // after its last for the same reason.
+  reserved 5;
 }
 
 message UserListRequest {}

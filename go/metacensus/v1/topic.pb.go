@@ -529,12 +529,12 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcb\x01\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xd1\x01\n" +
 	"\x05Topic\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x125\n" +
 	"\acontent\x18\x03 \x01(\v2\x1b.metacensus.v1.TopicContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"D\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"D\n" +
 	"\fTopicContent\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x12\n" +

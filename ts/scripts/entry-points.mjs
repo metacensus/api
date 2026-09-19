@@ -1,11 +1,8 @@
 // The entry points package.json actually publishes, derived from its `exports`
 // rather than listed beside them.
 //
-// Both guards here used to hold the literal ["index.ts", "public.ts"] while
-// their comments claimed they covered what package.json points at. A third
-// subpath export would have shipped unchecked by either of them, which is the
-// shape of hole they exist to close — and `@metacensus/api/signing` is now
-// that third export, added without either guard being touched.
+// Deriving it is the point: a guard holding a literal list of entry points
+// checks the list, not the package, and a new subpath export ships past it.
 
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

@@ -71,16 +71,9 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 	return v, nil
 }
 
-// requireField fails a signed request that arrived without one of the two
-// halves a signature needs. It is a shape check, not a crypto one: whether the
-// signature is *good* is decided inside the chaincode boundary, and this
-// package never asks. What it does is turn the absence into a 400 naming the
-// field, instead of a message that reaches persistence and fails there with
-// less to say.
-//
-// `content` and `user_signature` are message-typed, so proto3 gives them real
-// presence and an omitted one decodes to nil. A caller cannot express "present
-// but empty" for them and does not need to.
+// requireField turns a missing half of a signed request into a 400 naming the
+// field, rather than a message that reaches persistence and fails there with
+// less to say. Shape only: whether the signature is *good* is never asked here.
 func requireField(present bool, jsonName string) error {
 	if present {
 		return nil
@@ -92,13 +85,10 @@ func requireField(present bool, jsonName string) error {
 // contentParam fails when a path-bound id and the copy inside the signed
 // content disagree.
 //
-// Every id the path binds is repeated inside content and covered by the
-// signature, so that a record cannot be filed under one address while
-// attesting to another. **This comparison is a better error message, not a
-// control.** Persistence keys the record off `content`, which is the signed
-// copy; a server that skipped this check would write the record the signature
-// describes rather than the one the URL asked for, which is wrong but not
-// forgeable. Do not build anything on it that assumes otherwise.
+// **It is a better error message, not a control.** Persistence keys the record
+// off `content`, the signed copy, so a server that skipped this would write the
+// record the signature describes rather than the one the URL asked for — wrong,
+// but not forgeable. Do not build anything on it that assumes otherwise.
 //
 // Path parameters are bound before this runs and win over the body, so
 // fromPath is what the URL actually said.

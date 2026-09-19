@@ -10,9 +10,8 @@
 //
 // # Signatures
 //
-// It also verifies and makes them, which a real API server would not: a user
-// signature is checked by the persistence layer inside the chaincode boundary,
-// and the edge never looks. Doing both halves in one process here is
+// It also verifies and makes them, which a real API server would not — the
+// edge never looks at a signature. Doing both halves in one process here is
 // deliberate and is not a model of the deployment. What the test needs is the
 // one thing the split would hide — that go/signing and ts/src/signing.ts
 // compute the same digest over the same document — and the cheapest way to

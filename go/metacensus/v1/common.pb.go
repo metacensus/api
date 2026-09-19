@@ -249,9 +249,10 @@ type UserSignature struct {
 	// The signing user's id.
 	//
 	// Empty on exactly one record: the sign-up that enrols the key, where no id
-	// has been minted yet and `public_key` carries the key inline instead. On
-	// every other record persistence requires it, and requires it to equal the
-	// `user_id` the content carries where the content carries one.
+	// has been minted yet and `public_key` carries the key inline instead.
+	// Everywhere else persistence owes two refusals: an absent `signer_id`, and
+	// one that disagrees with the `user_id` its content carries. See README.md,
+	// "Open questions", for what does and does not implement them.
 	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
 	// base64url, unpadded, of SHA-256 over the SPKI DER of `public_key`.
 	//

@@ -42,9 +42,10 @@ export interface SignUpRequest {
   password: string;
   /**
    * Over `content`, made with the key being enrolled. `signer_id` is empty —
-   * no id exists yet — and `public_key` carries the key inline. Persistence
-   * checks that `key_id` is the thumbprint of `public_key` and that the
-   * signature verifies under it before it mints anything.
+   * no id exists yet — and `public_key` carries the key inline. Before minting
+   * an account, persistence owes two checks: that `key_id` is the thumbprint
+   * of `public_key`, and that the signature verifies under it. Nothing in this
+   * repository performs them; see README.md, "Open questions".
    */
   userSignature?: UserSignature | undefined;
 }

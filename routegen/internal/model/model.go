@@ -177,10 +177,9 @@ type Route struct {
 	Response string
 
 	// Signed is true when this route carries content a participant signed:
-	// a Content field and a UserSignature over it. Every write on the
-	// authenticated surface is signed except the two auth routes that move
-	// no content; describe below is what decides, and
-	// TestEveryWriteCarriesASignature is what holds the set.
+	// a Content field and a UserSignature over it. describe below is what
+	// decides; which writes are exempt from carrying one is not this
+	// package's to state — TestEveryWriteCarriesASignature holds that set.
 	//
 	// It is on the manifest so that a consumer can ask "which routes need a
 	// signing key?" without reflecting over descriptors, which is the same

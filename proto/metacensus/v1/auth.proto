@@ -10,10 +10,11 @@ option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
 // Route declarations, not a gRPC commitment: see README.md.
 //
-// **Login and Logout are the two writes on this surface that carry no user
-// signature**, because neither moves content a participant could vouch for:
-// Login hands over a password and Logout surrenders a token. Every other write
-// carries one, and TestEveryWriteCarriesASignature holds that set.
+// Login and Logout carry no user signature: neither moves content a
+// participant could vouch for — one hands over a password, the other
+// surrenders a token. SignUp does carry one, and is where the key arrives.
+// Which writes are exempt, and the reason for each, is `unsignedWrites` in
+// go/signing_test.go, held in both directions by TestEveryWriteCarriesASignature.
 //
 // Which routes a session token is required for is not expressed here, or
 // anywhere in this contract — it is the middleware's, in each implementation.
@@ -66,9 +67,10 @@ message SignUpRequest {
   string password = 2;
 
   // Over `content`, made with the key being enrolled. `signer_id` is empty —
-  // no id exists yet — and `public_key` carries the key inline. Persistence
-  // checks that `key_id` is the thumbprint of `public_key` and that the
-  // signature verifies under it before it mints anything.
+  // no id exists yet — and `public_key` carries the key inline. Before minting
+  // an account, persistence owes two checks: that `key_id` is the thumbprint
+  // of `public_key`, and that the signature verifies under it. Nothing in this
+  // repository performs them; see README.md, "Open questions".
   UserSignature user_signature = 3;
 }
 

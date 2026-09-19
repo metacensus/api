@@ -15,23 +15,11 @@ const DefaultMaxBodyBytes int64 = 1 << 20
 // It persists nothing and validates only what binding requires; wiring
 // persistence, or any authentication at all, is the implementer's.
 //
-// **There is deliberately no body-verification seam on it.** There used to be:
-// VerifyBody saw the raw octets of every request body, for an X-Signature
-// header, because protojson's output is not byte-stable and a signature over
-// the bytes could only be checked against the bytes that arrived. Both the
-// header and the seam are gone. A participant's signature now travels inside
-// the body and is verified by the persistence layer, inside the chaincode
-// boundary, against a digest taken over the *decoded* message (JCS, RFC 8785;
-// see github.com/metacensus/api/go/signing). That is what lets this package
-// decode a request and hand the message on without the octets mattering, and
-// it is the whole reason the seam is not needed.
-//
-// It is removed rather than merely left unused: a general-purpose raw-body
-// hook beside an HTTP handler reads as an invitation to check the signature
-// here, which would put at the edge a decision the design places deliberately
-// behind persistence. Anything else such a hook might do — logging, metering,
-// rate limiting — is middleware's, and every Mux this package registers on
-// already has some.
+// **There is deliberately no hook here that sees a raw request body.** A
+// participant's signature is verified behind persistence, over the decoded
+// message rather than the octets — see UserSignature in the contract — so a
+// raw-body seam would buy nothing and read as an invitation to check the
+// signature at the edge. Anything else it might do is middleware's.
 type Runtime struct {
 	// Prefix is the path every route hangs off, and "" means exactly that:
 	// no prefix. That is what a router already mounted at the contract's

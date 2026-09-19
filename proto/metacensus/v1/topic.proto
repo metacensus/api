@@ -50,7 +50,8 @@ message Topic {
 
   UserSignature user_signature = 4;
 
-  // 5 is left free for an institutional signature; see User.
+  // Held for an institutional signature; see User.
+  reserved 5;
 }
 
 // TopicContent is what a topic's author signs. It carries no id: a topic's key

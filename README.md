@@ -251,7 +251,7 @@ Every write on `metacensus.v1` therefore carries two fields — a `content` mess
 
 **The server wraps, it never modifies.** Everything it adds — the minted id, the recording time — is added around the signed content, never inside it. `content` stays plain and typed, so chaincode reading one record to check an invariant against another does not have to unwrap or cast.
 
-Field 5 of each record is left free. An institutional signature lands there as a pure field addition, and it will cover the *user's signature value* rather than the content: it endorses the author, not the data.
+Every signed record holds the field number after its last with `reserved`, so an institutional signature lands as a pure field addition. Which number that is differs — `Vote` mints no id, so its fields stop earlier than the rest — and `reserved` is what makes that the compiler's business rather than a reader's. The signature it holds will cover the *user's signature value* rather than the content: it endorses the author, not the data.
 
 ### Which ids are inside the signature
 
@@ -263,9 +263,9 @@ That puts a path-bound id in two places on a write — once at the top level, wh
 
 ### Where verification happens
 
-**Not at the API edge.** The signature travels in the body so that it reaches the persistence layer intact and is checked inside the chaincode boundary, where the record is written. `Runtime.VerifyBody` and the `X-Signature` header it existed for are both gone, and `runtime.go` says at length why the seam was removed rather than left unused.
+**Not at the API edge.** The signature travels in the body so that it reaches the persistence layer intact and is checked inside the chaincode boundary, where the record is written. `Runtime.VerifyBody` and the `X-Signature` header it existed for are both gone. The next section is what makes that possible.
 
-What makes that possible is the next section.
+Nothing in this repository verifies a signature at any layer — `go/signing` computes and checks a digest, and stops short of resolving a key or an identity. See "Open questions".
 
 ### The digest
 
@@ -308,7 +308,7 @@ Any tolerance over the difference is a policy number and belongs in infra's chai
 
 ### Computing it
 
-`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Both are dependency-free: the Go side is stdlib, so the module stays at two requirements; the TypeScript side writes its ~60 lines of JCS rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds. Neither guard needed a new exception; `check-entry-points.mjs` changed only to stop listing which modules sit outside the surface split, which is a set that now grows.
+`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Both are dependency-free: the Go side is stdlib, so the module stays at two requirements; the TypeScript side writes its ~60 lines of JCS rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds. `@metacensus/api/signing` is a third entry point rather than an exception to either npm guard; see "What the tests check".
 
 ```go
 sig := &v1.UserSignature{
@@ -476,7 +476,7 @@ Protobuf binary is not used, not supported and not a fallback. Protobuf is here 
 - **Field names are `snake_case` in proto, `lowerCamelCase` on the wire.** protojson converts; there are no `json_name` overrides.
 - **Enum values are PascalCase** and nested in the message that owns them, because protojson serialises an enum as its value name. Zero values are `Unspecified`.
 - **All ids are strings.** demo mints integer serials, infra prefixed UUIDs.
-- **No 64-bit integer, no float, no double.** The signing digest is JCS (RFC 8785) over this schema and JCS numbers are ECMAScript numbers, so a wide or fractional number is where a Go and a TypeScript canonicaliser stop agreeing. `TestNoWideNumbersCrossJCS` refuses them; use `int32`/`uint32`, or a string.
+- **No 64-bit integer, no float, no double.** `TestNoWideNumbersCrossJCS` refuses them; use `int32`/`uint32`, or a string. The reason is the signing digest — see "The digest" above.
 - **Presence is expressed only through message-typed fields.** `EmitDefaultValues` plus ts-proto's `useOptionals=messages` makes scalars, enums and repeated fields always present, and message fields `?: T | undefined`. A proto3 `optional` scalar is a third case the two sides would disagree about; use `google.protobuf.Int32Value` and friends instead.
 
 Agreement between the JSON Go emits and the TypeScript generated from the same `.proto` is not checked. That needs real documents from a backend actually serving the contract, and nothing serves it yet.
@@ -635,18 +635,18 @@ Route identity is the **full** path, prefix included: a public `/partner` and an
 Two scripts guard the npm package, both run by `npm run check`:
 
 - `check-no-runtime.mjs` asserts it reaches for nothing at runtime: empty `dependencies`, and no value import in anything that ships — the files under `src/` and every entry point `package.json` publishes. `@metacensus/api/signing` is inside that, not an exception to it: it writes its own canonicaliser and reaches WebCrypto through a global, so it imports nothing.
-- `check-entry-points.mjs` asserts every generated module is exported by an entry point, and that no module under `src/metacensus/` is exported by both. `index.ts` and `public.ts` list their exports by hand, so without it a new `.proto` file generates a module that ships in `dist/` and that no consumer can import — an absence, not a failure, and the same shape of hole as a proto package missing from `contractPackages`. Both entry points do share `src/client.ts`, which holds a class per surface: `ApiError` has to be one class, or catching it would depend on which entry point the catch block imported from.
+- `check-entry-points.mjs` asserts that what `package.json` publishes, what the entry points export and what the tsconfigs compile are the same set; it prints each assertion it made. `index.ts` and `public.ts` list their exports by hand, and both tsconfigs list the entry points by hand, so without it a new `.proto` file generates a module no consumer can import, and a new subpath export emits no `dist/` file at all — absences, not failures, and the same shape of hole as a proto package missing from `contractPackages`. Both entry points do share `src/client.ts`, which holds a class per surface: `ApiError` has to be one class, or catching it would depend on which entry point the catch block imported from.
 
-`npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the clients: every method the manifest declares, on the client for that route's surface, compared against the route it says it is; and `wire.test.mjs`, which builds `routegen/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have.
-
-**`wire.test.mjs` is now the gate on signature validity**, not only on readability; see "The signing chain" above for why the digest depends on the pairing it pins.
+`npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`, no test-runner dependency) exercises the clients: every method the manifest declares, on the client for that route's surface, compared against the route it says it is; and `wire.test.mjs`, which builds `routegen/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have. It gates signature validity as well as readability, for the reason given under "The digest" above.
 
 ## Open questions
 
 Written down, not tracked — the four ui issues that held this work were closed as not-planned when the contract moved here, and nothing has replaced them. Each of these is a decision nobody has standing to take yet because the consumer that would settle it does not exist.
 
 - **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` envelope and the clients hand back the response text unparsed, on both surfaces. A real message (an error-code enum, field-level validation errors) is the obvious next step and is exactly the kind of schema that goes wrong when it is invented before a second consumer exists. See "Errors on the two surfaces" above for the trigger. Refs [#3](https://github.com/metacensus/api/issues/3).
+- **Nothing verifies a signature yet, and the contract states the obligations in four places rather than one.** `go/signing` computes and checks a digest; it stops there deliberately, because resolving a `keyId` to an enrolled key and deciding who may sign what are persistence's. What persistence owes, as of this contract: verify the digest under the key `keyId` resolves to; refuse a `signerId` that disagrees with the `userId` its content carries; check at sign-up that `keyId` is the thumbprint of the `publicKey` handed over; and hold a `signingTime`/`recorded` tolerance in chaincode configuration, since a number written into the contract would be a wire break to change. No repository implements any of it — `metacensus/infra` has no signature handling and still carries `AuthorId` — so the obligations above are the only statement of the work, and they are prose rather than a conformance suite. This is the seam the whole design rests on, and the one with no gate.
+
 - **Key rotation.** `userSignature.keyId` exists from the first release so that a second key is a lookup rather than a reshaping, but no route enrols one and nothing says what happens to records signed by a key that has been retired. Sign-up is the only enrolment today.
-- **Should the client be an entry point of its own?** `@metacensus/api` and `@metacensus/api/public` split by *surface*; neither splits the client away from the types, so a consumer that only wants `Topic` still resolves `src/client.ts`. `sideEffects: false` lets a bundler drop it, which is why this is not urgent, but a `@metacensus/api/client` export would make it unconditional. `@metacensus/api/signing` has since made the same split for the same reason, which is an argument that the pattern works rather than a decision about this one. Refs [#4](https://github.com/metacensus/api/issues/4).
+- **Should the client be an entry point of its own?** `@metacensus/api` and `@metacensus/api/public` split by *surface*; neither splits the client away from the types, so a consumer that only wants `Topic` still resolves `src/client.ts`. `sideEffects: false` lets a bundler drop it, which is why this is not urgent, but a `@metacensus/api/client` export would make it unconditional. `@metacensus/api/signing` has since made the same split for the same reason, which is an argument that the pattern works rather than a decision about this one. Adding a fourth is now gated rather than remembered: `check-entry-points.mjs` fails an entry point missing from either tsconfig. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Should the generated client emit a query parameter holding its zero value?** No route declares a query field, so both answers are untested against a real caller, and `EmitDefaultValues` on the response side argues one way while URL length argues the other. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not for the ones it could grow.** `ts/test/wire.test.mjs` drives the generated client against the generated server over real HTTP and pins the `protojson` / ts-proto pairing: an escaped path segment, a `Timestamp` as an RFC 3339 string, an enum as its value name, `EmitDefaultValues` against `useOptionals=messages`, the error envelope, and an unknown field refused. This was [metacensus/ui#49](https://github.com/metacensus/ui/issues/49). What it does not cover is a shape nobody has written yet — a 64-bit integer (`forceLong=string`), a map, a `oneof` — so the pairing in `proto/buf.gen.yaml` is still five options that have to agree with `go/wire.go` and are only checked where a route exercises them.

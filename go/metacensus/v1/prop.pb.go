@@ -363,9 +363,10 @@ func (x *Vote) GetUserSignature() *UserSignature {
 // `user_id` is also `user_signature.signer_id` is deliberate redundancy rather
 // than an oversight — the rule that content carries its own key is worth more
 // than the observation that one particular id happens to be implied elsewhere.
-// Both are inside one digest, so persistence rejects a record whose `user_id`
-// and `signer_id` disagree: it is validly signed and self-inconsistent, which
-// is the only way those two can differ.
+// Both are inside one digest, so a record whose `user_id` and `signer_id`
+// disagree is validly signed and self-inconsistent, which is the only way the
+// two can differ. Refusing it is persistence's, and owed rather than done; see
+// README.md, "Open questions".
 type VoteContent struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	TopicId  string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -886,12 +887,12 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xc9\x01\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcf\x01\n" +
 	"\x04Prop\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
 	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.PropContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"\xa7\x02\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\xa7\x02\n" +
 	"\vPropContent\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x123\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1f.metacensus.v1.PropContent.TypeR\x04type\x12 \n" +
@@ -904,11 +905,11 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\tUserAdmit\x10\x04\x12\x0f\n" +
 	"\vUserExpulse\x10\x05\x12\x1b\n" +
 	"\x17PaperExtractionComplete\x10\x06\x12\x1c\n" +
-	"\x18PaperIncludeMetaAnalysis\x10\a\"\xb9\x01\n" +
+	"\x18PaperIncludeMetaAnalysis\x10\a\"\xbf\x01\n" +
 	"\x04Vote\x126\n" +
 	"\brecorded\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
 	"\acontent\x18\x02 \x01(\v2\x1a.metacensus.v1.VoteContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"\xb8\x02\n" +
+	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x04\x10\x05\"\xb8\x02\n" +
 	"\vVoteContent\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12\x17\n" +

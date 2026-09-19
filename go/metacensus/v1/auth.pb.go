@@ -96,9 +96,10 @@ type SignUpRequest struct {
 	// password must never be inside a signed, stored document.
 	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	// Over `content`, made with the key being enrolled. `signer_id` is empty —
-	// no id exists yet — and `public_key` carries the key inline. Persistence
-	// checks that `key_id` is the thumbprint of `public_key` and that the
-	// signature verifies under it before it mints anything.
+	// no id exists yet — and `public_key` carries the key inline. Before minting
+	// an account, persistence owes two checks: that `key_id` is the thumbprint
+	// of `public_key`, and that the signature verifies under it. Nothing in this
+	// repository performs them; see README.md, "Open questions".
 	UserSignature *UserSignature `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
