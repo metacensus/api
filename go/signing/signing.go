@@ -1,8 +1,22 @@
-// Package signing computes and checks the digest a participant signs over a
-// content message: SHA-384 of the RFC 8785 canonical JSON of
-// {"content": C, "signature": S}, with S.Value emptied. See README.md
-// ("The signing chain") for the design; ts/signing.ts is the other half,
-// checked against this one by ts/test/wire.test.mjs.
+// Package signing is the signing chain of the MetaCensus contract, and the Go
+// half of a digest ts/signing.ts must reproduce exactly. See README.md, "The
+// signing chain".
+//
+//	digest = SHA-384( JCS( {"content": C, "signature": S} ) )
+//
+// C is the content as protojson; S is the UserSignature as protojson with Value
+// "". Three non-obvious choices this file is the source for:
+//
+//   - Canonical JSON of the decoded message, not the octets received: protojson
+//     is not byte-stable, so a digest over received bytes is checkable only by
+//     whoever received them. Canonicalising the message keeps a record
+//     verifiable after it is relayed, re-encoded and stored.
+//   - Value is emptied rather than dropped, because EmitDefaultValues and
+//     ts-proto's useOptionals=messages already agree every scalar is present; an
+//     omission rule would be one more generator agreement with nothing checking it.
+//   - The signed attributes (time, spec, contentType) sit on the signature, not
+//     on each content type: they are readable before anything is parsed and need
+//     not be repeated onto every resource.
 package signing
 
 import (
