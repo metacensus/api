@@ -1,47 +1,19 @@
-// Package signing is the signing chain of the MetaCensus contract: how a
-// participant's signature over a content message is computed, and how it is
-// checked.
-//
-// It is here rather than in each implementation for the same reason routegen
-// is: the digest has to be the same number in Go and in TypeScript, and two
-// hand-written implementations of a canonicalization agree until the day they
-// do not. `ts/signing.ts` is the other half, and ts/test/wire.test.mjs drives
-// one against the other.
-//
-// # The chain
-//
-//	content -> digest -> user signature -> (later) institutional signature
-//
-// A user signs the content. An institution will later sign the *user's
-// signature value*, not the content: it endorses the author, not the data. The
-// envelope leaves room for that as a field addition; nothing here has to move.
-//
-// # Where it runs
-//
-// Verification belongs to the persistence layer, inside the chaincode
-// boundary, not to the API edge. An API server decodes a request and hands the
-// message on; the octets it received do not matter, because the digest below
-// is taken over the decoded message. go/server has no signature seam for that
-// reason — see server.Runtime.
-//
-// # The rule
+// Package signing is the signing chain of the MetaCensus contract, and the Go
+// half of a digest ts/signing.ts must reproduce exactly. See README.md, "The
+// signing chain".
 //
 //	digest = SHA-384( JCS( {"content": C, "signature": S} ) )
 //
-// C is the content message as protojson, S is the UserSignature as protojson
-// with Value set to the empty string. JCS is RFC 8785 over that document.
+// C is the content as protojson; S is the UserSignature as protojson with Value
+// "". Two non-obvious choices this file is the source for:
 //
-// Canonical JSON rather than the bytes that arrived: protojson's output is
-// deliberately not byte-stable, so a digest over received octets could only
-// ever be checked by whoever received them. Canonicalising the decoded message
-// is what lets a record stay verifiable after it has been relayed, re-encoded
-// and stored.
-//
-// Value is excluded by being set to "" rather than by being dropped:
-// EmitDefaultValues here and useOptionals=messages in ts-proto already agree
-// that every scalar is present, and ts/test/wire.test.mjs tests that agreement.
-// An omission rule would be one more thing the two generators have to agree
-// about, with nothing checking it.
+//   - Canonical JSON of the decoded message, not the octets received: protojson
+//     is not byte-stable, so a digest over received bytes is checkable only by
+//     whoever received them. Canonicalising the message keeps a record
+//     verifiable after it is relayed, re-encoded and stored.
+//   - Value is emptied rather than dropped, because EmitDefaultValues and
+//     ts-proto's useOptionals=messages already agree every scalar is present; an
+//     omission rule would be one more generator agreement with nothing checking it.
 package signing
 
 import (

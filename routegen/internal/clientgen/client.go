@@ -1,13 +1,7 @@
-// Package clientgen renders ts/src/client.ts: one class per surface, one
-// typed method per rpc, over a caller-supplied transport. It extends each
-// model.Route with the descriptor detail only a TypeScript client needs, and
-// rejects the one shape it alone cannot encode — see rejectBytes.
-//
-// One file, several classes. The shared envelope (Transport, ApiError) has to
-// be one declaration — two ApiError classes would make `instanceof` depend on
-// the import path — and nothing under src/ may take a value import, so the
-// classes that throw it live beside it. Which surface a consumer gets is
-// decided by the entry point that re-exports it: ts/index.ts and ts/public.ts.
+// Package clientgen renders ts/src/client.ts: one class per surface, one typed
+// method per rpc, over a caller-supplied transport. It rejects the one shape it
+// alone cannot encode; see rejectBytes. Why one file holds several classes and a
+// shared envelope: README.md, "The generated client".
 package clientgen
 
 import (
@@ -109,13 +103,10 @@ func describeClient(r model.Route) (clientRoute, error) {
 	return cr, nil
 }
 
-// rejectBytes refuses a message tree containing a bytes field. ts-proto types
-// bytes as Uint8Array: JSON.stringify renders that as an index-keyed object
-// (`{"0":1,"1":2}`) rather than the base64 protojson expects on the way out,
-// and JSON.parse hands back the base64 string cast to Uint8Array on the way
-// back. The Go server side has no such gap — contract.Marshal/Unmarshal
-// handle bytes natively — so this rejection is the client renderer's, not
-// model.Walk's.
+// rejectBytes refuses a message tree containing a bytes field: ts-proto types it
+// Uint8Array, which JSON.stringify/parse cannot round-trip through the base64
+// protojson uses. The Go side has no such gap, so the rejection is this
+// renderer's, not model.Walk's. See README.md, "The generated client".
 func rejectBytes(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
 	if seen[md.FullName()] {
 		return nil
@@ -277,10 +268,9 @@ func Render(routes []model.Route) ([]byte, error) {
 			return nil, err
 		}
 	}
-	// param and query are emitted only where a route needs them: nothing
-	// under src/ may reach for anything at runtime, and dead code in a
-	// package whose whole claim is that it ships almost nothing is a claim
-	// it does not have to make. No route declares a query field today.
+	// param and query helpers are emitted only where a route needs them, so a
+	// package that claims to ship almost nothing carries no dead code. No route
+	// declares a query field today.
 	var needsParam, needsQuery bool
 	for _, m := range methods {
 		needsParam = needsParam || len(m.PathFields) > 0 || len(m.QueryFields) > 0

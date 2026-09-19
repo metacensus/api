@@ -11,28 +11,19 @@ export const protobufPackage = "metacensus.v1";
 
 /** Topics and their membership. */
 
-/**
- * Topic is a systematic review in progress, as a signed record: the server's
- * own fields, the content its author signed, and the signature over it.
- */
+/** Topic is a systematic review in progress, as a signed record. */
 export interface Topic {
-  /**
-   * Minted by the server, outside the signature. The topic's address, not part
-   * of what it means.
-   */
+  /** Minted by the server, outside the signature: the topic's address. */
   id: string;
-  /**
-   * When the server recorded the write; the server's observation, outside the
-   * signature. UserSignature.signing_time is the author's claim.
-   */
+  /** When the server recorded the write. The server's observation. */
   recorded?: string | undefined;
   content?: TopicContent | undefined;
   userSignature?: UserSignature | undefined;
 }
 
 /**
- * TopicContent is what a topic's author signs. It carries no id: a topic's key
- * is minted by the server, and there is no other id in scope here.
+ * TopicContent is what a topic's author signs. It carries no id: the topic's key
+ * is server-minted and no other id is in scope.
  */
 export interface TopicContent {
   name: string;

@@ -1,14 +1,8 @@
-// Package chitest runs the generated routes against a real chi.Router.
-//
-// It lives in the routegen module, not beside go/server, because that is where
-// chi may be required: the contract's own go.mod has two direct requirements
-// and Go does not distinguish a test-only one from a runtime one.
-//
-// go/server/mux_test.go proves Mux's signature against a local copy of chi's;
-// that catches a signature drift and nothing a request does. Everything this
-// file pins was invisible to it, and every claim server.Mux's doc comment
-// makes about "what the router owns" is checked here rather than asserted
-// there.
+// Package chitest runs the generated routes against a real chi.Router. It lives
+// in the routegen module because that is where chi may be required — the
+// contract's own go.mod must not gain a test-only dependency. It checks what
+// server.Mux's doc comment claims the router owns, which mux_test.go's fake
+// cannot.
 package chitest
 
 import (

@@ -6,18 +6,11 @@ import (
 	"net/url"
 )
 
-// Mux is the registration surface a generated Register<Service> function
-// needs: bind one HTTP method and pattern to a handler. Both a bare stdlib
-// mux and chi already have this method under a compatible name and
-// signature, so this package picks no router and imports none. A chi.Router
-// satisfies Mux directly, with no adapter; a *http.ServeMux needs StdMux,
-// because it has no method-specific registration call.
-//
-// Method(method, pattern string, handler http.Handler) is everything this
-// package asks of a router, so everything a router decides before a handler
-// runs is the router's answer, not this package's. Measured against
-// net/http's ServeMux and github.com/go-chi/chi/v5 — the two routers
-// routegen/chitest exercises against a real one:
+// Mux is the registration surface a generated Register<Service> needs: bind one
+// method and pattern to a handler. chi.Router satisfies it directly; a
+// *http.ServeMux needs StdMux. Since that method is all this package asks of a
+// router, everything a router decides before a handler runs is the router's, not
+// this package's — measured against net/http's ServeMux and go-chi/chi/v5:
 //
 //   - Path-parameter escaping. ServeMux percent-decodes a segment before
 //     r.PathValue returns it; chi does not. This one is not left to the

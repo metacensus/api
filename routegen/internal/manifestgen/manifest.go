@@ -1,12 +1,7 @@
 // Package manifestgen renders go/routes/manifest.go and
-// ts/src/route-manifest.ts: the same data-only Route, in Go and in
-// TypeScript. One package for both because they are one decision rendered
-// twice — a field added to model.Route is a field both literals must gain
-// in the same commit, and splitting them would only add two import lines
-// for renderers that share every fact they emit.
-//
-// The loop, not the template, decides how many times the "route" block runs,
-// so a failure can name the route it was rendering.
+// ts/src/route-manifest.ts: the same data-only Route in Go and TypeScript. One
+// package because they are one decision rendered twice — a field added to
+// model.Route is a field both literals must gain in the same commit.
 package manifestgen
 
 import (
@@ -60,12 +55,9 @@ func RenderTS(routes []model.Route) ([]byte, error) {
 	})
 }
 
-// render runs the blocks both manifests share, in order. They are one
-// decision rendered twice, so the sequence lives here once and the two
-// templates differ only in what each block says.
-//
-// The prefix block runs per package rather than once, so a third surface is
-// a table entry rather than an edit to two templates.
+// render runs the shared block sequence once, so the two templates differ only
+// in what each block says. The prefix block runs per package, so a third surface
+// is a table entry, not a template edit.
 func render(t *template.Template, name string, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
 	var b bytes.Buffer
 	if err := execute(&b, t, name, "header", packagesData{model.Packages}, "", ""); err != nil {

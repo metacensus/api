@@ -1,15 +1,8 @@
-// Package model owns the descriptor walk and the Route every renderer
-// consumes: one walk of the compiled descriptors for every contract package,
-// turned into a route per rpc by reading its google.api.http annotation. A
-// renderer package imports model and nothing else in this module; model
-// imports no renderer, so the boundary that keeps a renderer from reaching
-// into another's internals is the import graph, not a convention (see
-// imports_test.go beside main.go).
-//
-// The rejections here are properties of a route, not of any one renderer.
-// describe_test.go is the enumeration of them, fed synthetic descriptors; a
-// rejection specific to one renderer — clientgen's bytes-in-the-tree check —
-// lives in that renderer instead.
+// Package model owns the descriptor walk and the Route every renderer consumes:
+// one walk of the compiled descriptors per contract package, one route per rpc
+// from its google.api.http annotation. The rejections here are properties of a
+// route, not of any renderer (describe_test.go enumerates them); a rejection
+// specific to one renderer lives in that renderer.
 package model
 
 import (
@@ -25,10 +18,8 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	// Registration. Every walk below reads protoregistry, which holds only
-	// what this binary imported, so a contract package absent here is absent
-	// from the manifest and from the checks that would have caught it.
-	// Packages names them; CheckPackages fails when one of them registers
+	// Registration: the walk reads protoregistry, which holds only what this
+	// binary imported. CheckPackages fails when a package in Packages registers
 	// nothing.
 	_ "github.com/metacensus/api/go/metacensus/public/v1"
 	_ "github.com/metacensus/api/go/metacensus/v1"
@@ -38,19 +29,11 @@ import (
 // is where the generator runs. CheckPackages reads it.
 const protoDir = "proto"
 
-// Package is one contract package: a proto package, the path its routes hang
-// off, the generated Go it binds against, and the names each rendering gives
-// its prefix. Adding a surface is an entry here and nothing else.
-//
-// Packages below is the only place either prefix is written down. Every
-// renderer takes its prefixes from there, prose included, so a constant and
-// the paths it describes cannot drift apart.
-//
-// A prefix is not in the .proto: google.api.http annotations carry a path
-// each and protobuf has no notion of a string constant, so expressing one
-// there would mean a custom FileOptions extension and a non-resource .proto
-// file inside a schema whose tests assert every file is a resource. Not worth
-// it for two strings this package is already the authority on.
+// Package is one contract package: its proto package, the path its routes hang
+// off, the generated Go it binds against, and the names each rendering gives its
+// prefix. Adding a surface is an entry in Packages and nothing else. Packages is
+// the only place either prefix is written down; a prefix is not in the .proto
+// for the reason given in README.md, "Routes".
 type Package struct {
 	// Proto is the proto package, as declared in the .proto sources.
 	Proto string
@@ -70,10 +53,8 @@ type Package struct {
 	GoConst string
 	TSConst string
 
-	// TSClient is the generated client class for this surface. One class per
-	// surface, not one for all of them: the entry points exist so a consumer
-	// of only the public surface does not acquire the authenticated types,
-	// and a single class carrying every route would hand them over.
+	// TSClient is the generated client class for this surface — one per surface,
+	// so a public-only consumer does not acquire the authenticated routes.
 	TSClient string
 
 	// Summary is the one-line description the generated prose uses.
@@ -105,15 +86,10 @@ var Packages = []Package{
 	},
 }
 
-// CheckPackages fails when Packages does not name a proto package that exists
-// on disk, or names one whose generated Go this package does not import.
-// Either way that package's routes would be missing from everything generated
-// here, with nothing to say so — the failure is not that a surface is exempt
-// but that it is invisible.
-//
-// On disk, not protoregistry: the registry holds only what this binary
-// imported, so a package nobody imported is absent from the output and from
-// the check that would have caught it.
+// CheckPackages fails when Packages omits a proto package that exists on disk,
+// or names one whose generated Go is not imported — either of which would drop
+// that package's routes from the output invisibly. It reads disk, not
+// protoregistry, which holds only what this binary imported.
 func CheckPackages() error {
 	onDisk, err := protoscan.Packages(protoDir)
 	if err != nil {
@@ -159,11 +135,9 @@ func CheckPackages() error {
 // and Body is "*" when the rest travels in the body and empty when none
 // does.
 type Route struct {
-	// Pkg is the contract package this route was read from, and so the
-	// prefix it hangs off. Carried per route because with more than one
-	// prefix a consumer holding a Route has no other way to know which to
-	// join, and inferring it from the service name is exactly the
-	// hand-mirroring this repository exists to stop.
+	// Pkg is the contract package this route was read from, and so the prefix it
+	// hangs off. Carried per route because a consumer holding a Route has no
+	// other way to know which of several prefixes to join.
 	Pkg Package
 
 	Service  string
@@ -176,20 +150,15 @@ type Route struct {
 	Request  string
 	Response string
 
-	// Signed is true when this route carries content a participant signed:
-	// a Content field and a UserSignature over it. describe below is what
-	// decides; which writes are exempt from carrying one is not this
-	// package's to state — TestEveryWriteCarriesASignature holds that set.
-	//
-	// It is on the manifest so that a consumer can ask "which routes need a
-	// signing key?" without reflecting over descriptors, which is the same
-	// reason the prefixes are here rather than in each repository.
+	// Signed is true when this route carries a Content field and a UserSignature
+	// over it (describe decides; the exempt set is TestEveryWriteCarriesASignature).
+	// On the manifest so a consumer can ask which routes need a signing key
+	// without reflecting over descriptors.
 	Signed bool
 
-	// The server and client renderings need the Go side of the same facts:
-	// the Go type names protoc-gen-go gave the messages and, per path
-	// parameter, the Go struct field it binds. None of these are derived by
-	// re-implementing protoc-gen-go's naming; see goNames.
+	// The Go side of the same facts the server and client renderings need: the
+	// type names protoc-gen-go emitted and, per path parameter, the struct field
+	// it binds. Read off the generated code, not re-derived; see goNames.
 	GoRequest  string
 	GoResponse string
 	PathFields []PathField
@@ -199,10 +168,9 @@ type Route struct {
 	ContentGoField   string
 	SignatureGoField string
 
-	// ContentParams is one entry per path parameter, pairing the top-level
-	// field the path binds with the field inside content that repeats it.
-	// Both are signed on the content side and neither is on the path side,
-	// so the generated binding compares them; see contentParam.
+	// ContentParams pairs, per path parameter, the top-level field the path binds
+	// with the field inside content that repeats it, which the generated binding
+	// compares; see contentParam.
 	ContentParams []ContentParam
 
 	// Descriptor is the rpc this route was read from. Every field above is
@@ -219,15 +187,10 @@ type PathField struct {
 	GoField  string
 }
 
-// ContentParam pairs a path parameter with its two homes on a signed
-// request: the top-level field the route binds from the path, and the field
-// inside the signed content that repeats it.
-//
-// The repetition is the design: every id the path binds is inside the
-// content and covered by the signature, so that a record cannot be filed
-// under one address while attesting to another. The comparison this
-// generates is a better error message rather than a control; the rendered
-// helper, server.contentParam, is where that is explained.
+// ContentParam pairs a path parameter's two homes on a signed request: the
+// top-level field the route binds from the path, and the field inside signed
+// content that repeats it. Why the repetition, and why the comparison is a
+// better error message rather than a control: server.contentParam.
 type ContentParam struct {
 	JSONName       string
 	PathGoField    string
@@ -243,17 +206,11 @@ const (
 	SignatureType  = "metacensus.v1.UserSignature"
 )
 
-// Walk reads every service in every contract package off the descriptors
-// this package's blank imports registered, and returns one Route per rpc, in
-// package-then-file-then-declaration order so the output is stable across
-// runs. It fails on the first route it cannot describe, and when a package
-// declares no routes at all — an empty manifest is never the generator's own
-// decision to make.
-//
-// Per package, not in total: one package's routes must not vouch for
-// another's absence. Without that, adding a surface and misspelling its proto
-// package generates a manifest silently missing it, over a route table
-// smaller than the one that ships.
+// Walk returns one Route per rpc across every contract package, in
+// package-then-file-then-declaration order for stable output. It fails on a
+// route it cannot describe, and per package when one declares no routes — so a
+// misspelled proto package cannot silently shrink the manifest rather than
+// failing.
 func Walk() ([]Route, error) {
 	var routes []Route
 	for _, pkg := range Packages {
@@ -418,15 +375,11 @@ type goType struct {
 	fields   map[protoreflect.Name]string
 }
 
-// goNames reads the Go names protoc-gen-go emitted, off the generated code
-// itself, rather than re-deriving them. protoc-gen-go's camel-casing and its
-// collision suffixing live in internal packages that cannot be imported, and
-// a copy would drift from them silently. The generated struct carries a
-// `protobuf:"...,name=<proto name>,..."` tag on every field, so the mapping
-// from proto field to Go field is read from the type that the descriptors
-// registered — whatever protoc-gen-go produced is by construction what is
-// returned. TestGoNamesAgreeWithProtogen cross-checks this against
-// compiler/protogen, the public package protoc-gen-go is built on.
+// goNames reads the Go names protoc-gen-go emitted off the generated struct
+// tags (`protobuf:"...,name=<proto name>,..."`) rather than re-deriving them:
+// its camel-casing and collision suffixing live in unimportable internal
+// packages a copy would drift from. TestGoNamesAgreeWithProtogen cross-checks
+// against compiler/protogen.
 func goNames(pkg Package, mds ...protoreflect.MessageDescriptor) (goType, goType, error) {
 	var out [2]goType
 	for i, md := range mds {
@@ -482,23 +435,10 @@ func goTypeOf(pkg Package, md protoreflect.MessageDescriptor) (goType, error) {
 	return out, nil
 }
 
-// describeSigned reads the signed half of a request: the content field, the
-// signature over it, and the path parameters content has to repeat.
-//
-// The rejections here are the signing rules made mechanical, so that a
-// misshapen signed route fails `make gen` rather than reaching a verifier:
-//
-//   - content and signature travel together. A signature over nothing
-//     attests to nothing, and content nobody signed is the shape this whole
-//     change exists to remove.
-//   - the signature is a UserSignature. Any other message would be a second
-//     spelling of the one thing every verifier reads first.
-//   - every id the path binds is repeated inside content, as a string. This
-//     is the rule: an id that changes what the content *means* must be
-//     covered by the signature, and an id in the path is in that set by
-//     construction — a prop's topic decides who votes on it. A signed route
-//     whose content omits one is refused here, where the message can name
-//     the field, rather than by a verifier that only sees a document.
+// describeSigned reads the signed half of a request — the content field, the
+// signature over it, and the path parameters content must repeat — making the
+// signing rules mechanical so a misshapen signed route fails `make gen` rather
+// than a verifier. Each rejection's error says which rule it enforces.
 func describeSigned(pkg Package, md protoreflect.MessageDescriptor, req goType, params []string) (bool, string, string, []ContentParam, error) {
 	fields := md.Fields()
 	content := fields.ByName(ContentField)
@@ -554,17 +494,10 @@ func describeSigned(pkg Package, md protoreflect.MessageDescriptor, req goType, 
 // rewriteParams replaces each {field} segment with {jsonName} and returns the
 // parameters in path order alongside the proto names they bound.
 //
-// Two shapes google.api.http allows are refused here rather than narrowed,
-// because narrowing them is silent:
-//
-//   - A segment pattern after "=". Every renderer emits a single-segment
-//     {name}, so accepting {id=**} would claim one segment for a template
-//     that means the rest of the path, and accepting {id=a/*/b} would drop
-//     the shape entirely. Both produce a route that generates, compiles, and
-//     answers 404 for exactly the ids the pattern was written for.
-//   - The same parameter twice. net/http's ServeMux panics on a duplicate
-//     wildcard name, so this reached a reader as a stack trace out of an
-//     unrelated test rather than as a rejection naming the route.
+// It refuses two google.api.http shapes rather than narrowing them silently: a
+// segment pattern after "=" (e.g. {id=**}), which renderers can't express and
+// would 404 the ids it was written for; and the same parameter twice, which
+// ServeMux otherwise turns into a stack trace far from the offending route.
 func rewriteParams(path string, req protoreflect.MessageDescriptor) (string, []string, map[protoreflect.Name]bool, error) {
 	var out strings.Builder
 	var params []string
