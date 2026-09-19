@@ -38,7 +38,7 @@ type packagesData struct{ Packages []model.Package }
 // RenderGo writes go/routes/manifest.go: a constant per prefix and the whole
 // route table as a []Route literal, gofmt'd.
 func RenderGo(routes []model.Route) ([]byte, error) {
-	return render(goTmpl, "manifest.go.tmpl", routes, func(b []byte) ([]byte, error) {
+	return render(goTmpl, routes, func(b []byte) ([]byte, error) {
 		return model.GoFormat("go/routes/manifest.go", b)
 	})
 }
@@ -47,7 +47,7 @@ func RenderGo(routes []model.Route) ([]byte, error) {
 // route table as a `routes` array literal. There is no formatter downstream
 // of this one, so its whitespace is exactly what the template emits.
 func RenderTS(routes []model.Route) ([]byte, error) {
-	return render(tsTmpl, "manifest.ts.tmpl", routes, func(b []byte) ([]byte, error) {
+	return render(tsTmpl, routes, func(b []byte) ([]byte, error) {
 		return b, nil
 	})
 }
@@ -55,38 +55,34 @@ func RenderTS(routes []model.Route) ([]byte, error) {
 // render runs the blocks both manifests share, in order — the two templates
 // differ only in what each block says. The prefix block runs per package, so
 // a third surface is a table entry rather than an edit to two templates.
-func render(t *template.Template, name string, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
+func render(t *template.Template, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
 	var b bytes.Buffer
-	if err := execute(&b, t, name, "header", packagesData{model.Packages}, "", ""); err != nil {
+	if err := execute(&b, t, "header", packagesData{model.Packages}); err != nil {
 		return nil, err
 	}
 	for _, pkg := range model.Packages {
-		if err := execute(&b, t, name, "prefix", pkg, "", ""); err != nil {
+		if err := execute(&b, t, "prefix", pkg); err != nil {
 			return nil, err
 		}
 	}
-	if err := execute(&b, t, name, "routeType", nil, "", ""); err != nil {
+	if err := execute(&b, t, "routeType", nil); err != nil {
 		return nil, err
 	}
 	for _, r := range routes {
-		if err := execute(&b, t, name, "route", r, r.Service, r.RPC); err != nil {
-			return nil, err
+		if err := t.ExecuteTemplate(&b, "route", r); err != nil {
+			return nil, fmt.Errorf("%s: route %s.%s: %w", t.Name(), r.Service, r.RPC, err)
 		}
 	}
-	if err := execute(&b, t, name, "footer", nil, "", ""); err != nil {
+	if err := execute(&b, t, "footer", nil); err != nil {
 		return nil, err
 	}
 	return format(b.Bytes())
 }
 
-// execute runs one named block, naming the template, the block and the route
-// on failure.
-func execute(b *bytes.Buffer, t *template.Template, tmplName, block string, data any, service, rpc string) error {
+// execute runs one named block, naming the template and the block on failure.
+func execute(b *bytes.Buffer, t *template.Template, block string, data any) error {
 	if err := t.ExecuteTemplate(b, block, data); err != nil {
-		if service != "" {
-			return fmt.Errorf("%s: %s: route %s.%s: %w", tmplName, block, service, rpc, err)
-		}
-		return fmt.Errorf("%s: %s: %w", tmplName, block, err)
+		return fmt.Errorf("%s: %s: %w", t.Name(), block, err)
 	}
 	return nil
 }

@@ -65,22 +65,17 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 	return v, nil
 }
 
-// requireField turns a missing half of a signed request into a 400 naming
-// the field. Shape only — whether the signature is good is never asked here.
-func requireField(present bool, jsonName string) error {
-	if present {
+func requireField[T any](v *T, jsonName string) error {
+	if v != nil {
 		return nil
 	}
 	return Errorf(http.StatusBadRequest, "field_missing",
 		"%q is required: this route carries signed content", jsonName)
 }
 
-// contentParam fails when a path-bound id and the copy inside the signed
-// content disagree.
-//
-// This is a better error message, not a control: persistence keys the
-// record off the signed content, so skipping this would write the record
-// the signature describes, not the one the URL asked for — wrong, but not
+// contentParam is a better error message, not a control: persistence keys the
+// record off the signed content, so skipping this would file the record the
+// signature describes, not the one the URL asked for — wrong, but not
 // forgeable. Do not build anything on it that assumes otherwise.
 func contentParam(jsonName, fromPath, fromContent string) error {
 	if fromPath == fromContent {

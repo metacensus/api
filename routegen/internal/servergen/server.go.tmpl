@@ -61,14 +61,14 @@ func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 			return
 		}
 {{end -}}
-{{if .Signed}}		// Signed route: both halves must be present, and every id the path
-		// bound must match its signed copy. Neither check looks at the
-		// signature itself — see requireField and contentParam.
-		if err := requireField(req.{{.ContentGoField}} != nil, "content"); err != nil {
+{{if .Signed}}		// Signed route: content and signature must both be present, and
+		// every path-bound id must match its signed copy. Neither looks at
+		// whether the signature verifies.
+		if err := requireField(req.{{.ContentGoField}}, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.{{.SignatureGoField}} != nil, "userSignature"); err != nil {
+		if err := requireField(req.{{.SignatureGoField}}, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}

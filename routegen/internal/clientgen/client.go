@@ -221,7 +221,7 @@ func Render(routes []model.Route) ([]byte, error) {
 	}
 
 	var b bytes.Buffer
-	if err := execute(&b, "header", nil, "", ""); err != nil {
+	if err := execute(&b, "header", nil); err != nil {
 		return nil, err
 	}
 
@@ -246,7 +246,7 @@ func Render(routes []model.Route) ([]byte, error) {
 			names = append(names, n)
 		}
 		sort.Strings(names)
-		if err := execute(&b, "import", fileImport{File: f, Names: names}, "", ""); err != nil {
+		if err := execute(&b, "import", fileImport{File: f, Names: names}); err != nil {
 			return nil, err
 		}
 	}
@@ -254,7 +254,7 @@ func Render(routes []model.Route) ([]byte, error) {
 	// Unexported: exported would collide with route-manifest.ts's under
 	// ts/index.ts's `export *` (an ambiguous star export, TS2308).
 	for _, pkg := range withRoutes(methods) {
-		if err := execute(&b, "prefixConst", pkg, "", ""); err != nil {
+		if err := execute(&b, "prefixConst", pkg); err != nil {
 			return nil, err
 		}
 	}
@@ -266,34 +266,34 @@ func Render(routes []model.Route) ([]byte, error) {
 		needsQuery = needsQuery || len(m.QueryFields) > 0
 	}
 	if needsParam {
-		if err := execute(&b, "param", nil, "", ""); err != nil {
+		if err := execute(&b, "param", nil); err != nil {
 			return nil, err
 		}
 	}
 	if needsQuery {
-		if err := execute(&b, "query", nil, "", ""); err != nil {
+		if err := execute(&b, "query", nil); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := execute(&b, "staticBody", nil, "", ""); err != nil {
+	if err := execute(&b, "staticBody", nil); err != nil {
 		return nil, err
 	}
 
 	// Iterating the table rather than the methods keeps class order stable.
 	for _, pkg := range withRoutes(methods) {
-		if err := execute(&b, "classOpen", pkg, "", ""); err != nil {
+		if err := execute(&b, "classOpen", pkg); err != nil {
 			return nil, err
 		}
 		for _, m := range methods {
 			if m.Pkg.Proto != pkg.Proto {
 				continue
 			}
-			if err := execute(&b, "route", m, m.Service, m.RPC); err != nil {
-				return nil, err
+			if err := tmpl.ExecuteTemplate(&b, "route", m); err != nil {
+				return nil, fmt.Errorf("client.ts.tmpl: route %s.%s: %w", m.Service, m.RPC, err)
 			}
 		}
-		if err := execute(&b, "classClose", nil, "", ""); err != nil {
+		if err := execute(&b, "classClose", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -315,13 +315,9 @@ func withRoutes(methods []methodView) []model.Package {
 	return out
 }
 
-// execute runs one named block, naming the template, the block and the route
-// on failure.
-func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
+// execute runs one named block, naming the template and the block on failure.
+func execute(b *bytes.Buffer, block string, data any) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
-		if rpc != "" {
-			return fmt.Errorf("client.ts.tmpl: %s: route %s.%s: %w", block, service, rpc, err)
-		}
 		return fmt.Errorf("client.ts.tmpl: %s: %w", block, err)
 	}
 	return nil

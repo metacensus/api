@@ -77,14 +77,14 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: both halves must be present, and every id the path
-		// bound must match its signed copy. Neither check looks at the
-		// signature itself — see requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: content and signature must both be present, and
+		// every path-bound id must match its signed copy. Neither looks at
+		// whether the signature verifies.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -232,14 +232,14 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: both halves must be present, and every id the path
-		// bound must match its signed copy. Neither check looks at the
-		// signature itself — see requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: content and signature must both be present, and
+		// every path-bound id must match its signed copy. Neither looks at
+		// whether the signature verifies.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -291,14 +291,14 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: both halves must be present, and every id the path
-		// bound must match its signed copy. Neither check looks at the
-		// signature itself — see requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: content and signature must both be present, and
+		// every path-bound id must match its signed copy. Neither looks at
+		// whether the signature verifies.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -399,14 +399,14 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: both halves must be present, and every id the path
-		// bound must match its signed copy. Neither check looks at the
-		// signature itself — see requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: content and signature must both be present, and
+		// every path-bound id must match its signed copy. Neither looks at
+		// whether the signature verifies.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
