@@ -77,15 +77,14 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: the two halves must be present, and every id the
-		// path bound must match its signed copy. Neither check looks at the
-		// signature itself — that is persistence's, inside the chaincode
-		// boundary. See requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: both halves present, each path id matching its
+		// signed copy. Neither validates the signature — that is persistence's.
+		// See requireField and contentParam.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -233,15 +232,14 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: the two halves must be present, and every id the
-		// path bound must match its signed copy. Neither check looks at the
-		// signature itself — that is persistence's, inside the chaincode
-		// boundary. See requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: both halves present, each path id matching its
+		// signed copy. Neither validates the signature — that is persistence's.
+		// See requireField and contentParam.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -293,15 +291,14 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: the two halves must be present, and every id the
-		// path bound must match its signed copy. Neither check looks at the
-		// signature itself — that is persistence's, inside the chaincode
-		// boundary. See requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: both halves present, each path id matching its
+		// signed copy. Neither validates the signature — that is persistence's.
+		// See requireField and contentParam.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -402,15 +399,14 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		// Signed route: the two halves must be present, and every id the
-		// path bound must match its signed copy. Neither check looks at the
-		// signature itself — that is persistence's, inside the chaincode
-		// boundary. See requireField and contentParam.
-		if err := requireField(req.Content != nil, "content"); err != nil {
+		// Signed route: both halves present, each path id matching its
+		// signed copy. Neither validates the signature — that is persistence's.
+		// See requireField and contentParam.
+		if err := requireField(req.Content, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}

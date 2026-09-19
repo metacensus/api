@@ -1,11 +1,7 @@
-// Assert the entry points export every generated module, and that the two
-// surfaces stay apart.
-//
-// index.ts and public.ts list their exports by hand, so a new .proto file
-// generates a module that ships in dist/ and that no consumer can import —
-// silently, because tsc only type-checks what is reachable and nothing else
-// looks. This is the same shape of hole as a proto package missing from
-// contractPackages: not a failure, an absence.
+// Assert the entry points export every generated module and keep the two
+// surfaces apart. The exports are hand-listed, so a new generated module can
+// ship in dist/ that no consumer can import — an absence, not a failure, that
+// nothing else catches.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -13,14 +9,9 @@ import { fileURLToPath } from "node:url";
 
 import { entryPoints as publishedEntryPoints } from "./entry-points.mjs";
 
-// tsconfig's `include` is the other list of entry points, and it is the one
-// nothing derived. A subpath export added to package.json and missed here
-// compiles nothing, emits no dist/<name>.js, and still passes every check
-// above — the export is broken and no failure says so, which is the same
-// absence-not-failure shape this file exists for, one level down.
-//
-// JSONC, so the array is read rather than parsed: these two files carry
-// comments and JSON.parse will not have them.
+// tsconfig's `include` is the other entry-point list; a subpath export missing
+// from it emits no dist/<name>.js and passes every other check. Read by regex,
+// not JSON.parse, because these files are JSONC.
 const INCLUDE = /"include"\s*:\s*\[([^\]]*)\]/;
 
 function includeList(pkgRoot, file) {
@@ -34,17 +25,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
 
-// The generated *types* are what the split is for: a consumer of only the
-// public surface must not acquire the authenticated messages. A module under
-// this prefix is therefore one surface's, and exactly one entry point may
-// export it.
-//
-// Everything else under src/ is outside the split, and any number of entry
-// points may name it — a module there is shared on purpose or belongs to a
-// concern rather than a surface. Which modules those are is not listed here:
-// the walk below finds them, and a list beside it would go stale by growth
-// rather than by edit. Each such module says in its own header why it sits
-// outside the split.
+// A module under this prefix is one surface's generated types, so exactly one
+// entry point may export it — that is what the split protects. Anything else
+// under src/ is shared and may be exported by any number; the walk finds them.
 const perSurface = "src/metacensus/";
 
 const failures = [];

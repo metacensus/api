@@ -35,9 +35,8 @@ func declaredRPCs(t *testing.T) map[string]bool {
 	return out
 }
 
-// fullPath is what a client actually requests, and so the route's identity
-// wherever uniqueness is the question: two surfaces can each declare a
-// "/partner" and mean different URLs.
+// fullPath is the route's identity wherever uniqueness matters: two surfaces
+// can each declare a "/partner" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
 
 // The manifest and the services disagreeing is what a silently dropped
@@ -91,14 +90,10 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the set of routes that break the route conventions. That set is empty:
-// the only three members were Paper's, and Paper left the contract with its
-// design unsettled (metacensus/api#8).
-//
-// The map stays rather than the check collapsing to "no route may break a
-// convention", because a deliberate exception is a thing this contract has had
-// and may have again. Empty, it says the exceptions are none — and any route
-// that starts breaking a convention fails here with the reason spelled out.
+// Pins the set of routes that break the route conventions — empty today, but
+// kept as a map (rather than the check collapsing to "no exceptions") since
+// this contract has had deliberate exceptions before (metacensus/api#8) and
+// may again.
 func TestNonConformingRoutes(t *testing.T) {
 	want := map[string]string{}
 
@@ -134,10 +129,9 @@ func TestNonConformingRoutes(t *testing.T) {
 	}
 }
 
-// TestPrefix pins the shape of each declared prefix and its relationship to the
-// paths it prefixes: what "the constants cannot drift from the manifest" means
-// concretely. It reads the prefixes off the routes, so a third is covered the
-// day it appears.
+// TestPrefix pins the shape of each declared prefix and its relationship to
+// the paths it prefixes. It reads prefixes off the routes, so a third is
+// covered the day it appears.
 func TestPrefix(t *testing.T) {
 	declared := map[string]bool{}
 	for _, r := range routes.Routes {
@@ -171,11 +165,9 @@ func TestPrefix(t *testing.T) {
 		}
 	}
 
-	// No prefix may contain another: the reverse proxy routes by longest prefix
-	// match, so a nested pair moves "which service answers this" into rule
-	// order in a config file in a third repository. A versioned public prefix
-	// would nest, and failing here is how that decision gets taken rather than
-	// discovered.
+	// No prefix may contain another: the reverse proxy routes by longest-
+	// prefix match, so a nested pair would move "which service answers this"
+	// into a config file in a third repository.
 	for outer := range declared {
 		for inner := range declared {
 			if outer == inner {
@@ -204,10 +196,7 @@ func TestPrefix(t *testing.T) {
 }
 
 // A route whose prefix is neither declared constant is one nothing routes.
-//
-// This is also why /healthz is not in the contract: it hangs off no prefix, so
-// it could only be an absolute path in a manifest of relative ones, or a third,
-// empty prefix that makes "prefix" mean nothing. See README.md.
+// This is also why /healthz is not in the contract — see README.md.
 func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 	known := map[string]bool{
 		routes.Prefix:       true,

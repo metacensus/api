@@ -13,12 +13,8 @@ import (
 )
 
 // readBody reads the whole body under the cap. It is the only place the body
-// is read. Nothing inspects the octets it returns — decodeBody parses them and
-// they are then done with, because a participant's signature is checked against
-// the decoded message rather than against the bytes; see runtime.go. Request
-// Content-Type is not inspected, and a body sent to a route that declares none
-// is never read — binding is driven by the route's declaration, not by the
-// request.
+// is read — signatures are checked over the decoded message, not the raw
+// bytes (see runtime.go) — and Content-Type is never inspected.
 func (rt *Runtime) readBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, rt.maxBody()))
 	if err != nil {
@@ -34,12 +30,11 @@ func (rt *Runtime) readBody(w http.ResponseWriter, r *http.Request) ([]byte, err
 }
 
 // decodeBody parses the body with the contract's UnmarshalOptions: unknown
-// fields are an error, which surfaces here as a 400.
+// fields are a 400.
 //
-// This is the one place a decoder's own text crosses the wire — everywhere
-// else an error that is not an *Error becomes an opaque 500. A parse failure
-// is the caller's to fix and unreadable without the offending token, so the
-// exception is deliberate; it does echo caller-supplied field names back.
+// Unlike elsewhere, the decoder's own error text crosses the wire here — a
+// parse failure is unreadable without the offending token, so this
+// deliberately echoes caller-supplied field names back.
 func (rt *Runtime) decodeBody(raw []byte, m proto.Message) error {
 	if err := contract.UnmarshalOptions.Unmarshal(raw, m); err != nil {
 		return &Error{Status: http.StatusBadRequest, Code: "body_invalid",
@@ -49,11 +44,10 @@ func (rt *Runtime) decodeBody(raw []byte, m proto.Message) error {
 	return nil
 }
 
-// pathParam returns the path parameter named name. fromBody is the value the
-// body decode left in the same field, if any: a body may repeat a path-bound
-// field, since the request message models the whole request, but it may not
-// disagree with the path. Path parameters are bound last, after the body, and
-// win.
+// pathParam returns the path parameter named name. fromBody, if non-empty,
+// is the value the body decode left in the same field — allowed to repeat
+// the path-bound value but not to disagree with it. Path parameters win,
+// since they're bound after the body.
 func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, error) {
 	v, err := rt.pathValue()(r, name)
 	if err != nil {
@@ -71,27 +65,18 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 	return v, nil
 }
 
-// requireField turns a missing half of a signed request into a 400 naming the
-// field, rather than a message that reaches persistence and fails there with
-// less to say. Shape only: whether the signature is *good* is never asked here.
-func requireField(present bool, jsonName string) error {
-	if present {
+func requireField[T any](v *T, jsonName string) error {
+	if v != nil {
 		return nil
 	}
 	return Errorf(http.StatusBadRequest, "field_missing",
 		"%q is required: this route carries signed content", jsonName)
 }
 
-// contentParam fails when a path-bound id and the copy inside the signed
-// content disagree.
-//
-// **It is a better error message, not a control.** Persistence keys the record
-// off `content`, the signed copy, so a server that skipped this would write the
-// record the signature describes rather than the one the URL asked for — wrong,
-// but not forgeable. Do not build anything on it that assumes otherwise.
-//
-// Path parameters are bound before this runs and win over the body, so
-// fromPath is what the URL actually said.
+// contentParam is a better error message, not a control: persistence keys the
+// record off the signed content, so skipping this would file the record the
+// signature describes, not the one the URL asked for — wrong, but not
+// forgeable. Do not build anything on it that assumes otherwise.
 func contentParam(jsonName, fromPath, fromContent string) error {
 	if fromPath == fromContent {
 		return nil
@@ -101,22 +86,11 @@ func contentParam(jsonName, fromPath, fromContent string) error {
 }
 
 // bindQuery sets the named fields of m from the query string. Only fields in
-// allowed are accepted, each at most once; anything else is a 400, matching
-// the body's rejection of unknown fields. Values are parsed by the field's
-// kind: strings verbatim, bools as strconv.ParseBool, numbers in base 10,
-// enums by value name.
-//
-// A parameter may be spelled either way round — topicId or topic_id — because
-// protojson accepts both in a body (TestPostDecodesBodyWithContractOptions
-// pins that) and a request message is one message however its fields travel.
-// Accepting one spelling in the body and rejecting it in the query string
-// would make the wire format depend on which half of the request a field
-// happened to land in.
-//
-// Every route calls this, including the ones declaring no query field at all,
-// where allowed is nil and the whole query string is therefore a 400. A route
-// that quietly ignored ?page=2 would defeat TestNoPaginationFields at the one
-// layer a caller can observe.
+// allowed are accepted, each at most once, matching the body's rejection of
+// unknown fields; a route with no query field passes allowed as nil, so any
+// query string on it is a 400 (this is what makes TestNoPaginationFields
+// observable). Either spelling of a field name (topicId or topic_id) is
+// accepted, matching protojson's body decoding.
 func (rt *Runtime) bindQuery(r *http.Request, m proto.Message, allowed []string) error {
 	msg := m.ProtoReflect()
 	fields := msg.Descriptor().Fields()

@@ -11,11 +11,9 @@ plugins:
   - local: ts/node_modules/.bin/protoc-gen-ts_proto
     out: ts/src
     opt:
-      # These five together describe protojson output rather than protobuf
-      # binary. The signing digest is taken over that output, so changing one
-      # of them changes a signature, not just a shape: ts/test/wire.test.mjs
-      # has each language verify what the other signed, and is what refuses a
-      # drift here.
+      # These five together describe protojson, not protobuf binary. The
+      # signing digest is taken over that output, so changing one changes a
+      # signature, not just a shape — ts/test/wire.test.mjs catches drift here.
       - onlyTypes=true
       - useDate=string
       - stringEnums=true

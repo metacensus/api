@@ -13,16 +13,10 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-// goNames reads Go names off the generated structs' tags. protoc-gen-go
-// computes them in compiler/protogen, a public package. Feed protogen the same
-// descriptors and the two must agree on every message and field; if they ever
-// do not, the tag format or the naming has changed and the generated server
-// would bind the wrong fields.
-//
-// Over every contract package, because goNames now takes one and checks the
-// resolved Go type is in that package's import path: an entry in Packages
-// naming the wrong GoImport is caught here rather than as an unused import in
-// the generated server.
+// TestGoNamesAgreeWithProtogen feeds the real descriptors to compiler/protogen,
+// the public package protoc-gen-go is built on, and checks goNames agrees
+// with it on every message and field, over every contract package (so an
+// entry in Packages naming the wrong GoImport is caught here too).
 func TestGoNamesAgreeWithProtogen(t *testing.T) {
 	req := &pluginpb.CodeGeneratorRequest{
 		CompilerVersion: &pluginpb.Version{Major: proto.Int32(0), Minor: proto.Int32(0), Patch: proto.Int32(0)},
@@ -40,8 +34,7 @@ func TestGoNamesAgreeWithProtogen(t *testing.T) {
 		}
 		req.ProtoFile = append(req.ProtoFile, protodesc.ToFileDescriptorProto(fd))
 	}
-	// The package each generated file belongs to, so goNames below is called
-	// with the one whose GoImport that file's types must resolve into.
+	// The package each generated file belongs to, for goNames below.
 	pkgOf := map[string]Package{}
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		for _, pkg := range Packages {
@@ -115,15 +108,10 @@ func TestGoNamesAgreeWithProtogen(t *testing.T) {
 	t.Logf("%d fields agree", checked)
 }
 
-// The Go names the server rendering uses must be the ones protoc-gen-go emitted
-// for the same protoc-gen-go version, so this pins which version that is: the
-// runtime and the generator are the same module here.
-//
-// The expected go_package is derived rather than listed: the import path comes
-// from Packages, and the package name after ";" is the proto package with its
-// dots removed, which is the convention every file here follows. A file that
-// spells either differently is what makes model.Packages and the .proto
-// sources disagree about where a surface's Go lives, so it fails here.
+// TestDescriptorsCarryGoPackage checks each file's go_package option against
+// what Packages says it should be: GoImport, then ";", then the proto
+// package with its dots removed. A file that spells either differently is
+// what makes model.Packages and the .proto sources disagree.
 func TestDescriptorsCarryGoPackage(t *testing.T) {
 	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
 		for _, pkg := range Packages {

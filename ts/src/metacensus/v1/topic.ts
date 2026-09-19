@@ -11,19 +11,13 @@ export const protobufPackage = "metacensus.v1";
 
 /** Topics and their membership. */
 
-/**
- * Topic is a systematic review in progress, as a signed record: the server's
- * own fields, the content its author signed, and the signature over it.
- */
+/** A systematic review in progress, as a signed record. */
 export interface Topic {
-  /**
-   * Minted by the server, outside the signature. The topic's address, not part
-   * of what it means.
-   */
+  /** Minted by the server, outside the signature. */
   id: string;
   /**
-   * When the server recorded the write; the server's observation, outside the
-   * signature. UserSignature.signing_time is the author's claim.
+   * Server's observation; see UserSignature.signing_time for the author's
+   * claim.
    */
   recorded?: string | undefined;
   content?: TopicContent | undefined;
@@ -31,8 +25,8 @@ export interface Topic {
 }
 
 /**
- * TopicContent is what a topic's author signs. It carries no id: a topic's key
- * is minted by the server, and there is no other id in scope here.
+ * What a topic's author signs; carries no id — the server mints the
+ * topic's key.
  */
 export interface TopicContent {
   name: string;
@@ -56,13 +50,12 @@ export interface TopicCreateRequest {
 }
 
 /**
- * Member is a user's membership of a topic. No backend implements the member
- * routes yet, and no route writes one, so it carries no signature.
+ * A user's membership of a topic. No backend implements the member routes
+ * yet, so it carries no signature.
  */
 export interface Member {
   /** The member's user id, not an id of the membership itself. */
   id: string;
-  /** When the user joined the topic. */
   joined?: string | undefined;
 }
 

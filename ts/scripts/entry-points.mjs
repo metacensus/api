@@ -1,8 +1,5 @@
-// The entry points package.json actually publishes, derived from its `exports`
-// rather than listed beside them.
-//
-// Deriving it is the point: a guard holding a literal list of entry points
-// checks the list, not the package, and a new subpath export ships past it.
+// The entry points package.json publishes, derived from its `exports` so a new
+// subpath export cannot ship past the guards that consume this.
 
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";

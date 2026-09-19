@@ -1,30 +1,11 @@
-# The MetaCensus API contract. Run from the repository root.
-#
-# Two modules. The root is the contract — the generated types, the manifest,
-# the wire encoder and the server — and it requires exactly two things.
-# routegen/ is the generator and everything that tests what it emits; it is
-# never imported and never published, so it may require whatever it needs,
-# which is why chi and buf live there. buf and protoc-gen-go are its `tool`
-# dependencies; `go tool` only runs inside its own module, so the binaries are
-# built into ./bin and run from the repository root, which is what every
-# relative path in buf.gen.yaml is relative to.
-#
-# GOWORK=off and GOTOOLCHAIN are load-bearing, both lessons from
-# metacensus/infra#52. A go.work anywhere above this checkout would resolve tool
-# versions against the union of its members and quietly lift the pins; and the
-# `go` directive is a floor, not a ceiling, so without GOTOOLCHAIN a developer
-# on a newer Go builds the plugins against a newer stdlib. protoc-gen-go stamps
-# its own version into every .pb.go, and gofmt's doc-comment handling has
-# changed between Go releases, so either one lands as generated-code drift in a
-# PR that never touched a .proto.
+# The MetaCensus API contract. Run from the repository root; see README.md
+# for the two-module layout and the GOWORK/GOTOOLCHAIN pinning.
 
 .PHONY: help all gen generated-paths lint format format-check breaking breaking-public test check clean deps hooks tools \
         release release-major release-minor release-patch latest list delete-tag
 
-# `make` with no target lists the targets rather than running the whole suite,
-# matching metacensus/infra. The listing is generated from the `## name — what
-# it does` comments below, so a target and its description cannot drift; infra
-# hand-writes its help text, which is the same information twice.
+# Lists targets (from the `## name — what it does` comments below) instead of
+# running the whole suite; see `help`.
 .DEFAULT_GOAL := help
 
 GO_DIR   := go
@@ -35,34 +16,23 @@ BIN      := $(CURDIR)/bin
 
 BUF := $(BIN)/buf
 
-# Every path `gen` writes, named once. `clean` removes exactly these and the
-# pre-commit hook asks git about exactly these, so the three cannot disagree.
-# go/server/routes_gen.go is the one generated file sharing a directory with
-# hand-written source, which is why the list is of paths rather than of
-# directories.
+# Every path `gen` writes, named once so `clean` and the pre-commit hook agree.
+# Paths, not directories: go/server holds both generated and hand-written code.
 GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
 
-# The exact Go that builds the generators, read out of go.mod rather than
-# written here: go.mod is what CI's setup-go reads, and a second copy would
-# have to agree with it forever with nothing making it. `toolchain` wins when
-# present, since Go omits it only when it matches `go`. Lifted from
-# metacensus/infra's Makefile, error guard included — GOTOOLCHAIN= with an
-# empty value is silently accepted, so an unpinned build must fail loudly here
-# rather than produce drifted generated code later.
+# Read out of go.mod so this can't drift from what CI's setup-go uses.
+# GOTOOLCHAIN= with an empty value is silently accepted, so guard and fail
+# loudly rather than build unpinned.
 GOTOOLCHAIN_PIN ?= $(shell awk '/^toolchain /{t=$$2} /^go /{if (g == "") g = "go" $$2} END{print (t != "" ? t : g)}' go.mod)
 ifeq ($(GOTOOLCHAIN_PIN),)
 $(error could not read the Go toolchain from go.mod; refusing to build the generators unpinned)
 endif
 TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
-# The latest release tag: the published contract is what a breaking change
-# breaks. Empty until the first release, which makes `breaking` a no-op.
+# Latest release tag; empty (no releases yet) makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
-# The public surface answers "does this break what is deployed?" rather than
-# "what was released?", because its callers are browsers holding a build of the
-# SPA nobody can redeploy, and none of them consume a tag. See README.md,
-# "Versioning the public surface".
+# The public surface; see README.md, "Versioning the public surface".
 PUBLIC_PROTO_DIR        := $(PROTO)/metacensus/public
 # The same directory as buf sees it, i.e. relative to the module root.
 PUBLIC_PACKAGE_PATH     := metacensus/public
@@ -92,9 +62,7 @@ $(BIN)/protoc-gen-go: $(ROUTEGEN)/go.mod $(ROUTEGEN)/go.sum
 deps:
 	cd $(TS_DIR) && npm ci
 
-# The ts-proto plugin buf.gen.yaml invokes, as a prerequisite rather than as a
-# step someone has to know to run first: `make gen` on a fresh clone used to
-# fail inside buf with a missing-plugin path. Re-runs when the lockfile moves.
+# A prerequisite so a fresh clone's `make gen` doesn't fail on a missing plugin.
 TS_PLUGIN := $(TS_DIR)/node_modules/.bin/protoc-gen-ts_proto
 
 $(TS_PLUGIN): $(TS_DIR)/package-lock.json
@@ -130,30 +98,12 @@ breaking: $(BIN)/buf
 
 ## breaking-public — the public surface against what is deployed, not what is tagged
 #
-# `--path` scopes the comparison to the public package, so one buf module carries
-# two breaking checks. **This is the one buf invocation that does not run from
-# the repository root**, and it has to be: `--path` resolves against the input's
-# context directory, and the `--against` input is the module rooted at $(PROTO)
-# inside a git archive, so a root-relative path targets no files there and buf
-# answers "no .proto files were targeted" instead of failing usefully. $(BUF) is
-# absolute, so running from $(PROTO) is safe.
+# Must run from $(PROTO): `--path` resolves against the input's context dir,
+# and a root-relative path against the git-archive `--against` input matches
+# nothing there. $(BUF) is absolute, so `cd`ing first is safe.
 #
-# The rule set is FILE for both checks because FILE is buf's strictest. What is
-# breaking here and invisible to any schema differ — a narrowed length cap, a
-# newly-required field — lives in comments and in the server, and is held by
-# review and by README.md rather than by a flag that would only claim to.
-#
-# The baseline is echoed because it is a local remote-tracking ref: `make check`
-# does not fetch, so a stale one would otherwise compare against the wrong
-# commit, or skip, without saying so.
-#
-# An empty PUBLIC_BREAKING_AGAINST means "do not ask this question", and it is
-# how a release build turns the check off: on a tag the comparison would run
-# backwards, because a tagged commit can sit behind origin/main and anything
-# added to the public surface after the tag would read as a deletion. That case
-# is decided by whoever sets the variable, not by whether a ref happens to
-# resolve — a skip that depends on a ref being absent is not a skip, it is a
-# coincidence.
+# Empty PUBLIC_BREAKING_AGAINST means "skip" — how a release build turns this
+# off, since on a tag the comparison would otherwise run backwards.
 breaking-public: $(BIN)/buf
 	@if [ -z '$(PUBLIC_BREAKING_AGAINST)' ]; then \
 		echo "no baseline for the public surface; nothing deployed to break"; \
@@ -172,9 +122,7 @@ breaking-public: $(BIN)/buf
 
 ## test — the contract's own invariants, then the generator's
 #
-# routegen is a module of its own, so ./... above cannot see it and it needs
-# its own line. Its tests are the generator's unit tests and the suites that
-# exercise what it emits, including the chi conformance run.
+# routegen is its own module, so ./... above misses it; run separately.
 test:
 	go test ./...
 	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
@@ -201,15 +149,8 @@ generated-paths:
 # ---------------------------------------------------------------------------
 # Release
 #
-# Tags are minted here, never typed: scripts/version.sh validates semver and
-# the target refuses a tag that already exists. Pushing the tag is the whole
-# release — the Go module needs nothing else, and the workflow publishes npm.
-#
-# `set -e` and the empty check are load-bearing. Without them, a version.sh
-# that errors out still leaves VERSION empty, and the recipe cheerfully tags
-# and pushes `v` — which is precisely the junk tag metacensus/infra ended up
-# with. The release workflow's tag filter would not match it, so it would sit
-# there forever, silently.
+# `set -e` and the empty-VERSION check matter: without them a failing
+# version.sh still tags and pushes `v` — the junk tag metacensus/infra shipped.
 # ---------------------------------------------------------------------------
 
 VERSION ?=

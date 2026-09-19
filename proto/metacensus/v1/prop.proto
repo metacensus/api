@@ -9,7 +9,6 @@ import "metacensus/v1/common.proto";
 
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
-// Route declarations, not a gRPC commitment: see README.md.
 service PropRoutes {
   rpc ListProps(PropListRequest) returns (PropList) {
     option (google.api.http) = {get: "/topic/{topic_id}/prop"};
@@ -38,18 +37,15 @@ service PropRoutes {
   }
 }
 
-// Prop is a motion a topic's members vote on, as a signed record: the server's
-// own fields, the content its author signed, and the signature over it.
-//
-// `author_id` and `created` used to sit here. They are gone, and nothing
-// replaced them, because they were the unattested versions of what the
-// signature now carries: the author is `user_signature.signer_id` and the
-// authoring time is `user_signature.signing_time`, both inside the digest.
+// A motion a topic's members vote on, as a signed record. `author_id` and
+// `created` were removed: they're `user_signature.signer_id` and
+// `.signing_time` now.
 message Prop {
-  // Minted by the server, outside the signature: the prop's address.
+  // Minted by the server, outside the signature.
   string id = 1;
 
-  // When the server recorded the write. The server's observation.
+  // Server's observation; see UserSignature.signing_time for the author's
+  // claim.
   google.protobuf.Timestamp recorded = 2;
 
   PropContent content = 3;
@@ -60,15 +56,10 @@ message Prop {
   reserved 5;
 }
 
-// PropContent is what a prop's author signs.
-//
-// It carries `topic_id` because a prop's topic is part of what the prop
-// *means* — the same words put to a different topic are put to different voters
-// — and the rule is that every id the path binds is inside the content and
-// covered by the signature. It does not carry the prop's own id, which the
-// server mints.
+// What a prop's author signs; carries `topic_id` but not the prop's own
+// server-minted id.
 message PropContent {
-  // Type is what the proposition would do if it passed.
+  // What the proposition would do if it passed.
   enum Type {
     Unspecified = 0;
     Statement = 1;
@@ -84,42 +75,29 @@ message PropContent {
 
   Type type = 2;
 
-  // The text of the proposition, and the text `VoteContent.citations` index
-  // into.
+  // The text `VoteContent.citations` indexes into.
   string description = 3;
 }
 
-// Vote is one member's position on one prop, keyed by `(propId, userId)`: a
-// second vote from the same user replaces the first rather than adding to it.
-//
-// It has no minted id — nothing about it is server-chosen but the recording
-// time — because both halves of its key are in the content the voter signed.
+// One member's position on one prop, keyed by `(propId, userId)`; a second
+// vote from the same user replaces the first rather than adding to it.
 message Vote {
-  // When the server recorded the vote. Overwritten on every recast, and the
-  // only ordering a reader may use: `user_signature.signing_time` is the
-  // voter's own claim.
+  // Server's observation, and the only ordering a reader may use —
+  // `user_signature.signing_time` is the voter's own claim.
   google.protobuf.Timestamp recorded = 1;
 
   VoteContent content = 2;
 
   UserSignature user_signature = 3;
 
-  // Held for an institutional signature; see User. Vote mints no id, so its
-  // fields stop at 3 and the number held here is 4, not 5.
+  // Held for an institutional signature; see User. Vote mints no id, so this
+  // is 4, not 5.
   reserved 4;
 }
 
-// VoteContent is what a voter signs.
-//
-// It carries every id that composes the vote's key, and every id the path
-// binds: `prop_id` and `user_id` are the key, `topic_id` is the path's. That
-// `user_id` is also `user_signature.signer_id` is deliberate redundancy rather
-// than an oversight — the rule that content carries its own key is worth more
-// than the observation that one particular id happens to be implied elsewhere.
-// Both are inside one digest, so a record whose `user_id` and `signer_id`
-// disagree is validly signed and self-inconsistent, which is the only way the
-// two can differ. Refusing it is persistence's, and owed rather than done; see
-// README.md, "Open questions".
+// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
+// design; persistence owes refusing the two when they disagree (see
+// README.md, "Open questions").
 message VoteContent {
   enum Position {
     Unspecified = 0;
@@ -134,15 +112,14 @@ message VoteContent {
 
   Position position = 4;
 
-  // Free-text rationale.
   string explanation = 5;
 
-  // Spans of the prop's `description` the voter highlighted. Meaningful only
-  // for an `Against` vote; cleared when the position changes to any other.
+  // Highlighted spans of the prop's `description`; meaningful only for
+  // `Against`, cleared otherwise.
   repeated PropCitation citations = 6;
 }
 
-// PropCitation is a half-open character range in a prop's `description`.
+// A half-open character range in a prop's `description`.
 message PropCitation {
   uint32 start = 1;
   uint32 end = 2;
@@ -161,13 +138,8 @@ message PropGetRequest {
   string prop_id = 2;
 }
 
-// PropCreateRequest takes no author: it is `user_signature.signer_id`.
-//
-// `topic_id` appears twice on purpose — once at the top level, where the route
-// binds it from the path, and once inside `content`, where it is signed. They
-// must agree, and the generated binding refuses the request when they do not.
-// That check is a good error message rather than a control; see contentParam
-// in go/server/binding.go.
+// No author field — that's `user_signature.signer_id`. `topic_id` is bound
+// by the path and re-signed inside `content`; the two must agree.
 message PropCreateRequest {
   string topic_id = 1;
   PropContent content = 2;
@@ -179,14 +151,13 @@ message VoteListRequest {
   string prop_id = 2;
 }
 
-// VoteList is the only way to read a prop's votes.
+// The only way to read a prop's votes.
 message VoteList {
   repeated Vote items = 1;
 }
 
-// VoteSetRequest sets rather than creates: it replaces the caller's previous
-// vote on this prop. Both path ids are repeated inside `content`, signed, and
-// checked against the path; see PropCreateRequest.
+// Replaces the caller's previous vote rather than creating a new one; both
+// path ids are re-signed inside `content` (see PropCreateRequest).
 message VoteSetRequest {
   string topic_id = 1;
   string prop_id = 2;

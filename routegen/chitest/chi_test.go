@@ -1,14 +1,11 @@
 // Package chitest runs the generated routes against a real chi.Router.
 //
-// It lives in the routegen module, not beside go/server, because that is where
-// chi may be required: the contract's own go.mod has two direct requirements
-// and Go does not distinguish a test-only one from a runtime one.
+// It lives in the routegen module, not beside go/server, because the
+// contract's own go.mod has two direct requirements and Go does not
+// distinguish a test-only one from a runtime one.
 //
 // go/server/mux_test.go proves Mux's signature against a local copy of chi's;
-// that catches a signature drift and nothing a request does. Everything this
-// file pins was invisible to it, and every claim server.Mux's doc comment
-// makes about "what the router owns" is checked here rather than asserted
-// there.
+// this file pins the request-handling behavior that catches.
 package chitest
 
 import (
@@ -46,9 +43,7 @@ func get(h http.Handler, path string) *httptest.ResponseRecorder {
 // The generated TypeScript client percent-encodes every path segment
 // (encodeURIComponent). net/http's ServeMux decodes before r.PathValue; chi
 // does not. So the same client request binds a different id on each router
-// unless the runtime is told which one it is on — and ids here are opaque
-// strings minted by two backends (go/wireshape_test.go's TestIdsAreStrings),
-// so a character worth escaping is a case the contract expects to have.
+// unless the runtime is told which one it is on.
 func TestPathValueDecoding(t *testing.T) {
 	const id = "a/b c"
 	escaped := url.PathEscape(id) // what encodeURIComponent sends, near enough
@@ -56,8 +51,7 @@ func TestPathValueDecoding(t *testing.T) {
 	t.Run("StdPathValue leaves chi's segment escaped", func(t *testing.T) {
 		impl := &topics{}
 		r := chi.NewRouter()
-		// Set explicitly: Runtime refuses to guess this for a chi.Router, and
-		// what this subtest pins is that the guess would have been wrong.
+		// Set explicitly: pins that Runtime's guess would have been wrong here.
 		server.RegisterTopicRoutes(r, &server.Runtime{
 			Prefix:    routes.Prefix,
 			PathValue: server.StdPathValue,
@@ -101,9 +95,8 @@ func TestPathValueDecoding(t *testing.T) {
 		}
 	})
 
-	// The other direction, which nothing pinned before: EscapedPathValue on a
-	// StdMux decodes a segment net/http already decoded. It is silent for an
-	// ordinary id and wrong for exactly the ids that made this a question.
+	// The other direction: EscapedPathValue on a StdMux decodes a segment
+	// net/http already decoded.
 	t.Run("EscapedPathValue on a StdMux double-decodes", func(t *testing.T) {
 		for _, tc := range []struct {
 			id     string
@@ -135,8 +128,7 @@ func TestPathValueDecoding(t *testing.T) {
 }
 
 // Registration refuses a chi.Router until the runtime says which convention
-// it uses. Before this, the zero value picked StdPathValue — the wrong one
-// for the router metacensus/infra actually mounts.
+// it uses; the zero value used to silently pick the wrong one.
 func TestChiRouterMustDeclareItsPathValue(t *testing.T) {
 	defer func() {
 		p := recover()
@@ -151,9 +143,8 @@ func TestChiRouterMustDeclareItsPathValue(t *testing.T) {
 }
 
 // metacensus/infra mounts everything inside chi's Route(routes.Prefix, ...),
-// so the routes it registers there must carry no prefix of their own. That is
-// Runtime's zero value; before it was, no value of Prefix worked and the
-// failure was a silent 404.
+// so routes registered there must carry no prefix of their own — Runtime's
+// zero value.
 func TestMountedUnderAnExistingPrefix(t *testing.T) {
 	impl := &topics{}
 	r := chi.NewRouter()
@@ -184,8 +175,7 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	server.RegisterUserRoutes(r, rt, server.UnimplementedUserRoutes{})
 
 	// The public surface hangs off its own prefix, so it needs its own
-	// Runtime. Both mount on the one router, which is the arrangement a
-	// process serving both surfaces is in.
+	// Runtime, though both mount on the one router.
 	pub := *rt
 	pub.Prefix = routes.PublicPrefix
 	server.RegisterPartnerRoutes(r, &pub, server.UnimplementedPartnerRoutes{})
@@ -210,13 +200,9 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 }
 
 // minimalBody is the smallest body that gets a route past binding and into a
-// generated handler, which is all these tests want: enough to reach the 501.
-//
-// A signed route needs both halves and needs every id the path bound to match
-// its signed copy, so the content here repeats each parameter with the same
-// placeholder the path was built from. The signature is empty — nothing in
-// go/server verifies one, which is the property that makes an empty one
-// sufficient.
+// generated handler. A signed route needs both halves and needs every id the
+// path bound to match its signed copy; go/server never verifies the
+// signature itself, so an empty one is sufficient.
 func minimalBody(route routes.Route) string {
 	if !route.Signed {
 		return "{}"
@@ -267,10 +253,8 @@ func TestWhatChiOwns(t *testing.T) {
 // metacensus/infra's auth boundary does not follow the service boundary:
 // core/api/server/server.go mounts POST /login and POST /user outside the
 // auth Group and everything else inside it, while AuthRoutes holds Login,
-// SignUp and Logout. Register<Service> registers a whole service on one Mux,
-// so without server.Except the only way to mount AuthRoutes on that tree is a
-// caller-written Mux matching on pattern strings — the route table back at
-// the callsite.
+// SignUp and Logout. server.Except is what makes that split mountable without
+// a caller-written Mux matching on pattern strings.
 func TestServiceSplitAcrossAnAuthBoundary(t *testing.T) {
 	var authed []string
 	jwt := func(next http.Handler) http.Handler {
@@ -297,9 +281,8 @@ func TestServiceSplitAcrossAnAuthBoundary(t *testing.T) {
 		wantAuthd bool
 	}{
 		{"/login", "{}", false},
-		// SignUp is a signed write, so an empty body is a 400 before the
-		// handler: the point here is which side of the middleware it mounts
-		// on, which only a request that reaches a handler can show.
+		// SignUp is a signed write; an empty body would be a 400 before the
+		// handler, so this needs a real one to reach it.
 		{"/signup", `{"content":{},"userSignature":{}}`, false},
 		{"/logout", "{}", true},
 	} {

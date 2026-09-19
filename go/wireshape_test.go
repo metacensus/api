@@ -11,18 +11,12 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// These are the conventions in contract/README.md, checked against the compiled
-// descriptors so they are properties of the schema rather than of a paragraph.
-//
-// Agreement between the JSON Go emits and the TypeScript generated from the same
-// .proto is not checked here: it needs documents, and inventing them proved
-// worse than waiting for real ones. https://github.com/metacensus/ui/issues/49.
+// These are the conventions in contract/README.md, checked against compiled
+// descriptors rather than left as prose. TypeScript agreement is not checked
+// here (needs generated documents): metacensus/ui#49.
 
-// Every proto package these invariants govern. TestEveryPackageIsGoverned
-// makes a package missing from this list a failure rather than a silence.
-//
-// The invariants are about how a schema meets JSON, so neither surface gets to
-// opt out of them, however much else the two differ.
+// Every proto package these invariants govern; TestEveryPackageIsGoverned
+// makes an omission here a failure rather than a silence.
 var contractPackages = []string{
 	"metacensus.v1",
 	"metacensus.public.v1",
@@ -169,13 +163,12 @@ func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 }
 
 // A message may be typed only from its own file or its own package's
-// common.proto, so one resource's shape cannot be bent by another's needs — and
-// never from another contract package, because the two surfaces owe different
-// compatibility and a shared field would put one policy in charge of the
-// other's wire shape.
+// common.proto — never from another contract package, since the two surfaces
+// owe different compatibility and a shared field would put one policy in
+// charge of the other's wire shape.
 //
-// Fields, not imports: an rpc naming another resource as its return type adds no
-// field and shapes no message.
+// Fields, not imports: an rpc naming another resource as its return type
+// adds no field and shapes no message.
 func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		home := md.ParentFile().Path()
@@ -218,14 +211,12 @@ func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 	})
 }
 
-// TestEveryPackageIsGoverned is the check that makes every other check in this
-// file honest: each one iterates contractPackages, so a package absent from it
-// is not exempt but invisible, and the suite stays green over a schema smaller
-// than the one that ships.
+// TestEveryPackageIsGoverned makes every other check in this file honest: a
+// package absent from contractPackages is invisible, not exempt.
 //
-// It reads the .proto tree rather than protoregistry, which holds only what
-// this binary imported — a package nobody blank-imported in registered_test.go
-// would be missing from both the registry and the check.
+// It reads the .proto tree rather than protoregistry (which holds only what
+// this binary imported), so a package missing from registered_test.go's
+// blank imports is still caught.
 func TestEveryPackageIsGoverned(t *testing.T) {
 	onDisk, err := protoscan.Packages(protoDir)
 	if err != nil {

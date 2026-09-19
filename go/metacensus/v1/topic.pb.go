@@ -25,15 +25,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Topic is a systematic review in progress, as a signed record: the server's
-// own fields, the content its author signed, and the signature over it.
+// A systematic review in progress, as a signed record.
 type Topic struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Minted by the server, outside the signature. The topic's address, not part
-	// of what it means.
+	// Minted by the server, outside the signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// When the server recorded the write; the server's observation, outside the
-	// signature. UserSignature.signing_time is the author's claim.
+	// Server's observation; see UserSignature.signing_time for the author's
+	// claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
 	Content       *TopicContent          `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
@@ -99,8 +97,8 @@ func (x *Topic) GetUserSignature() *UserSignature {
 	return nil
 }
 
-// TopicContent is what a topic's author signs. It carries no id: a topic's key
-// is minted by the server, and there is no other id in scope here.
+// What a topic's author signs; carries no id — the server mints the
+// topic's key.
 type TopicContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -329,13 +327,12 @@ func (x *TopicCreateRequest) GetUserSignature() *UserSignature {
 	return nil
 }
 
-// Member is a user's membership of a topic. No backend implements the member
-// routes yet, and no route writes one, so it carries no signature.
+// A user's membership of a topic. No backend implements the member routes
+// yet, so it carries no signature.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The member's user id, not an id of the membership itself.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// When the user joined the topic.
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Joined        *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=joined,proto3" json:"joined,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -1,10 +1,7 @@
 // Package protoscan lists the proto packages declared under a directory tree.
 //
-// It exists so the hand-written lists that drive generation and the schema
-// tests can be checked against something that cannot forget. Both of those
-// lists used to be checked against protoregistry, which holds only what the
-// binary imported — so a package nobody imported was absent from the registry,
-// absent from the check, and silently ungoverned.
+// It exists because protoregistry, used previously, holds only what the
+// binary imported — a package nobody imported was silently ungoverned.
 package protoscan
 
 import (

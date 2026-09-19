@@ -25,7 +25,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Type is what the proposition would do if it passed.
+// What the proposition would do if it passed.
 type PropContent_Type int32
 
 const (
@@ -142,18 +142,15 @@ func (VoteContent_Position) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3, 0}
 }
 
-// Prop is a motion a topic's members vote on, as a signed record: the server's
-// own fields, the content its author signed, and the signature over it.
-//
-// `author_id` and `created` used to sit here. They are gone, and nothing
-// replaced them, because they were the unattested versions of what the
-// signature now carries: the author is `user_signature.signer_id` and the
-// authoring time is `user_signature.signing_time`, both inside the digest.
+// A motion a topic's members vote on, as a signed record. `author_id` and
+// `created` were removed: they're `user_signature.signer_id` and
+// `.signing_time` now.
 type Prop struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Minted by the server, outside the signature: the prop's address.
+	// Minted by the server, outside the signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// When the server recorded the write. The server's observation.
+	// Server's observation; see UserSignature.signing_time for the author's
+	// claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
 	Content       *PropContent           `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
@@ -219,19 +216,13 @@ func (x *Prop) GetUserSignature() *UserSignature {
 	return nil
 }
 
-// PropContent is what a prop's author signs.
-//
-// It carries `topic_id` because a prop's topic is part of what the prop
-// *means* — the same words put to a different topic are put to different voters
-// — and the rule is that every id the path binds is inside the content and
-// covered by the signature. It does not carry the prop's own id, which the
-// server mints.
+// What a prop's author signs; carries `topic_id` but not the prop's own
+// server-minted id.
 type PropContent struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	TopicId string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	Type    PropContent_Type       `protobuf:"varint,2,opt,name=type,proto3,enum=metacensus.v1.PropContent_Type" json:"type,omitempty"`
-	// The text of the proposition, and the text `VoteContent.citations` index
-	// into.
+	// The text `VoteContent.citations` indexes into.
 	Description   string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -288,16 +279,12 @@ func (x *PropContent) GetDescription() string {
 	return ""
 }
 
-// Vote is one member's position on one prop, keyed by `(propId, userId)`: a
-// second vote from the same user replaces the first rather than adding to it.
-//
-// It has no minted id — nothing about it is server-chosen but the recording
-// time — because both halves of its key are in the content the voter signed.
+// One member's position on one prop, keyed by `(propId, userId)`; a second
+// vote from the same user replaces the first rather than adding to it.
 type Vote struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// When the server recorded the vote. Overwritten on every recast, and the
-	// only ordering a reader may use: `user_signature.signing_time` is the
-	// voter's own claim.
+	// Server's observation, and the only ordering a reader may use —
+	// `user_signature.signing_time` is the voter's own claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=recorded,proto3" json:"recorded,omitempty"`
 	Content       *VoteContent           `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
@@ -356,27 +343,18 @@ func (x *Vote) GetUserSignature() *UserSignature {
 	return nil
 }
 
-// VoteContent is what a voter signs.
-//
-// It carries every id that composes the vote's key, and every id the path
-// binds: `prop_id` and `user_id` are the key, `topic_id` is the path's. That
-// `user_id` is also `user_signature.signer_id` is deliberate redundancy rather
-// than an oversight — the rule that content carries its own key is worth more
-// than the observation that one particular id happens to be implied elsewhere.
-// Both are inside one digest, so a record whose `user_id` and `signer_id`
-// disagree is validly signed and self-inconsistent, which is the only way the
-// two can differ. Refusing it is persistence's, and owed rather than done; see
-// README.md, "Open questions".
+// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
+// design; persistence owes refusing the two when they disagree (see
+// README.md, "Open questions").
 type VoteContent struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	TopicId  string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	PropId   string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
-	UserId   string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Position VoteContent_Position   `protobuf:"varint,4,opt,name=position,proto3,enum=metacensus.v1.VoteContent_Position" json:"position,omitempty"`
-	// Free-text rationale.
-	Explanation string `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`
-	// Spans of the prop's `description` the voter highlighted. Meaningful only
-	// for an `Against` vote; cleared when the position changes to any other.
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TopicId     string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	PropId      string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
+	UserId      string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Position    VoteContent_Position   `protobuf:"varint,4,opt,name=position,proto3,enum=metacensus.v1.VoteContent_Position" json:"position,omitempty"`
+	Explanation string                 `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`
+	// Highlighted spans of the prop's `description`; meaningful only for
+	// `Against`, cleared otherwise.
 	Citations     []*PropCitation `protobuf:"bytes,6,rep,name=citations,proto3" json:"citations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -454,7 +432,7 @@ func (x *VoteContent) GetCitations() []*PropCitation {
 	return nil
 }
 
-// PropCitation is a half-open character range in a prop's `description`.
+// A half-open character range in a prop's `description`.
 type PropCitation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Start         uint32                 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
@@ -647,13 +625,8 @@ func (x *PropGetRequest) GetPropId() string {
 	return ""
 }
 
-// PropCreateRequest takes no author: it is `user_signature.signer_id`.
-//
-// `topic_id` appears twice on purpose — once at the top level, where the route
-// binds it from the path, and once inside `content`, where it is signed. They
-// must agree, and the generated binding refuses the request when they do not.
-// That check is a good error message rather than a control; see contentParam
-// in go/server/binding.go.
+// No author field — that's `user_signature.signer_id`. `topic_id` is bound
+// by the path and re-signed inside `content`; the two must agree.
 type PropCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
@@ -766,7 +739,7 @@ func (x *VoteListRequest) GetPropId() string {
 	return ""
 }
 
-// VoteList is the only way to read a prop's votes.
+// The only way to read a prop's votes.
 type VoteList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*Vote                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -811,9 +784,8 @@ func (x *VoteList) GetItems() []*Vote {
 	return nil
 }
 
-// VoteSetRequest sets rather than creates: it replaces the caller's previous
-// vote on this prop. Both path ids are repeated inside `content`, signed, and
-// checked against the path; see PropCreateRequest.
+// Replaces the caller's previous vote rather than creating a new one; both
+// path ids are re-signed inside `content` (see PropCreateRequest).
 type VoteSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
