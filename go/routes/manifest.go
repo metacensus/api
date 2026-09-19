@@ -36,6 +36,13 @@ const PublicPrefix = "/metacensus/public"
 // Body between them account for every field of Request: Params bind path
 // segments, Query travels in the query string, and Body is "*" when the rest
 // travels in the body and empty when none does.
+//
+// Signed says the request carries a `content` message and a `userSignature`
+// over it: the caller needs a signing key, not only a session token, and a
+// request without one is a 400 before any handler runs. It is here so that a
+// consumer can ask which routes those are without reflecting over descriptors
+// — the same reason the prefixes are generated here rather than copied into
+// each repository.
 type Route struct {
 	Prefix   string
 	Service  string
@@ -45,6 +52,7 @@ type Route struct {
 	Params   []string
 	Query    []string
 	Body     string
+	Signed   bool
 	Request  string
 	Response string
 }
@@ -52,22 +60,22 @@ type Route struct {
 // Routes is every route across every surface, ordered by package, then by
 // file, then by declaration.
 var Routes = []Route{
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Request: "LoginRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Request: "SignUpRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "", Request: "LogoutRequest", Response: "LogoutResponse"},
-	{Prefix: Prefix, Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Request: "PropListRequest", Response: "PropList"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Request: "PropGetRequest", Response: "Prop"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Request: "PropCreateRequest", Response: "Prop"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Request: "VoteListRequest", Response: "VoteList"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "*", Request: "VoteSetRequest", Response: "Vote"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Query: nil, Body: "", Request: "TopicListRequest", Response: "TopicList"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Query: nil, Body: "", Request: "TopicGetRequest", Response: "Topic"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Query: nil, Body: "*", Request: "TopicCreateRequest", Response: "Topic"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Query: nil, Body: "", Request: "MemberListRequest", Response: "MemberList"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Query: nil, Body: "", Request: "MemberGetRequest", Response: "Member"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Request: "UserListRequest", Response: "UserList"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Request: "UserGetRequest", Response: "User"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Request: "SelfGetRequest", Response: "User"},
-	{Prefix: PublicPrefix, Service: "PartnerRoutes", RPC: "SubmitPartnerInterest", Method: "POST", Path: "/partner", Params: nil, Query: nil, Body: "*", Request: "PartnerSubmission", Response: "PartnerReceipt"},
+	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LoginRequest", Response: "Session"},
+	{Prefix: Prefix, Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Signed: true, Request: "SignUpRequest", Response: "Session"},
+	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "", Signed: false, Request: "LogoutRequest", Response: "LogoutResponse"},
+	{Prefix: Prefix, Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Signed: false, Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
+	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "PropListRequest", Response: "PropList"},
+	{Prefix: Prefix, Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "PropGetRequest", Response: "Prop"},
+	{Prefix: Prefix, Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Signed: true, Request: "PropCreateRequest", Response: "Prop"},
+	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "VoteListRequest", Response: "VoteList"},
+	{Prefix: Prefix, Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "*", Signed: true, Request: "VoteSetRequest", Response: "Vote"},
+	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Query: nil, Body: "", Signed: false, Request: "TopicListRequest", Response: "TopicList"},
+	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "TopicGetRequest", Response: "Topic"},
+	{Prefix: Prefix, Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Query: nil, Body: "*", Signed: true, Request: "TopicCreateRequest", Response: "Topic"},
+	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "MemberListRequest", Response: "MemberList"},
+	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Query: nil, Body: "", Signed: false, Request: "MemberGetRequest", Response: "Member"},
+	{Prefix: Prefix, Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Signed: false, Request: "UserListRequest", Response: "UserList"},
+	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Signed: false, Request: "UserGetRequest", Response: "User"},
+	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Signed: false, Request: "SelfGetRequest", Response: "User"},
+	{Prefix: PublicPrefix, Service: "PartnerRoutes", RPC: "SubmitPartnerInterest", Method: "POST", Path: "/partner", Params: nil, Query: nil, Body: "*", Signed: false, Request: "PartnerSubmission", Response: "PartnerReceipt"},
 }

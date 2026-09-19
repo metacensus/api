@@ -29,3 +29,140 @@ export interface HealthcheckRequest {
 export interface HealthcheckResponse {
   status: string;
 }
+
+/**
+ * UserSignature is one participant vouching for one content message.
+ *
+ * **It is not verified at the API edge.** The signature travels in the request
+ * body precisely so that it reaches the persistence layer intact and is checked
+ * inside the chaincode boundary, where the record is written. An API server
+ * decodes a request, re-encodes it and hands it on; nothing in that path needs
+ * the octets that arrived, because the digest below is taken over the *decoded*
+ * message rather than over the bytes. See README.md, "The signing chain".
+ *
+ * The fields other than `value` are the signature's **signed attributes**: they
+ * are inside the digest, so a signature cannot be re-attributed to another
+ * signer, re-dated, or reinterpreted under another set of rules. That is also
+ * why timestamps and the version marker live here rather than on every content
+ * type — they are readable before anything is parsed, and they do not have to be
+ * repeated onto each resource.
+ */
+export interface UserSignature {
+  /**
+   * The signing user's id.
+   *
+   * Empty on exactly one record: the sign-up that enrols the key, where no id
+   * has been minted yet and `public_key` carries the key inline instead.
+   * Everywhere else persistence owes two refusals: an absent `signer_id`, and
+   * one that disagrees with the `user_id` its content carries. See README.md,
+   * "Open questions", for what does and does not implement them.
+   */
+  signerId: string;
+  /**
+   * base64url, unpadded, of SHA-256 over the SPKI DER of `public_key`.
+   *
+   * Derived rather than minted, so a client can compute it before it has an
+   * account and a verifier can check it rather than trust it. It exists from
+   * the first release so that key rotation lands as a second key rather than as
+   * a reshaping of this message.
+   */
+  keyId: string;
+  alg: UserSignature_Alg;
+  /**
+   * base64url, unpadded, of the signer's public key as SPKI DER.
+   *
+   * Carried inline **only** on the sign-up that enrols it, which is the one
+   * record whose signer cannot be looked up because it does not exist yet.
+   * Empty everywhere else, where a verifier resolves `key_id` against the key
+   * the signer enrolled. One encoding, not PEM: a PEM body's line breaks and
+   * header spelling are two documents for one key, and both would hash.
+   */
+  publicKey: string;
+  /**
+   * When the signer says it signed. A claim by the participant, never an
+   * observation: it is inside the digest, so the participant chose it.
+   *
+   * The recording time beside it on the stored record is the server's and sits
+   * outside the signature. The pair bounds the *participant* — a verifier can
+   * say "this signer claims T, we recorded T-prime" — and it bounds nothing
+   * about the server. Any tolerance over the difference is a policy number, and
+   * policy numbers belong in the chaincode's configuration: one written here
+   * would be a wire break to change.
+   *
+   * Ordering and conflict resolution use the recorded time, never this one, or
+   * a participant orders their own writes.
+   */
+  signingTime?:
+    | string
+    | undefined;
+  /**
+   * How this signature is to be computed and checked, exactly:
+   * `"metacensus.sig/1"` is JCS (RFC 8785) over the document
+   * `{"content": <content>, "signature": <this message with value "">}`,
+   * digested with SHA-384.
+   *
+   * It is inside the signature because a marker saying how a record should be
+   * read is worthless outside it: the same bytes would be reinterpretable under
+   * whatever rules an attacker preferred. Changing the canonicalization, the
+   * digest or the encoding of `value` changes this string.
+   */
+  spec: string;
+  /**
+   * The full proto name of the message `content` holds, e.g.
+   * `"metacensus.v1.PropContent"`.
+   *
+   * Separate from `spec` so that neither has to be parsed out of the other. It
+   * is what stops a signature over one content type being replayed as another
+   * whose JSON happens to have the same shape — two messages of two strings are
+   * one document once they are canonical.
+   */
+  contentType: string;
+  /**
+   * base64url, unpadded, of the signature over the digest.
+   *
+   * Excluded from its own digest by being set to the empty string rather than
+   * by being dropped. Which generator agreement that rests on, and why an
+   * omission rule would be one more of them with nothing checking it: the
+   * go/signing package comment.
+   */
+  value: string;
+}
+
+/**
+ * Alg is the signature algorithm, and the vocabulary is closed: a value this
+ * enum does not name fails to decode rather than reaching a verifier that
+ * would have to decide what to do with it.
+ *
+ * Closing it has a cost worth knowing before adding to it. protojson and
+ * ts-proto's `unrecognizedEnum=false` both refuse an unknown value, so a
+ * reader on an older build of the contract cannot decode a record signed with
+ * a newer algorithm — not even to migrate it. Adding a value is therefore a
+ * contract release that has to reach every reader *before* any signer starts
+ * emitting it.
+ */
+export enum UserSignature_Alg {
+  Unspecified = "Unspecified",
+  /**
+   * Es384 - ECDSA on P-384 with SHA-384. `value` is the JOSE fixed-width `r || s`,
+   * never a DER SEQUENCE: two DER spellings of one signature would be two
+   * strings for one fact.
+   */
+  Es384 = "Es384",
+}
+
+/**
+ * UserContent is the part of a user record its owner signs.
+ *
+ * It is here rather than in user.proto because two resource files need it and
+ * the cross-file rule sanctions exactly this file for that: `SignUpRequest` in
+ * auth.proto signs it at enrolment and `User` in user.proto stores it. They
+ * have to be one message rather than two of the same shape — a signature made
+ * over `SignUpContent` would not verify against a record holding `UserContent`,
+ * and the whole point of the chain is that a record stays verifiable after it
+ * is stored.
+ */
+export interface UserContent {
+  name: string;
+  email: string;
+  country: string;
+}

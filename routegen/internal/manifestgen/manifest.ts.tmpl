@@ -23,6 +23,13 @@ export const {{.TSConst}} = {{printf "%q" .Prefix}};
 // every field of `request`: `params` bind path segments, `query` travels in
 // the query string, and `body` is "*" when the rest travels in the body and
 // "" when none does.
+//
+// `signed` says the request carries a `content` message and a `userSignature`
+// over it: the caller needs a signing key, not only a session token, and a
+// request without one is a 400 before any handler runs. It is here so that a
+// consumer can ask which routes those are without reflecting over descriptors
+// — the same reason the prefixes are generated here rather than copied into
+// each repository.
 export interface Route {
   readonly prefix: string;
   readonly service: string;
@@ -32,13 +39,14 @@ export interface Route {
   readonly params: readonly string[];
   readonly query: readonly string[];
   readonly body: string;
+  readonly signed: boolean;
   readonly request: string;
   readonly response: string;
 }
 
 export const routes: readonly Route[] = [
 {{end}}
-{{define "route"}}  { prefix: {{.Pkg.TSConst}}, service: {{printf "%q" .Service}}, rpc: {{printf "%q" .RPC}}, method: {{printf "%q" .Method}}, path: {{printf "%q" .Path}}, params: [{{join ", " (quoteAll .Params)}}], query: [{{join ", " (quoteAll .Query)}}], body: {{printf "%q" .Body}}, request: {{printf "%q" .Request}}, response: {{printf "%q" .Response}} },
+{{define "route"}}  { prefix: {{.Pkg.TSConst}}, service: {{printf "%q" .Service}}, rpc: {{printf "%q" .RPC}}, method: {{printf "%q" .Method}}, path: {{printf "%q" .Path}}, params: [{{join ", " (quoteAll .Params)}}], query: [{{join ", " (quoteAll .Query)}}], body: {{printf "%q" .Body}}, signed: {{.Signed}}, request: {{printf "%q" .Request}}, response: {{printf "%q" .Response}} },
 {{end}}
 {{define "footer"}}];
 {{end}}

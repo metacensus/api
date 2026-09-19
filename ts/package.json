@@ -1,7 +1,7 @@
 {
   "name": "@metacensus/api",
   "version": "0.0.0",
-  "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1 and /metacensus/public): generated types, a route manifest, and a typed transport-agnostic client per surface. No runtime dependencies.",
+  "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1 and /metacensus/public): generated types, a route manifest, a typed transport-agnostic client per surface, and the signing chain. No runtime dependencies.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -17,6 +17,10 @@
     "./public": {
       "types": "./dist/public.d.ts",
       "default": "./dist/public.js"
+    },
+    "./signing": {
+      "types": "./dist/signing.d.ts",
+      "default": "./dist/signing.js"
     },
     "./package.json": "./package.json"
   },

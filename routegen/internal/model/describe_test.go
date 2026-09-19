@@ -92,10 +92,13 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "is not a field of",
 		},
 		{
+			// `content` really is a field of TopicCreateRequest, so this
+			// reaches the named-body rejection rather than the missing-field
+			// one below.
 			name: "body names a field",
 			rpc: rpc("NamedBody", "TopicCreateRequest", "Topic", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/topic"},
-				Body:    "name",
+				Body:    "content",
 			}),
 			wants: `only body: "*" or no body is supported`,
 		},
@@ -118,13 +121,31 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "not a singular string",
 		},
 		{
-			// Prop.citations is repeated PropCitation: a message-typed field
-			// the query string cannot carry.
+			// VoteContent.citations is repeated PropCitation: a message-typed
+			// field the query string cannot carry.
 			name: "message-typed query parameter",
-			rpc: rpc("MessageQuery", "Prop", "Topic", &annotations.HttpRule{
-				Pattern: &annotations.HttpRule_Get{Get: "/x/{id}"},
+			rpc: rpc("MessageQuery", "VoteContent", "Topic", &annotations.HttpRule{
+				Pattern: &annotations.HttpRule_Get{Get: "/x/{topic_id}"},
 			}),
 			wants: "only scalar query fields are supported",
+		},
+
+		{
+			// The path binds a field the signed content does not carry, so
+			// the record could be filed under one address while attesting to
+			// another.
+			//
+			// SignUpRequest.password is the shape the real messages offer, and
+			// it is a good one: password is deliberately outside content,
+			// because content is what gets persisted and a password must never
+			// be inside a signed document. Binding it from the path would be
+			// asking for it to be signed.
+			name: "path parameter absent from signed content",
+			rpc: rpc("PathOutsideContent", "SignUpRequest", "Session", &annotations.HttpRule{
+				Pattern: &annotations.HttpRule_Post{Post: "/signup/{password}"},
+				Body:    "*",
+			}),
+			wants: "does not carry it",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -147,11 +168,13 @@ func TestDescribeRejects(t *testing.T) {
 // blanket refusal.
 func TestDescribeAccepts(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		rpc    *descriptorpb.MethodDescriptorProto
-		path   string
-		params []string
-		body   string
+		name          string
+		rpc           *descriptorpb.MethodDescriptorProto
+		path          string
+		params        []string
+		body          string
+		signed        bool
+		contentParams []string
 	}{
 		{
 			name: "no path parameters, no body",
@@ -168,6 +191,9 @@ func TestDescribeAccepts(t *testing.T) {
 			path: "/topic/{topicId}", params: []string{"topicId"},
 		},
 		{
+			// Both path ids are repeated inside VoteContent, so this is also
+			// the signed case: two ContentParams, each pairing the field the
+			// path binds with the signed copy the binding compares it to.
 			name: "two distinct parameters and a star body",
 			rpc: rpc("SetVote", "VoteSetRequest", "Vote", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/topic/{topic_id}/prop/{prop_id}/vote"},
@@ -175,6 +201,17 @@ func TestDescribeAccepts(t *testing.T) {
 			}),
 			path:   "/topic/{topicId}/prop/{propId}/vote",
 			params: []string{"topicId", "propId"}, body: "*",
+			signed: true, contentParams: []string{"topicId", "propId"},
+		},
+		{
+			// A signed route need not bind anything from the path: sign-up
+			// carries content and a signature and no parameters at all.
+			name: "signed with no path parameters",
+			rpc: rpc("SignUp", "SignUpRequest", "Session", &annotations.HttpRule{
+				Pattern: &annotations.HttpRule_Post{Post: "/signup"},
+				Body:    "*",
+			}),
+			path: "/signup", body: "*", signed: true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -191,8 +228,107 @@ func TestDescribeAccepts(t *testing.T) {
 			if r.Body != tc.body {
 				t.Errorf("body %q, want %q", r.Body, tc.body)
 			}
+			if r.Signed != tc.signed {
+				t.Errorf("signed %v, want %v", r.Signed, tc.signed)
+			}
+			var got []string
+			for _, cp := range r.ContentParams {
+				got = append(got, cp.JSONName)
+				// Both Go field names come off the generated structs, so an
+				// empty one means the content message was read as the wrong
+				// type rather than that the field is missing.
+				if cp.PathGoField == "" || cp.ContentGoField == "" {
+					t.Errorf("%q: Go fields %q / %q", cp.JSONName, cp.PathGoField, cp.ContentGoField)
+				}
+			}
+			if strings.Join(got, ",") != strings.Join(tc.contentParams, ",") {
+				t.Errorf("content params %v, want %v", got, tc.contentParams)
+			}
 		})
 	}
+}
+
+// The two halves of a signed request travel together, and neither real
+// message can express one without the other — so unlike every case above,
+// these two shapes are built rather than borrowed.
+//
+// describeSigned is called directly for that reason: a synthetic message has
+// no generated Go type, so a route carrying one cannot survive goNames, and
+// these rejections happen before any Go name is needed.
+func TestDescribeSignedPairing(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		field *descriptorpb.FieldDescriptorProto
+		wants string
+	}{
+		{
+			name:  "signature without content",
+			field: messageField(SignatureField, 1, "."+testPkg.Proto+".UserSignature"),
+			wants: "a signature over nothing attests to nothing",
+		},
+		{
+			name:  "content without signature",
+			field: messageField(ContentField, 1, "."+testPkg.Proto+".TopicContent"),
+			wants: "content nobody signed",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			md := messageWith(t, "Synthetic", tc.field)
+			_, _, _, _, err := describeSigned(testPkg, md, goType{}, nil)
+			if err == nil {
+				t.Fatal("accepted")
+			}
+			if !strings.Contains(err.Error(), tc.wants) {
+				t.Errorf("error %q does not mention %q", err, tc.wants)
+			}
+		})
+	}
+}
+
+func messageField(name string, number int32, typeName string) *descriptorpb.FieldDescriptorProto {
+	return &descriptorpb.FieldDescriptorProto{
+		Name:     proto.String(name),
+		Number:   proto.Int32(number),
+		Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+		Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+		TypeName: proto.String(typeName),
+	}
+}
+
+// messageWith compiles a throwaway file holding one message and returns its
+// descriptor. Its dependencies are the real metacensus/v1 files, so a field
+// may be typed from them even though the message itself exists only here.
+func messageWith(t *testing.T, name string, fields ...*descriptorpb.FieldDescriptorProto) protoreflect.MessageDescriptor {
+	t.Helper()
+
+	fdp := &descriptorpb.FileDescriptorProto{
+		Name:       proto.String("routegen/describe_test_messages.proto"),
+		Package:    proto.String(testPkg.Proto),
+		Syntax:     proto.String("proto3"),
+		Dependency: contractDeps(),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name:  proto.String(name),
+			Field: fields,
+		}},
+	}
+	fd, err := protodesc.NewFile(fdp, protoregistry.GlobalFiles)
+	if err != nil {
+		t.Fatalf("building the synthetic message: %v", err)
+	}
+	return fd.Messages().Get(0)
+}
+
+// contractDeps is every registered file of the contract package under test,
+// which is what lets a synthetic file name the real messages.
+func contractDeps() []string {
+	var deps []string
+	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
+		if string(fd.Package()) == testPkg.Proto {
+			deps = append(deps, fd.Path())
+		}
+		return true
+	})
+	return deps
 }
 
 // testPkg is the contract package these synthetic routes are built over,
@@ -231,19 +367,11 @@ func rpc(name, in, out string, rule *annotations.HttpRule) *descriptorpb.MethodD
 func method(t *testing.T, m *descriptorpb.MethodDescriptorProto) protoreflect.MethodDescriptor {
 	t.Helper()
 
-	var deps []string
-	protoregistry.GlobalFiles.RangeFiles(func(fd protoreflect.FileDescriptor) bool {
-		if string(fd.Package()) == testPkg.Proto {
-			deps = append(deps, fd.Path())
-		}
-		return true
-	})
-
 	fdp := &descriptorpb.FileDescriptorProto{
 		Name:       proto.String("routegen/describe_test.proto"),
 		Package:    proto.String(testPkg.Proto),
 		Syntax:     proto.String("proto3"),
-		Dependency: deps,
+		Dependency: contractDeps(),
 		Service: []*descriptorpb.ServiceDescriptorProto{{
 			Name:   proto.String("DescribeTestRoutes"),
 			Method: []*descriptorpb.MethodDescriptorProto{m},
