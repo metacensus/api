@@ -25,8 +25,8 @@ import (
 	_ "github.com/metacensus/api/go/metacensus/v1"
 )
 
-// protoDir holds the .proto sources, relative to the repository root, which
-// is where the generator runs. CheckPackages reads it.
+// protoDir is the .proto tree, relative to the repository root the generator
+// runs in.
 const protoDir = "proto"
 
 // Package is one contract package: its proto package, the path its routes hang
@@ -303,7 +303,7 @@ func describe(pkg Package, md protoreflect.MethodDescriptor) (Route, error) {
 	}
 	var pathFields []PathField
 	for _, p := range params {
-		fd := fieldByJSONName(md.Input(), p)
+		fd := md.Input().Fields().ByJSONName(p)
 		if fd.Kind() != protoreflect.StringKind || fd.IsList() {
 			// Path segments are strings on the wire. Binding a non-string
 			// would mean parsing, with a 400 on failure and a Go-side
@@ -321,7 +321,7 @@ func describe(pkg Package, md protoreflect.MethodDescriptor) (Route, error) {
 		pathFields = append(pathFields, PathField{JSONName: p, GoField: goField})
 	}
 	for _, q := range query {
-		fd := fieldByJSONName(md.Input(), q)
+		fd := md.Input().Fields().ByJSONName(q)
 		if fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind || fd.IsMap() {
 			// Query strings carry scalars. google.api.http allows nested
 			// `a.b=1`, which needs a path walker; none of the routes need it.
@@ -362,10 +362,6 @@ func describe(pkg Package, md protoreflect.MethodDescriptor) (Route, error) {
 		ContentParams:    contentParams,
 		Descriptor:       md,
 	}, nil
-}
-
-func fieldByJSONName(md protoreflect.MessageDescriptor, jsonName string) protoreflect.FieldDescriptor {
-	return md.Fields().ByJSONName(jsonName)
 }
 
 // goType is what the server rendering knows about one generated Go message
@@ -563,9 +559,7 @@ func queryParams(req protoreflect.MessageDescriptor, bound map[protoreflect.Name
 	return out, nil
 }
 
-// GoSlice spells items as a Go []string literal, or the bare identifier nil
-// for an empty slice — shared by every renderer that writes a Params or
-// Query field as Go source.
+// GoSlice renders items as a Go []string literal, or nil for an empty slice.
 func GoSlice(items []string) string {
 	if len(items) == 0 {
 		return "nil"
@@ -584,8 +578,7 @@ func GoFormat(what string, src []byte) ([]byte, error) {
 	return out, nil
 }
 
-// QuoteAll applies %q to each item, for a renderer building a slice or
-// array literal one quoted element at a time.
+// QuoteAll applies %q to each item.
 func QuoteAll(items []string) []string {
 	out := make([]string, len(items))
 	for i, s := range items {

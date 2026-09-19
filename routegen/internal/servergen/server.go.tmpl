@@ -64,11 +64,11 @@ func Register{{.Name}}(mux Mux, rt *Runtime, impl {{.Name}}) {
 {{if .Signed}}		// Signed route: both halves present, each path id matching its
 		// signed copy. Neither validates the signature — that is persistence's.
 		// See requireField and contentParam.
-		if err := requireField(req.{{.ContentGoField}} != nil, "content"); err != nil {
+		if err := requireField(req.{{.ContentGoField}}, "content"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
-		if err := requireField(req.{{.SignatureGoField}} != nil, "userSignature"); err != nil {
+		if err := requireField(req.{{.SignatureGoField}}, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}

@@ -125,8 +125,6 @@ func Render(routes []model.Route) ([]byte, error) {
 	return model.GoFormat("go/server/routes_gen.go", b.Bytes())
 }
 
-// execute runs one named block, naming the template, the block, the service
-// and the route on failure.
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {

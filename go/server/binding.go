@@ -67,11 +67,8 @@ func (rt *Runtime) pathParam(r *http.Request, name, fromBody string) (string, er
 	return v, nil
 }
 
-// requireField turns a missing half of a signed request into a 400 naming the
-// field, rather than a message that reaches persistence and fails there with
-// less to say. Shape only: whether the signature is *good* is never asked here.
-func requireField(present bool, jsonName string) error {
-	if present {
+func requireField[T any](field *T, jsonName string) error {
+	if field != nil {
 		return nil
 	}
 	return Errorf(http.StatusBadRequest, "field_missing",

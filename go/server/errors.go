@@ -19,7 +19,6 @@ type Error struct {
 	Err     error
 }
 
-// status is the code writeError puts on the wire.
 func (e *Error) status() int {
 	if e.Status < 100 || e.Status > 599 {
 		return http.StatusInternalServerError

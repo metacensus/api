@@ -82,8 +82,6 @@ func render(t *template.Template, name string, routes []model.Route, format func
 	return format(b.Bytes())
 }
 
-// execute runs one named block, naming the template, the block and the route
-// on failure.
 func execute(b *bytes.Buffer, t *template.Template, tmplName, block string, data any, service, rpc string) error {
 	if err := t.ExecuteTemplate(b, block, data); err != nil {
 		if service != "" {

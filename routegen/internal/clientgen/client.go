@@ -313,10 +313,8 @@ func Render(routes []model.Route) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// withRoutes is model.Packages narrowed to the surfaces these routes actually
-// cover, in table order. A surface with no routes has already failed
-// model.Walk, so this is a guard against emitting an empty class rather than
-// a case that is expected to arise.
+// withRoutes is model.Packages narrowed to the surfaces these routes cover, in
+// table order.
 func withRoutes(methods []methodView) []model.Package {
 	var out []model.Package
 	for _, pkg := range model.Packages {
@@ -330,8 +328,6 @@ func withRoutes(methods []methodView) []model.Package {
 	return out
 }
 
-// execute runs one named block, naming the template, the block and the route
-// on failure.
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {
