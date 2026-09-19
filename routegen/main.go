@@ -1,20 +1,11 @@
 // Command routegen writes the route manifest, a Go server and TypeScript
 // clients for every contract package from the google.api.http annotations on
 // each service. One walk of the compiled descriptors — internal/model — feeds
-// four renderings: internal/manifestgen, internal/servergen,
-// internal/clientgen. Each package's own doc says what it emits.
-//
-// Which packages those are, and the prefix each one's routes hang off, is
-// model.Packages — the one place either prefix is written down.
-//
-// A renderer imports internal/model and nothing else in this module;
-// model imports no renderer. imports_test.go asserts that against the build
-// graph rather than stating it here.
+// the renderers: internal/manifestgen, internal/servergen, internal/clientgen.
 //
 // It reads the descriptors the generated Go package registers, so it runs
-// after `buf generate`. It never changes the route table: it only deepens
-// what is generated from the routes already declared, and refuses to generate
-// at all for a route shape it cannot bind.
+// after `buf generate`. It never changes the route table; it refuses to
+// generate at all for a route shape it cannot bind.
 package main
 
 import (
@@ -30,8 +21,7 @@ import (
 )
 
 // Output paths are relative to the repository root, which is where the
-// Makefile runs this. Everything else in the build — buf, the generator
-// plugins — is rooted there too.
+// Makefile runs this.
 const (
 	goOut     = "go/routes/manifest.go"
 	tsOut     = "ts/src/route-manifest.ts"
@@ -51,15 +41,9 @@ func main() {
 const contractModule = "module github.com/metacensus/api"
 
 // chdirRoot finds the repository root and moves there, because every output
-// path is relative to it. The generator now lives in a module of its own, so
-// `make gen` runs it from routegen/ and a plain cwd check would reject the
-// only working directory it is ever invoked from.
-//
-// Walking up and checking the module line is stricter than trusting cwd, not
-// looser: from anywhere inside the repository it finds the same root, and
-// from outside it refuses rather than writing four generated files into
-// somebody's home directory and leaving the committed ones stale — which the
-// freshness check cannot see, because nothing in the tree changed.
+// path is relative to it. It walks up checking the module line rather than
+// trusting cwd, so it refuses outside the repository instead of writing
+// generated files into the wrong place.
 func chdirRoot() error {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -68,8 +52,8 @@ func chdirRoot() error {
 	start := dir
 	for {
 		b, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-		// A module line is the whole line, so routegen/go.mod's
-		// "module github.com/metacensus/api/routegen" does not match.
+		// The whole line must match, so routegen/go.mod's own module line
+		// does not.
 		if err == nil {
 			for _, line := range strings.Split(string(b), "\n") {
 				if strings.TrimSpace(line) == contractModule {
@@ -90,9 +74,8 @@ func run() error {
 		return err
 	}
 
-	// Before the walk: a proto package on disk that the table does not name
-	// would generate nothing and say nothing, and the walk cannot notice it
-	// because it only ever looks at packages the table already lists.
+	// Before the walk: a proto package the table does not name would
+	// otherwise generate nothing and say nothing.
 	if err := model.CheckPackages(); err != nil {
 		return err
 	}
@@ -102,8 +85,8 @@ func run() error {
 		return err
 	}
 
-	// Every renderer runs before anything is written, so a failure in the
-	// last one does not leave the first three's output on disk.
+	// Every renderer runs before anything is written, so a late failure
+	// does not leave partial output on disk.
 	outputs := []struct {
 		path   string
 		render func([]model.Route) ([]byte, error)

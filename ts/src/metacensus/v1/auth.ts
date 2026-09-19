@@ -17,35 +17,23 @@ export interface LoginRequest {
 }
 
 /**
- * SignUpRequest both creates an account and enrols the signing key every later
- * write is signed with. It is the one request whose signature carries its own
- * public key, because it is the one signer who cannot yet be looked up.
- *
- * **This is trust on first use, with proof of possession.** Nobody vouches for
- * the key: the service takes the one it is handed and binds it to the account.
- * That concedes nothing it had not already conceded — the same request carries
- * the password, so an API server able to substitute the key could already
- * impersonate the account outright. What the signature adds is *binding*:
- * without it anyone could enrol a public key that is not theirs and later claim
- * the signatures made with it, and the proof costs nothing here because the
- * client is holding the private key as it sends this.
+ * Creates an account and enrolls the signing key every later write is
+ * signed with: trust on first use — nobody vouches for the key, the service
+ * binds whatever it's handed, and the signature proves possession of the
+ * matching private key at enrollment.
  */
 export interface SignUpRequest {
-  /** What the new user signs, and what their user record will hold verbatim. */
   content?:
     | UserContent
     | undefined;
   /**
-   * Deliberately outside `content`: content is what gets persisted, and a
-   * password must never be inside a signed, stored document.
+   * Deliberately outside `content`: a password must never be inside a
+   * signed, stored document.
    */
   password: string;
   /**
-   * Over `content`, made with the key being enrolled. `signer_id` is empty —
-   * no id exists yet — and `public_key` carries the key inline. Before minting
-   * an account, persistence owes two checks: that `key_id` is the thumbprint
-   * of `public_key`, and that the signature verifies under it. Nothing in this
-   * repository performs them; see README.md, "Open questions".
+   * Over `content`, made with the key being enrolled. `signer_id` is empty
+   * (no id exists yet) and `public_key` carries the key inline.
    */
   userSignature?: UserSignature | undefined;
 }

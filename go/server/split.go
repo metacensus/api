@@ -9,12 +9,8 @@ import (
 )
 
 // Except sends the named rpcs to alt and every other route to mux, so one
-// service can be registered across two routers.
-//
-// Register<Service> registers a whole service, and a service's rpcs do not
-// always sit behind the same middleware. metacensus/infra mounts
-// AuthRoutes.Login and AuthRoutes.SignUp publicly and AuthRoutes.Logout
-// behind its JWT check:
+// service can be registered across two routers — e.g. mounting some rpcs of
+// a service behind auth middleware and others not:
 //
 //	v1Routes.Group(func(authed chi.Router) {
 //		authed.Use(s.auth.Middleware)
@@ -23,14 +19,9 @@ import (
 //			rt, authImpl{})
 //	})
 //
-// The alternative is a Mux of the caller's own that matches on the pattern
-// string, which puts the route table back at the callsite — the one thing
-// generating it was for. Naming rpcs instead keeps the patterns here: they
-// come from routes.Routes, and a name that is not in the manifest panics at
-// construction, so a typo or a renamed rpc fails at startup rather than
-// mounting a route on the wrong side of an auth boundary.
-//
-// Each name is "Service.Rpc", as routes.Route spells it.
+// rpcs are "Service.Rpc" names from routes.Routes; a name not in the
+// manifest panics at construction rather than mounting a route on the wrong
+// side of an auth boundary.
 func Except(mux, alt Mux, rt *Runtime, rpcs ...string) Mux {
 	if len(rpcs) == 0 {
 		panic("server: Except needs at least one rpc; without one it is just mux")

@@ -14,11 +14,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// The canonicaliser on its own, over documents rather than over messages: the
-// cases here are the ones RFC 8785 is *for*, and none of them can be reached
-// through a contract message today. ts/src/signing.ts has to produce the same
-// strings, and ts/test/wire.test.mjs is where that is checked across the two
-// languages rather than asserted separately in each.
+// Exercises the canonicaliser directly over documents, including shapes no
+// contract message reaches today; ts/test/wire.test.mjs checks ts/signing.ts
+// produces the same strings.
 func TestCanonicalOrdersAndEscapes(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -31,8 +29,7 @@ func TestCanonicalOrdersAndEscapes(t *testing.T) {
 			want: `{"C":3,"a":2,"b":1}`,
 		},
 		{
-			// Sorting is by code unit, not by a locale and not case-folded.
-			name: "sorting is by code unit",
+			name: "sorting is by code unit, not locale or case-folded",
 			in:   `{"a":1,"A":2,"_":3}`,
 			want: `{"A":2,"_":3,"a":1}`,
 		},
@@ -42,9 +39,7 @@ func TestCanonicalOrdersAndEscapes(t *testing.T) {
 			want: `{"x":[3,1,2]}`,
 		},
 		{
-			// The two mandatory escapes and the short forms, and nothing
-			// else: a literal < stays literal, which is exactly where
-			// encoding/json would have diverged from the TypeScript half.
+			// A literal < stays literal — where encoding/json would diverge.
 			name: "only the required escapes",
 			in:   `{"s":"a\"b\\c\nd\te<f&g"}`,
 			want: `{"s":"a\"b\\c\nd\te<f&g"}`,
@@ -55,9 +50,7 @@ func TestCanonicalOrdersAndEscapes(t *testing.T) {
 			want: "{\"s\":\"\\u0000\\u001f\"}",
 		},
 		{
-			// Non-ASCII is literal UTF-8, not escaped. U+2028 in particular:
-			// Go's encoding/json escapes it even with SetEscapeHTML(false),
-			// and JavaScript's JSON.stringify does not.
+			// U+2028: encoding/json escapes it even with SetEscapeHTML(false).
 			name: "non-ascii stays literal",
 			in:   "{\"s\":\"h\\u00e9llo \\u2028 \\ud83d\\ude00\"}",
 			want: "{\"s\":\"h\u00e9llo \u2028 \U0001f600\"}",
@@ -80,9 +73,8 @@ func TestCanonicalOrdersAndEscapes(t *testing.T) {
 	}
 }
 
-// The number rule, which is the half of RFC 8785 the contract avoids rather
-// than implements. TestNoWideNumbersCrossJCS keeps these out of the schema;
-// this keeps them out of a digest even if one arrives another way.
+// Backstops TestNoWideNumbersCrossJCS: these are refused even if one reaches
+// the canonicaliser some other way.
 func TestCanonicalRefusesNumbersTheTwoLanguagesWouldPrintDifferently(t *testing.T) {
 	for _, in := range []string{`{"x":1.5}`, `{"x":1e3}`, `{"x":9007199254740993}`} {
 		var b bytes.Buffer
@@ -114,8 +106,7 @@ func key(t *testing.T) *ecdsa.PrivateKey {
 	return k
 }
 
-// attrs is the conventional set for a TopicContent signature, so that each
-// test below varies exactly one thing.
+// attrs is a valid TopicContent signature so each test below varies one thing.
 func attrs(t *testing.T, priv *ecdsa.PrivateKey) *v1.UserSignature {
 	t.Helper()
 	id, err := KeyID(&priv.PublicKey)
@@ -164,9 +155,8 @@ func TestVerifyRejectsAlteredContent(t *testing.T) {
 	}
 }
 
-// The signed attributes are inside the digest, so none of them can be changed
-// after the fact — which is what stops a signature being re-attributed to
-// another signer or re-dated.
+// The signed attributes are inside the digest, so none can change after the
+// fact — a signature can't be re-attributed or re-dated.
 func TestVerifyRejectsAlteredAttributes(t *testing.T) {
 	priv := key(t)
 	content := &v1.TopicContent{Name: "n", Description: "d"}
@@ -192,9 +182,8 @@ func TestVerifyRejectsAlteredAttributes(t *testing.T) {
 	}
 }
 
-// A signature sound over the wrong content type is not a signature over this
-// record: two messages of two strings are one document once they are
-// canonical, and contentType is what tells them apart.
+// contentType is what stops a signature over one message type verifying
+// another whose canonical form happens to coincide.
 func TestVerifyRejectsSubstitutedContentType(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
@@ -202,8 +191,7 @@ func TestVerifyRejectsSubstitutedContentType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// UserContent's first two fields are also two strings; without
-	// contentType this would be very nearly the same document.
+	// UserContent's first two fields are also two strings.
 	err := Verify(&priv.PublicKey, &v1.UserContent{Name: "n", Email: "d"}, sig)
 	if err == nil {
 		t.Fatal("a TopicContent signature verified over a UserContent")
@@ -222,8 +210,7 @@ func TestSignRefusesAnUnknownSpec(t *testing.T) {
 	}
 }
 
-// signingTime is the one message-typed field inside the digest, so its absence
-// would be a presence case no reader could see. It is required instead.
+// signingTime is required rather than optional; see SigningInput.
 func TestDigestRefusesAnUnsetSigningTime(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
@@ -233,9 +220,8 @@ func TestDigestRefusesAnUnsetSigningTime(t *testing.T) {
 	}
 }
 
-// The signing input is a document, not a hash, so a disagreement between the
-// two languages reads as a diff. This pins its shape: the two keys in order,
-// with value emptied rather than dropped.
+// Pins the shape of SigningInput: content then signature, value emptied
+// rather than dropped.
 func TestSigningInputIsTheDocumentBothLanguagesBuild(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
@@ -289,10 +275,8 @@ func TestPublicKeyRoundTripAndThumbprint(t *testing.T) {
 	}
 }
 
-// Enrolment is trust on first use, and the binding is what stops it being
-// trust in anybody: the key offered has to be the one keyId names, or a
-// participant could enrol a public key that is not theirs and later claim the
-// signatures made with it.
+// The key offered must be the one keyId names, or a participant could enrol a
+// public key that is not theirs.
 func TestPublicKeyOfBindsKeyIdToTheKeyOffered(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
@@ -316,8 +300,7 @@ func TestPublicKeyOfBindsKeyIdToTheKeyOffered(t *testing.T) {
 	}
 }
 
-// P-384 is the curve Es384 names; another curve is a signature this package
-// cannot speak for, whatever the attributes claim.
+// Es384 names P-384; another curve is a signature this package won't make.
 func TestCurveIsHeld(t *testing.T) {
 	wrong, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

@@ -1,47 +1,8 @@
-// Package signing is the signing chain of the MetaCensus contract: how a
-// participant's signature over a content message is computed, and how it is
-// checked.
-//
-// It is here rather than in each implementation for the same reason routegen
-// is: the digest has to be the same number in Go and in TypeScript, and two
-// hand-written implementations of a canonicalization agree until the day they
-// do not. `ts/signing.ts` is the other half, and ts/test/wire.test.mjs drives
-// one against the other.
-//
-// # The chain
-//
-//	content -> digest -> user signature -> (later) institutional signature
-//
-// A user signs the content. An institution will later sign the *user's
-// signature value*, not the content: it endorses the author, not the data. The
-// envelope leaves room for that as a field addition; nothing here has to move.
-//
-// # Where it runs
-//
-// Verification belongs to the persistence layer, inside the chaincode
-// boundary, not to the API edge. An API server decodes a request and hands the
-// message on; the octets it received do not matter, because the digest below
-// is taken over the decoded message. go/server has no signature seam for that
-// reason — see server.Runtime.
-//
-// # The rule
-//
-//	digest = SHA-384( JCS( {"content": C, "signature": S} ) )
-//
-// C is the content message as protojson, S is the UserSignature as protojson
-// with Value set to the empty string. JCS is RFC 8785 over that document.
-//
-// Canonical JSON rather than the bytes that arrived: protojson's output is
-// deliberately not byte-stable, so a digest over received octets could only
-// ever be checked by whoever received them. Canonicalising the decoded message
-// is what lets a record stay verifiable after it has been relayed, re-encoded
-// and stored.
-//
-// Value is excluded by being set to "" rather than by being dropped:
-// EmitDefaultValues here and useOptionals=messages in ts-proto already agree
-// that every scalar is present, and ts/test/wire.test.mjs tests that agreement.
-// An omission rule would be one more thing the two generators have to agree
-// about, with nothing checking it.
+// Package signing computes and checks the digest a participant signs over a
+// content message: SHA-384 of the RFC 8785 canonical JSON of
+// {"content": C, "signature": S}, with S.Value emptied. See README.md
+// ("The signing chain") for the design; ts/signing.ts is the other half,
+// checked against this one by ts/test/wire.test.mjs.
 package signing
 
 import (
@@ -63,26 +24,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Spec is what UserSignature.Spec must carry, and it names this whole
-// document: JCS over {content, signature}, SHA-384, Value as base64url of
-// r||s. Changing any of those changes this string, so a verifier that does
-// not recognise it stops rather than guessing.
+// Spec is the value UserSignature.Spec must carry; changing this string
+// versions the whole document (JCS shape, digest, encoding).
 const Spec = "metacensus.sig/1"
 
-// coordBytes is the fixed width of each half of a P-384 signature. Fixed
-// width, not DER: two DER encodings of one signature would be two strings for
-// one fact, and both would hash.
+// coordBytes is the width of each half of a P-384 signature (r||s, not DER —
+// DER has no single canonical encoding).
 const coordBytes = 48
 
-// b64 is the encoding every string in this chain uses — base64url, no
-// padding. One spelling, because key_id is a hash of one of them.
+// b64 is the encoding every string in this chain uses: base64url, unpadded.
 var b64 = base64.RawURLEncoding
 
-// Canonical returns m as RFC 8785 canonical JSON.
-//
-// It goes through protojson, so the input is the contract's own JSON —
-// lowerCamelCase field names, enums as value names, timestamps as RFC 3339 —
-// and not Go's struct encoding.
+// Canonical returns m as RFC 8785 canonical JSON, via protojson (the
+// contract's own JSON, not Go's struct encoding).
 func Canonical(m proto.Message) ([]byte, error) {
 	v, err := toValue(m)
 	if err != nil {
@@ -95,11 +49,9 @@ func Canonical(m proto.Message) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// SigningInput returns the exact bytes the digest is taken over: the canonical
-// form of {"content": content, "signature": sig with Value ""}.
-//
-// Exported because a mismatch between two implementations is much easier to
-// read as two strings than as two hashes.
+// SigningInput returns the canonical form of {"content": content, "signature":
+// sig with Value ""} — the exact bytes the digest is taken over. Exported so a
+// mismatch between implementations reads as two strings, not two hashes.
 func SigningInput(content proto.Message, sig *v1.UserSignature) ([]byte, error) {
 	if content == nil {
 		return nil, errors.New("signing: no content")
@@ -108,11 +60,8 @@ func SigningInput(content proto.Message, sig *v1.UserSignature) ([]byte, error) 
 		return nil, errors.New("signing: no signature")
 	}
 	if sig.GetSigningTime() == nil {
-		// The one field whose absence the canonical form could not otherwise
-		// distinguish from a value: it is message-typed, so protojson omits
-		// it rather than emitting a default, and two documents that differ
-		// only in whether the signer said when would digest differently for
-		// a reason no reader could see. Required, so there is no such pair.
+		// Message-typed, so protojson omits rather than defaults it; its
+		// absence would otherwise be invisible in the canonical form.
 		return nil, errors.New("signing: signingTime is unset; every signature carries the time its signer claims")
 	}
 
@@ -145,13 +94,10 @@ func Digest(content proto.Message, sig *v1.UserSignature) ([]byte, error) {
 	return sum[:], nil
 }
 
-// Sign fills sig.Value with a signature over content.
-//
-// It sets nothing else: Spec, ContentType, Alg, SigningTime, KeyId and
-// SignerId are the signer's claims and are inside the digest, so filling them
-// in here would be this package signing them on the caller's behalf. A caller
-// builds them; checkAttributes is what refuses a set this package cannot speak
-// for.
+// Sign fills sig.Value with a signature over content. It sets nothing else:
+// Spec, ContentType, Alg, SigningTime, KeyId and SignerId are the signer's
+// claims, inside the digest; checkAttributes refuses a set this package
+// cannot speak for.
 func Sign(priv *ecdsa.PrivateKey, content proto.Message, sig *v1.UserSignature) error {
 	if err := checkAttributes(content, sig); err != nil {
 		return err
@@ -174,16 +120,12 @@ func Sign(priv *ecdsa.PrivateKey, content proto.Message, sig *v1.UserSignature) 
 	return nil
 }
 
-// Verify checks sig against content under pub.
+// Verify checks sig against content under pub: the signed attributes first
+// (spec, content type, algorithm), then the signature — a cryptographically
+// sound signature over the wrong content type does not verify this record.
 //
-// It checks the signed attributes first — spec, content type, algorithm — and
-// then the signature. A signature that is cryptographically sound over the
-// wrong content type is not a valid signature over this record, which is the
-// substitution ContentType exists to stop.
-//
-// Resolving pub is the caller's: a verifier looks up the signer's enrolled key
-// by SignerId and KeyId, except on the sign-up that enrols it, where the key
-// travels in PublicKey. See PublicKeyOf.
+// Resolving pub is the caller's, except at sign-up where the key travels
+// inline in PublicKey; see PublicKeyOf.
 func Verify(pub *ecdsa.PublicKey, content proto.Message, sig *v1.UserSignature) error {
 	if err := checkAttributes(content, sig); err != nil {
 		return err
@@ -208,8 +150,7 @@ func Verify(pub *ecdsa.PublicKey, content proto.Message, sig *v1.UserSignature) 
 }
 
 // checkAttributes holds the signed attributes to what this package can speak
-// for. Both Sign and Verify run it, so a signature this package would refuse
-// is a signature it will not make.
+// for; both Sign and Verify run it.
 func checkAttributes(content proto.Message, sig *v1.UserSignature) error {
 	if sig.GetSpec() != Spec {
 		return fmt.Errorf("signing: spec is %q, and this package implements %q", sig.GetSpec(), Spec)
@@ -224,9 +165,9 @@ func checkAttributes(content proto.Message, sig *v1.UserSignature) error {
 	return nil
 }
 
-// EncodePublicKey spells pub the way the contract carries it: base64url,
-// unpadded, of SPKI DER. Not PEM — a PEM body's line breaks and header
-// spelling are two documents for one key, and KeyID hashes one of them.
+// EncodePublicKey spells pub as the contract carries it: base64url of SPKI
+// DER, not PEM (whose line breaks and header spelling make two documents of
+// one key).
 func EncodePublicKey(pub *ecdsa.PublicKey) (string, error) {
 	der, err := x509.MarshalPKIXPublicKey(pub)
 	if err != nil {
@@ -256,12 +197,9 @@ func DecodePublicKey(s string) (*ecdsa.PublicKey, error) {
 	return pub, nil
 }
 
-// KeyID is base64url of SHA-256 over the SPKI DER of pub: what
-// UserSignature.KeyId carries.
-//
-// Derived rather than minted, so a client can compute it before it has an
-// account and a verifier can check it rather than take it. A KeyId that is not
-// the thumbprint of the key it travels with is a record to refuse.
+// KeyID is base64url(SHA-256(SPKI DER of pub)) — what UserSignature.KeyId
+// carries. Derived rather than minted, so a client can compute it before it
+// has an account and a verifier can check it rather than take it on trust.
 func KeyID(pub *ecdsa.PublicKey) (string, error) {
 	der, err := x509.MarshalPKIXPublicKey(pub)
 	if err != nil {
@@ -271,18 +209,14 @@ func KeyID(pub *ecdsa.PublicKey) (string, error) {
 	return b64.EncodeToString(sum[:]), nil
 }
 
-// PublicKeyOf resolves the key a signature was made with, for the one case
-// where the signature carries it: the sign-up that enrols it.
+// PublicKeyOf resolves the key behind sig, for the one record that carries it
+// inline: sign-up, where no SignerId has been minted yet to look one up by.
+// The key itself is taken on trust (trust on first use), but the binding is
+// checked — KeyId must thumbprint the key offered, or a key that is not the
+// sender's could be enrolled under their account.
 //
-// That record is the only one whose signer cannot be looked up, because no id
-// has been minted for them yet, so the key travels inline and the service
-// takes it on trust — trust on first use. What is not taken on trust is the
-// *binding*: the signature proves the sender holds the private key, and this
-// checks that KeyId is the thumbprint of the key offered, so a public key that
-// is not the sender's cannot be enrolled under their account.
-//
-// Every other record must resolve KeyId against the key its SignerId enrolled,
-// which is persistence's to do and not this package's.
+// Every other record resolves KeyId against its SignerId's enrolled key,
+// which is persistence's to do.
 func PublicKeyOf(sig *v1.UserSignature) (*ecdsa.PublicKey, error) {
 	if sig.GetPublicKey() == "" {
 		return nil, errors.New("signing: signature carries no inline public key; resolve keyId against the signer's enrolled key")
@@ -302,8 +236,7 @@ func PublicKeyOf(sig *v1.UserSignature) (*ecdsa.PublicKey, error) {
 }
 
 // toValue renders m as the contract's JSON and reads it back as the generic
-// tree canonicalize walks, with UseNumber so that no integer passes through a
-// float64 on the way.
+// tree canonicalize walks (UseNumber, so integers never pass through float64).
 func toValue(m proto.Message) (any, error) {
 	b, err := contract.Marshal(m)
 	if err != nil {

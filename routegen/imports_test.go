@@ -7,10 +7,9 @@ import (
 )
 
 // TestImportGraph asserts the boundary the package split establishes: every
-// renderer depends on the route model and nothing renders another
-// renderer's output. It runs `go list -deps` rather than reading the source
-// for import statements, so the check is against what the compiler actually
-// links, not what a file happens to say.
+// renderer depends on the route model and none renders another renderer's
+// output. It runs `go list -deps` so the check is against what the compiler
+// actually links, not what a file happens to say.
 func TestImportGraph(t *testing.T) {
 	const (
 		modelPkg       = "github.com/metacensus/api/routegen/internal/model"

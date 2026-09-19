@@ -1,13 +1,7 @@
 // Package clientgen renders ts/src/client.ts: one class per surface, one
-// typed method per rpc, over a caller-supplied transport. It extends each
-// model.Route with the descriptor detail only a TypeScript client needs, and
-// rejects the one shape it alone cannot encode — see rejectBytes.
-//
-// One file, several classes. The shared envelope (Transport, ApiError) has to
-// be one declaration — two ApiError classes would make `instanceof` depend on
-// the import path — and nothing under src/ may take a value import, so the
-// classes that throw it live beside it. Which surface a consumer gets is
-// decided by the entry point that re-exports it: ts/index.ts and ts/public.ts.
+// typed method per rpc, over a caller-supplied transport. The shared envelope
+// (Transport, ApiError) is one declaration — two ApiError classes would make
+// `instanceof` depend on the import path.
 package clientgen
 
 import (
@@ -27,8 +21,7 @@ import (
 //go:embed client.ts.tmpl
 var tmplSrc string
 
-// funcs is what client.ts.tmpl may call beyond the builtins. Every TS string
-// literal goes through the builtin printf "%q" rather than a helper.
+// funcs is what client.ts.tmpl may call beyond the builtins.
 var funcs = template.FuncMap{
 	"lowerFirst":   lowerFirst,
 	"pathTemplate": pathTemplate,
@@ -47,8 +40,7 @@ type field struct {
 }
 
 // tsRef names a ts-proto type and the generated file that declares it.
-// ts-proto names nested declarations Parent_Child; the request and response
-// messages of every route today are top-level, but the rule is applied anyway.
+// ts-proto names nested declarations Parent_Child.
 type tsRef struct {
 	Name string
 	File string // e.g. "./metacensus/v1/topic.js"
@@ -99,8 +91,7 @@ func describeClient(r model.Route) (clientRoute, error) {
 	for _, q := range r.Query {
 		cr.QueryFields = append(cr.QueryFields, fieldOf(byJSON[q]))
 	}
-	// Both directions: a request tree cannot be encoded, and a response tree
-	// cannot be decoded, without lying about the type.
+	// Both directions: request and response trees must each be bytes-free.
 	for _, tree := range []protoreflect.MessageDescriptor{req, md.Output()} {
 		if err := rejectBytes(tree, map[protoreflect.FullName]bool{}); err != nil {
 			return cr, fmt.Errorf("%s: %w", md.Name(), err)
@@ -109,13 +100,10 @@ func describeClient(r model.Route) (clientRoute, error) {
 	return cr, nil
 }
 
-// rejectBytes refuses a message tree containing a bytes field. ts-proto types
-// bytes as Uint8Array: JSON.stringify renders that as an index-keyed object
-// (`{"0":1,"1":2}`) rather than the base64 protojson expects on the way out,
-// and JSON.parse hands back the base64 string cast to Uint8Array on the way
-// back. The Go server side has no such gap — contract.Marshal/Unmarshal
-// handle bytes natively — so this rejection is the client renderer's, not
-// model.Walk's.
+// rejectBytes refuses a message tree with a bytes field: ts-proto types bytes
+// as Uint8Array, which JSON.stringify/parse cannot round-trip as protojson's
+// base64. The Go side handles bytes natively, so this check belongs here and
+// not in model.Walk.
 func rejectBytes(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
 	if seen[md.FullName()] {
 		return nil
@@ -155,9 +143,7 @@ func pathTemplate(path string, src string) string {
 			b.WriteString(path)
 			break
 		}
-		// From open, matching model.rewriteParams: two walks of the same
-		// string disagreeing about where to look is how one of them
-		// eventually panics.
+		// From open, matching model.rewriteParams.
 		shut := strings.IndexByte(path[open:], '}')
 		if shut < 0 {
 			b.WriteString(path)
@@ -172,10 +158,9 @@ func pathTemplate(path string, src string) string {
 	return b.String()
 }
 
-// methodView is clientRoute plus the lines the template cannot work out for
-// itself: ExtraLines branches per field on Kind and List, and Src is the
-// prefix path fields are read off — "" once destructured out of req, "req."
-// otherwise. Decided here rather than with nested {{if}} in the template.
+// methodView is clientRoute plus what the template can't work out for itself:
+// ExtraLines per field, and Src, the prefix path fields are read off — ""
+// once destructured out of req, "req." otherwise.
 type methodView struct {
 	clientRoute
 	ExtraLines []string
@@ -183,9 +168,8 @@ type methodView struct {
 	BodyExpr   string
 }
 
-// A "*" body is everything the path did not bind, and destructuring is how
-// the path fields leave it. model.Walk has already refused a named body, so
-// "*" and "" are the only cases.
+// A "*" body is everything the path did not bind; destructuring is how the
+// path fields leave it.
 func newMethodView(cr clientRoute) methodView {
 	mv := methodView{clientRoute: cr, Src: "req.", BodyExpr: "undefined"}
 	if cr.Body == "*" {
@@ -205,10 +189,8 @@ func newMethodView(cr clientRoute) methodView {
 		mv.ExtraLines = append(mv.ExtraLines, "    const q: (readonly [string, string])[] = [];")
 		for _, f := range cr.QueryFields {
 			name := f.JSONName
-			// useOptionals=messages types these as required, so the
-			// guards are for a caller who is not TypeScript. Without
-			// them an absent field sends the literal "undefined", which
-			// a string-typed parameter binds without complaint.
+			// Guards are for a caller who is not TypeScript: an absent
+			// field would otherwise send the literal "undefined".
 			if f.List {
 				mv.ExtraLines = append(mv.ExtraLines, fmt.Sprintf("    for (const v of req.%s ?? []) q.push([%q, String(v)]);", name, name))
 			} else {
@@ -269,18 +251,15 @@ func Render(routes []model.Route) ([]byte, error) {
 		}
 	}
 
-	// One default prefix per surface, each emitted unexported. An exported
-	// one would collide with route-manifest.ts's under ts/index.ts's
-	// `export *` — an ambiguous star export, which tsc rejects (TS2308).
+	// Unexported: exported would collide with route-manifest.ts's under
+	// ts/index.ts's `export *` (an ambiguous star export, TS2308).
 	for _, pkg := range withRoutes(methods) {
 		if err := execute(&b, "prefixConst", pkg, "", ""); err != nil {
 			return nil, err
 		}
 	}
-	// param and query are emitted only where a route needs them: nothing
-	// under src/ may reach for anything at runtime, and dead code in a
-	// package whose whole claim is that it ships almost nothing is a claim
-	// it does not have to make. No route declares a query field today.
+	// param and query are emitted only where a route needs them, to avoid
+	// dead code in a package that ships almost nothing.
 	var needsParam, needsQuery bool
 	for _, m := range methods {
 		needsParam = needsParam || len(m.PathFields) > 0 || len(m.QueryFields) > 0
@@ -301,9 +280,7 @@ func Render(routes []model.Route) ([]byte, error) {
 		return nil, err
 	}
 
-	// One class per surface, in Packages order, each holding only its own
-	// routes. Iterating the table rather than the methods keeps the class
-	// order stable and independent of the route order within a surface.
+	// Iterating the table rather than the methods keeps class order stable.
 	for _, pkg := range withRoutes(methods) {
 		if err := execute(&b, "classOpen", pkg, "", ""); err != nil {
 			return nil, err
@@ -324,9 +301,7 @@ func Render(routes []model.Route) ([]byte, error) {
 }
 
 // withRoutes is model.Packages narrowed to the surfaces these routes actually
-// cover, in table order. A surface with no routes has already failed
-// model.Walk, so this is a guard against emitting an empty class rather than
-// a case that is expected to arise.
+// cover, in table order.
 func withRoutes(methods []methodView) []model.Package {
 	var out []model.Package
 	for _, pkg := range model.Packages {

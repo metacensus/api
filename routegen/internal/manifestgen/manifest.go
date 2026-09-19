@@ -1,12 +1,7 @@
 // Package manifestgen renders go/routes/manifest.go and
 // ts/src/route-manifest.ts: the same data-only Route, in Go and in
-// TypeScript. One package for both because they are one decision rendered
-// twice — a field added to model.Route is a field both literals must gain
-// in the same commit, and splitting them would only add two import lines
-// for renderers that share every fact they emit.
-//
-// The loop, not the template, decides how many times the "route" block runs,
-// so a failure can name the route it was rendering.
+// TypeScript. One package for both because a field added to model.Route is a
+// field both literals must gain in the same commit.
 package manifestgen
 
 import (
@@ -25,9 +20,7 @@ var goTmplSrc string
 //go:embed manifest.ts.tmpl
 var tsTmplSrc string
 
-// funcs is what these templates may call beyond the builtins. Every Go or
-// TS string literal goes through the builtin printf "%q" rather than a
-// helper.
+// funcs is what these templates may call beyond the builtins.
 var funcs = template.FuncMap{
 	"goSlice":  model.GoSlice,
 	"quoteAll": model.QuoteAll,
@@ -39,8 +32,7 @@ var (
 	tsTmpl = template.Must(template.New("manifest.ts.tmpl").Funcs(funcs).Parse(tsTmplSrc))
 )
 
-// packagesData is what the header block needs: the surfaces, so the generated
-// prose names each prefix constant beside the path it holds.
+// packagesData is what the header block needs: the surfaces.
 type packagesData struct{ Packages []model.Package }
 
 // RenderGo writes go/routes/manifest.go: a constant per prefix and the whole
@@ -60,12 +52,9 @@ func RenderTS(routes []model.Route) ([]byte, error) {
 	})
 }
 
-// render runs the blocks both manifests share, in order. They are one
-// decision rendered twice, so the sequence lives here once and the two
-// templates differ only in what each block says.
-//
-// The prefix block runs per package rather than once, so a third surface is
-// a table entry rather than an edit to two templates.
+// render runs the blocks both manifests share, in order — the two templates
+// differ only in what each block says. The prefix block runs per package, so
+// a third surface is a table entry rather than an edit to two templates.
 func render(t *template.Template, name string, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
 	var b bytes.Buffer
 	if err := execute(&b, t, name, "header", packagesData{model.Packages}, "", ""); err != nil {

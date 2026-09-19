@@ -12,25 +12,15 @@ export const protobufPackage = "metacensus.v1";
 /** Users. Sign-up and login live in auth.proto. */
 
 /**
- * User is a signed record: the server's own fields, the content its owner
- * signed, and the signature over that content.
- *
- * **This surface is also the key directory.** `user_signature.public_key` on a
- * user's enrolling signature is how anyone verifies that user's other
- * signatures, so reading a user is how a verifier resolves a `key_id`.
+ * A signed record. Also the key directory: reading a user's enrolling
+ * `user_signature.public_key` is how a verifier resolves a `key_id`.
  */
 export interface User {
-  /**
-   * Minted by the server, and therefore outside the signature: a client cannot
-   * be trusted to choose its own key, so it cannot have signed one. This id is
-   * the record's *address*; nothing it addresses changes meaning when it
-   * changes.
-   */
+  /** Minted by the server, outside the signature. */
   id: string;
   /**
-   * When the server recorded the write. The server's observation, outside the
-   * signature; `content`'s signature carries the claimed time. See
-   * UserSignature.signing_time for what the pair does and does not bound.
+   * Server's observation; see UserSignature.signing_time for the author's
+   * claim.
    */
   recorded?: string | undefined;
   content?: UserContent | undefined;
@@ -48,6 +38,6 @@ export interface UserGetRequest {
   userId: string;
 }
 
-/** SelfGetRequest is empty: the user is the authenticated one. */
+/** Empty: the user is the authenticated one. */
 export interface SelfGetRequest {
 }

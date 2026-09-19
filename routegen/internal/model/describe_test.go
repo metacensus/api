@@ -12,19 +12,10 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// What describe refuses, as a list rather than as a memory.
-//
-// Every rejection used to be verified by mutating a .proto by hand and
-// reading the output — which is assertion confidence on the one node every
-// renderer derives from, and it is why two accepted-but-mis-rendered shapes
-// ({id=**} and a repeated parameter) sat here unnoticed. This feeds describe
-// synthetic rpcs instead, so the set of refused shapes is something the build
-// knows.
-//
-// The rpcs are synthetic; the request and response messages are the real
-// metacensus.v1 ones, resolved out of the global registry, because describe
-// reads Go type names off the generated structs and a made-up message has
-// none.
+// What describe refuses, as a list rather than as a memory. The rpcs are
+// synthetic; the request and response messages are the real metacensus.v1
+// ones, since describe reads Go type names off the generated structs and a
+// made-up message has none.
 func TestDescribeRejects(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -59,9 +50,8 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "unterminated path parameter",
 		},
 		{
-			// google.api.http's multi-segment wildcard. Accepted before this
-			// test existed, and silently narrowed to one segment by every
-			// renderer.
+			// google.api.http's multi-segment wildcard; every renderer
+			// narrows it to one segment silently.
 			name: "multi-segment path pattern",
 			rpc: rpc("Wildcard", "TopicGetRequest", "Topic", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Get{Get: "/topic/{topic_id=**}"},
@@ -76,8 +66,7 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "segment pattern",
 		},
 		{
-			// ServeMux panics on a duplicate wildcard name, so this used to
-			// reach a reader as a stack trace out of go/server's tests.
+			// net/http's ServeMux panics on a duplicate wildcard name.
 			name: "path parameter twice",
 			rpc: rpc("Twice", "TopicGetRequest", "Topic", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Get{Get: "/topic/{topic_id}/x/{topic_id}"},
@@ -92,9 +81,8 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "is not a field of",
 		},
 		{
-			// `content` really is a field of TopicCreateRequest, so this
-			// reaches the named-body rejection rather than the missing-field
-			// one below.
+			// `content` really is a field of TopicCreateRequest, so this hits
+			// the named-body rejection, not the missing-field one below.
 			name: "body names a field",
 			rpc: rpc("NamedBody", "TopicCreateRequest", "Topic", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/topic"},
@@ -111,9 +99,7 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "is not a field of",
 		},
 		{
-			// PropCitation.start is uint32. Path segments are strings on the
-			// wire and the generated binding assigns one straight to a struct
-			// field.
+			// PropCitation.start is uint32; path segments are strings.
 			name: "non-string path parameter",
 			rpc: rpc("NotAString", "PropCitation", "Topic", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Get{Get: "/x/{start}"},
@@ -131,15 +117,9 @@ func TestDescribeRejects(t *testing.T) {
 		},
 
 		{
-			// The path binds a field the signed content does not carry, so
-			// the record could be filed under one address while attesting to
-			// another.
-			//
-			// SignUpRequest.password is the shape the real messages offer, and
-			// it is a good one: password is deliberately outside content,
-			// because content is what gets persisted and a password must never
-			// be inside a signed document. Binding it from the path would be
-			// asking for it to be signed.
+			// SignUpRequest.password is deliberately outside content (a
+			// password must never be in a signed document), so binding it
+			// from the path hits the missing-from-content rejection.
 			name: "path parameter absent from signed content",
 			rpc: rpc("PathOutsideContent", "SignUpRequest", "Session", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/signup/{password}"},
@@ -192,8 +172,7 @@ func TestDescribeAccepts(t *testing.T) {
 		},
 		{
 			// Both path ids are repeated inside VoteContent, so this is also
-			// the signed case: two ContentParams, each pairing the field the
-			// path binds with the signed copy the binding compares it to.
+			// the signed case.
 			name: "two distinct parameters and a star body",
 			rpc: rpc("SetVote", "VoteSetRequest", "Vote", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/topic/{topic_id}/prop/{prop_id}/vote"},
@@ -204,8 +183,7 @@ func TestDescribeAccepts(t *testing.T) {
 			signed: true, contentParams: []string{"topicId", "propId"},
 		},
 		{
-			// A signed route need not bind anything from the path: sign-up
-			// carries content and a signature and no parameters at all.
+			// A signed route need not bind anything from the path.
 			name: "signed with no path parameters",
 			rpc: rpc("SignUp", "SignUpRequest", "Session", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/signup"},
@@ -234,9 +212,6 @@ func TestDescribeAccepts(t *testing.T) {
 			var got []string
 			for _, cp := range r.ContentParams {
 				got = append(got, cp.JSONName)
-				// Both Go field names come off the generated structs, so an
-				// empty one means the content message was read as the wrong
-				// type rather than that the field is missing.
 				if cp.PathGoField == "" || cp.ContentGoField == "" {
 					t.Errorf("%q: Go fields %q / %q", cp.JSONName, cp.PathGoField, cp.ContentGoField)
 				}
@@ -248,13 +223,9 @@ func TestDescribeAccepts(t *testing.T) {
 	}
 }
 
-// The two halves of a signed request travel together, and neither real
-// message can express one without the other — so unlike every case above,
-// these two shapes are built rather than borrowed.
-//
-// describeSigned is called directly for that reason: a synthetic message has
-// no generated Go type, so a route carrying one cannot survive goNames, and
-// these rejections happen before any Go name is needed.
+// No real message carries one signing field without the other, so these two
+// shapes are synthesized. describeSigned is called directly since a
+// synthetic message has no generated Go type and can't survive goNames.
 func TestDescribeSignedPairing(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -331,9 +302,8 @@ func contractDeps() []string {
 	return deps
 }
 
-// testPkg is the contract package these synthetic routes are built over,
-// looked up by name rather than by position so reordering Packages does not
-// silently change what this file tests.
+// testPkg is looked up by name, not position, so reordering Packages does
+// not silently change what this file tests.
 var testPkg = packageNamed("metacensus.v1")
 
 func packageNamed(proto string) Package {
@@ -360,10 +330,9 @@ func rpc(name, in, out string, rule *annotations.HttpRule) *descriptorpb.MethodD
 	return m
 }
 
-// method compiles a throwaway file holding one service and returns its single
-// method. Its dependencies are the real metacensus/v1 files, resolved through
-// the global registry, so md.Input() and md.Output() are the same descriptors
-// Walk sees and goNames finds the generated Go types behind them.
+// method compiles a throwaway file holding one service and returns its
+// single method, so md.Input() and md.Output() resolve to the same real
+// descriptors Walk and goNames use.
 func method(t *testing.T, m *descriptorpb.MethodDescriptorProto) protoreflect.MethodDescriptor {
 	t.Helper()
 

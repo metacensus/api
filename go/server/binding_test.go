@@ -84,10 +84,8 @@ func TestBindQuery(t *testing.T) {
 	}
 }
 
-// A request message is one message however its fields travel, so the query
-// string accepts the spelling protojson accepts in a body. Accepting
-// {"topic_id": …} and rejecting ?topic_id= would make the wire format depend
-// on which half of the request a field landed in.
+// The query string accepts either spelling — topicId or topic_id — matching
+// what protojson accepts in a body.
 func TestBindQueryAcceptsEitherSpelling(t *testing.T) {
 	rt := &Runtime{}
 

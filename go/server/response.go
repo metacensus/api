@@ -31,15 +31,12 @@ func (rt *Runtime) respond(w http.ResponseWriter, resp proto.Message, err error)
 }
 
 // writeError writes err as {"error": message, "code": code}. An error that is
-// not an *Error is a 500 with a fixed message: its text is the server's, not
-// the client's. The envelope is a google.protobuf.Struct encoded with the
-// contract's MarshalOptions, so encoding/json stays out of the module. The
-// contract itself declares no error message; whether it should grow one is an
-// open question recorded in the repository README rather than answered here.
+// not an *Error becomes a fixed-message 500 — its text stays server-side.
+// The envelope is a google.protobuf.Struct, encoded via the contract's
+// MarshalOptions, to keep encoding/json out of this module.
 func (rt *Runtime) writeError(w http.ResponseWriter, err error) {
 	var e *Error
-	// A nil *Error in a non-nil error interface reaches here as ok-and-nil,
-	// which is the other way this used to take the connection down.
+	// A typed-nil *Error in a non-nil error interface reaches here as ok-and-nil.
 	if !errors.As(err, &e) || e == nil {
 		e = &Error{Status: http.StatusInternalServerError, Code: "internal", Message: "internal error", Err: err}
 	}

@@ -2,12 +2,9 @@
 // interface, an Unimplemented*, and a Register* that binds and dispatches.
 // The runtime it calls into is package server's hand-written files.
 //
-// Unimplemented<Service> is kept at a known cost: an implementer who embeds
-// it and later renames an rpc still compiles, and the renamed route answers
-// 501 at runtime instead of failing the build. The alternative — no
-// embedding, so a rename is a compile error — trades that for a service that
-// can never be implemented one route at a time, which is the shape every
-// consumer of this contract is actually in.
+// Unimplemented<Service> lets a service be implemented one route at a time: a
+// renamed rpc still compiles and answers 501 at runtime instead of failing
+// the build.
 package servergen
 
 import (
@@ -29,9 +26,7 @@ var tmpl = template.Must(template.New("server.go.tmpl").Funcs(template.FuncMap{
 // routeView is model.Route plus what the template cannot work out for
 // itself. NeedsErrVar: a handler declares `var err error` up front unless a
 // body="*" block already declared it with :=. Alias is the import alias for
-// the generated package this route's messages live in, which is per surface.
-// All of them are decided here rather than with nested {{if}} in the
-// template.
+// the generated package this route's messages live in.
 type routeView struct {
 	model.Route
 	ServiceRPC  string
@@ -49,9 +44,7 @@ func newRouteView(r model.Route) routeView {
 }
 
 // serviceView is what the per-service blocks need: the Go identifier they
-// build names from, and the prefix constant its routes hang off, so the
-// generated doc comment says which surface a service belongs to rather than
-// leaving a reader to infer it from the route paths.
+// build names from, and the prefix constant its routes hang off.
 type serviceView struct {
 	Name        string
 	PrefixConst string
@@ -68,10 +61,8 @@ func Render(routes []model.Route) ([]byte, error) {
 		byService[r.Service] = append(byService[r.Service], newRouteView(r))
 	}
 
-	// One Go file, so two services sharing a name across surfaces would
-	// generate one interface and one Register function for both — the second
-	// silently overwriting nothing and the file failing to compile some
-	// distance from the cause. Refused here, where the message can name it.
+	// Refused here, with a clear message: two services sharing a name across
+	// surfaces would otherwise collide on one interface and Register func.
 	seen := map[string]string{}
 	for _, r := range routes {
 		if first, ok := seen[r.Service]; ok && first != r.Pkg.Proto {
@@ -82,9 +73,8 @@ func Render(routes []model.Route) ([]byte, error) {
 		seen[r.Service] = r.Pkg.Proto
 	}
 
-	// Only the surfaces that actually declare a route are imported: an
-	// unused import does not compile, and a package with no routes has
-	// already failed model.Walk.
+	// Only surfaces that actually declare a route are imported: an unused
+	// import does not compile.
 	var imports []model.Package
 	for _, pkg := range model.Packages {
 		for _, r := range routes {
@@ -96,8 +86,7 @@ func Render(routes []model.Route) ([]byte, error) {
 	}
 
 	// emit stops at the first failure and keeps it, so Render below reads as
-	// the sequence of blocks it writes. Partial output never reaches a file:
-	// main writes nothing when Render returns an error.
+	// the sequence of blocks it writes.
 	var b bytes.Buffer
 	var err error
 	emit := func(block string, data any, service, rpc string) {

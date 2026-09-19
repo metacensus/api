@@ -24,31 +24,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Interest is the set of checkboxes the form offers.
-//
-// **The set is a contract; the wording is copy.** A value's display label
-// ("Fund the work") stays in the SPA, because a copy edit should not become a
-// schema change, a release and a service deploy. The two also fail
-// differently: a stale label renders an odd string, a stale set rejects every
-// submission carrying the new value.
-//
-// **Unspecified is not an offered choice.** It is the proto3 zero value and
-// exists only so the enum has one; a form built from this enum must filter it
-// out. See ts/README.md for the TypeScript spelling.
+// The set of checkboxes is a contract; display wording lives in the SPA
+// (see README.md). Unspecified is the proto3 zero value, not an offered
+// choice — filter it out when building a form.
 type PartnerSubmission_Interest int32
 
 const (
-	PartnerSubmission_Unspecified PartnerSubmission_Interest = 0
-	// "Partner or pilot with us"
-	PartnerSubmission_PartnerOrPilot PartnerSubmission_Interest = 1
-	// "Fund the work"
-	PartnerSubmission_FundTheWork PartnerSubmission_Interest = 2
-	// "Contribute expertise"
+	PartnerSubmission_Unspecified         PartnerSubmission_Interest = 0
+	PartnerSubmission_PartnerOrPilot      PartnerSubmission_Interest = 1
+	PartnerSubmission_FundTheWork         PartnerSubmission_Interest = 2
 	PartnerSubmission_ContributeExpertise PartnerSubmission_Interest = 3
-	// "Bring MetaCensus to my field"
-	PartnerSubmission_BringToMyField PartnerSubmission_Interest = 4
-	// "Request early access"
-	PartnerSubmission_RequestEarlyAccess PartnerSubmission_Interest = 5
+	PartnerSubmission_BringToMyField      PartnerSubmission_Interest = 4
+	PartnerSubmission_RequestEarlyAccess  PartnerSubmission_Interest = 5
 )
 
 // Enum value maps for PartnerSubmission_Interest.
@@ -98,28 +85,23 @@ func (PartnerSubmission_Interest) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_public_v1_partner_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// PartnerSubmission is one express-interest form post.
-//
-// The length caps below decide whether a submission succeeds, and the failure
-// is opaque — a client cannot learn from the response which field it got wrong,
-// so it has to know the limits in advance. They are comments rather than
-// protovalidate constraints because ts-proto runs with `onlyTypes=true` and
-// drops field options, so an annotation would reach the server and never the
-// form. See README.md, "What the public contract does and does not mechanise".
+// One express-interest form post. The length caps below are enforced but not
+// machine-readable — ts-proto drops field options, so protovalidate can't
+// reach the client; see README.md.
 type PartnerSubmission struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. Whitespace-collapsed, then capped at 120 characters.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Required. Trimmed, capped at 254 characters, and must contain an `@` with
-	// a dotted host after it. Deliberately a shape check, not RFC 5322.
+	// Required. Trimmed, capped at 254 characters, and must contain an `@`
+	// with a dotted host after it. Deliberately a shape check, not RFC 5322.
 	Email string `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	// May be empty. Duplicates are collapsed rather than rejected; an
 	// unrecognised value rejects the whole submission.
 	Interests []PartnerSubmission_Interest `protobuf:"varint,3,rep,packed,name=interests,proto3,enum=metacensus.public.v1.PartnerSubmission_Interest" json:"interests,omitempty"`
 	// Optional. Trimmed, capped at 2000 characters.
 	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Honeypot. Must be empty; a filled one receives an ordinary receipt and is
-	// never delivered.
+	// Honeypot. Must be empty; a filled one receives an ordinary receipt and
+	// is never delivered.
 	Website       string `protobuf:"bytes,5,opt,name=website,proto3" json:"website,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -190,16 +172,13 @@ func (x *PartnerSubmission) GetWebsite() string {
 	return ""
 }
 
-// PartnerReceipt is the 200 answer. `submissionId` correlates a submission with
-// the service's logs; it is not a handle, and nothing can be fetched with it.
+// The 200 answer. `submission_id` correlates with the service's logs; it
+// isn't a fetchable handle.
 type PartnerReceipt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Always true, and the one place this surface still differs in shape from
-	// `metacensus.v1`, which returns bare resources.
-	//
-	// It is here because the service sends it and contract.UnmarshalOptions
-	// rejects unknown fields, so a Go consumer decoding the real 200 body into a
-	// message without `ok` would fail. Dropping it is a service change first.
+	// Always true; the one place this surface's shape still differs from
+	// metacensus.v1 (bare resources) — required because
+	// contract.UnmarshalOptions rejects unknown fields.
 	Ok            bool   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
 	SubmissionId  string `protobuf:"bytes,2,opt,name=submission_id,json=submissionId,proto3" json:"submission_id,omitempty"`
 	unknownFields protoimpl.UnknownFields

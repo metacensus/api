@@ -10,9 +10,9 @@ import (
 	"github.com/metacensus/api/go/server"
 )
 
-// fakeChiRouter carries chi v5's chi.Router.Method signature and nothing
-// else, so a divergence fails to compile here without chi in this module's
-// go.mod. What the routes actually do on a real chi.Router is routegen/chitest.
+// fakeChiRouter mimics chi v5's chi.Router.Method signature without pulling
+// chi into this module's go.mod; a divergence fails to compile here. What
+// routes actually do against a real chi.Router is routegen/chitest.
 type fakeChiRouter struct {
 	registered []string
 }
@@ -25,9 +25,8 @@ func (f *fakeChiRouter) Method(method, pattern string, h http.Handler) {
 // If this line stops compiling, Mux and chi.Router's Method have diverged.
 var _ server.Mux = (*fakeChiRouter)(nil)
 
-// EscapedPathValue's failure branch, which no request through net/http can
-// reach: the server rejects a bad escape in the URI before routing. A router
-// that hands over something else must not turn it into a bound value.
+// Exercises EscapedPathValue's failure branch, unreachable via net/http
+// itself (it rejects a bad escape before routing).
 func TestEscapedPathValueRejectsBadEscaping(t *testing.T) {
 	r := httptest.NewRequest("GET", "/topic/x", nil)
 	r.SetPathValue("topicId", "%zz")
@@ -40,9 +39,8 @@ func TestEscapedPathValueRejectsBadEscaping(t *testing.T) {
 	}
 }
 
-// Prefix is the whole mounting story: "" mounts bare, for a router already
-// under the contract's prefix, and routes.Prefix mounts at the origin root.
-// Both have to be reachable, which is why "" is not a sentinel for the default.
+// "" mounts bare (for a router already under the contract's prefix) and
+// routes.Prefix mounts at the origin root; both must be reachable.
 func TestPrefixIsLiteral(t *testing.T) {
 	for _, tc := range []struct{ prefix, want string }{
 		{"", "GET /topic"},
@@ -72,9 +70,7 @@ func TestMuxAcceptsAChiShapedRouter(t *testing.T) {
 		Prefix:    routes.Prefix,
 		PathValue: server.EscapedPathValue,
 	}, server.UnimplementedTopicRoutes{})
-	// One registration per TopicRoutes rpc. The expected number is read off
-	// the manifest rather than written here, so adding or removing an rpc
-	// does not leave a stale literal behind to be corrected by hand.
+	// Read off the manifest so adding/removing an rpc needs no literal update.
 	want := 0
 	for _, r := range routes.Routes {
 		if r.Service == "TopicRoutes" {
@@ -97,9 +93,8 @@ func TestMuxAcceptsAChiShapedRouter(t *testing.T) {
 	}
 }
 
-// A bare *http.ServeMux does NOT satisfy Mux on its own — it has no
-// method-specific registration call — which is exactly why StdMux exists.
-// StdMux does, by embedding it and adding Method.
+// A bare *http.ServeMux does not satisfy Mux (no method-specific
+// registration); StdMux does, by embedding it and adding Method.
 var _ server.Mux = server.StdMux{}
 
 func TestStdMuxSatisfiesMux(t *testing.T) {
@@ -107,9 +102,8 @@ func TestStdMuxSatisfiesMux(t *testing.T) {
 	std := server.StdMux{ServeMux: mux}
 	server.RegisterTopicRoutes(std, &server.Runtime{Prefix: routes.Prefix}, server.UnimplementedTopicRoutes{})
 
-	// UnimplementedTopicRoutes answers 501; the point of this test is that the
-	// route reached a handler at all through a *http.ServeMux wrapped in
-	// StdMux, not that it succeeded.
+	// The point is that the route reached a handler through StdMux, not that
+	// it succeeded — UnimplementedTopicRoutes always answers 501.
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/metacensus/api/v1/topic", nil)
 	mux.ServeHTTP(rec, req)
@@ -118,9 +112,8 @@ func TestStdMuxSatisfiesMux(t *testing.T) {
 	}
 }
 
-// The seam has two wrong settings and both answer 200 with a wrong id, so the
-// zero value may not guess: registration refuses a Mux this package cannot
-// identify until the runtime says which convention the router uses.
+// The zero value may not guess PathValue's convention: registration refuses
+// a Mux this package cannot identify until told which one the router uses.
 func TestRegisterRefusesAnUnidentifiedMuxWithNoPathValue(t *testing.T) {
 	defer func() {
 		p := recover()

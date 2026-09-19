@@ -6,12 +6,11 @@ import (
 )
 
 // Error is what a handler returns to choose the response status. Message is
-// what the client sees; Err, if set, is for the server's own logs and never
-// crosses the wire.
+// what the client sees; Err, if set, is for server logs only.
 //
-// Status is the one field a composite literal can leave out and still
-// compile, so anything outside 100..599 is written as a 500: a handler that
-// mis-fills an error should answer badly, not take the connection down.
+// Status outside 100..599 (including the zero value) is written as a 500, so
+// a handler that mis-fills this answers badly rather than taking the
+// connection down.
 type Error struct {
 	Status  int
 	Code    string

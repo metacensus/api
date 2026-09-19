@@ -25,23 +25,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Alg is the signature algorithm, and the vocabulary is closed: a value this
-// enum does not name fails to decode rather than reaching a verifier that
-// would have to decide what to do with it.
-//
-// Closing it has a cost worth knowing before adding to it. protojson and
-// ts-proto's `unrecognizedEnum=false` both refuse an unknown value, so a
-// reader on an older build of the contract cannot decode a record signed with
-// a newer algorithm — not even to migrate it. Adding a value is therefore a
-// contract release that has to reach every reader *before* any signer starts
-// emitting it.
+// Closed vocabulary: an unrecognized value fails to decode rather than
+// reaching a verifier. See README.md, "The signing chain", before adding one.
 type UserSignature_Alg int32
 
 const (
 	UserSignature_Unspecified UserSignature_Alg = 0
-	// ECDSA on P-384 with SHA-384. `value` is the JOSE fixed-width `r || s`,
-	// never a DER SEQUENCE: two DER spellings of one signature would be two
-	// strings for one fact.
+	// JOSE fixed-width r||s, never DER.
 	UserSignature_Es384 UserSignature_Alg = 1
 )
 
@@ -84,15 +74,13 @@ func (UserSignature_Alg) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3, 0}
 }
 
-// ListMetadata is the pagination envelope for list responses. No route
-// paginates yet, so nothing references it.
+// Pagination envelope for list responses; no route paginates yet.
 type ListMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// 1-based.
-	Page int32 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	// Items per page.
+	Page  int32 `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
 	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Items across all pages, not just this one.
+	// Across all pages, not just this one.
 	Total         int32 `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -229,84 +217,29 @@ func (x *HealthcheckResponse) GetStatus() string {
 	return ""
 }
 
-// UserSignature is one participant vouching for one content message.
-//
-// **It is not verified at the API edge.** The signature travels in the request
-// body precisely so that it reaches the persistence layer intact and is checked
-// inside the chaincode boundary, where the record is written. An API server
-// decodes a request, re-encodes it and hands it on; nothing in that path needs
-// the octets that arrived, because the digest below is taken over the *decoded*
-// message rather than over the bytes. See README.md, "The signing chain".
-//
-// The fields other than `value` are the signature's **signed attributes**: they
-// are inside the digest, so a signature cannot be re-attributed to another
-// signer, re-dated, or reinterpreted under another set of rules. That is also
-// why timestamps and the version marker live here rather than on every content
-// type — they are readable before anything is parsed, and they do not have to be
-// repeated onto each resource.
+// One participant's signature over one content message. Not verified at the
+// API edge — see README.md, "The signing chain".
 type UserSignature struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The signing user's id.
-	//
-	// Empty on exactly one record: the sign-up that enrols the key, where no id
-	// has been minted yet and `public_key` carries the key inline instead.
-	// Everywhere else persistence owes two refusals: an absent `signer_id`, and
-	// one that disagrees with the `user_id` its content carries. See README.md,
-	// "Open questions", for what does and does not implement them.
+	// Empty only on the sign-up that enrolls the key; public_key carries it
+	// inline there instead.
 	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
-	// base64url, unpadded, of SHA-256 over the SPKI DER of `public_key`.
-	//
-	// Derived rather than minted, so a client can compute it before it has an
-	// account and a verifier can check it rather than trust it. It exists from
-	// the first release so that key rotation lands as a second key rather than as
-	// a reshaping of this message.
+	// base64url SHA-256 of public_key's SPKI DER.
 	KeyId string            `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
 	Alg   UserSignature_Alg `protobuf:"varint,3,opt,name=alg,proto3,enum=metacensus.v1.UserSignature_Alg" json:"alg,omitempty"`
-	// base64url, unpadded, of the signer's public key as SPKI DER.
-	//
-	// Carried inline **only** on the sign-up that enrols it, which is the one
-	// record whose signer cannot be looked up because it does not exist yet.
-	// Empty everywhere else, where a verifier resolves `key_id` against the key
-	// the signer enrolled. One encoding, not PEM: a PEM body's line breaks and
-	// header spelling are two documents for one key, and both would hash.
+	// base64url SPKI DER; set only on the sign-up that enrolls the key.
 	PublicKey string `protobuf:"bytes,4,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	// When the signer says it signed. A claim by the participant, never an
-	// observation: it is inside the digest, so the participant chose it.
-	//
-	// The recording time beside it on the stored record is the server's and sits
-	// outside the signature. The pair bounds the *participant* — a verifier can
-	// say "this signer claims T, we recorded T-prime" — and it bounds nothing
-	// about the server. Any tolerance over the difference is a policy number, and
-	// policy numbers belong in the chaincode's configuration: one written here
-	// would be a wire break to change.
-	//
-	// Ordering and conflict resolution use the recorded time, never this one, or
-	// a participant orders their own writes.
+	// The signer's claimed time, not the server's — see `recorded` on signed
+	// records for what the pair does and does not bound.
 	SigningTime *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=signing_time,json=signingTime,proto3" json:"signing_time,omitempty"`
-	// How this signature is to be computed and checked, exactly:
-	// `"metacensus.sig/1"` is JCS (RFC 8785) over the document
-	// `{"content": <content>, "signature": <this message with value "">}`,
-	// digested with SHA-384.
-	//
-	// It is inside the signature because a marker saying how a record should be
-	// read is worthless outside it: the same bytes would be reinterpretable under
-	// whatever rules an attacker preferred. Changing the canonicalization, the
-	// digest or the encoding of `value` changes this string.
+	// Exactly how this signature is computed and checked; changing the
+	// canonicalization, digest, or encoding changes this string.
 	Spec string `protobuf:"bytes,6,opt,name=spec,proto3" json:"spec,omitempty"`
-	// The full proto name of the message `content` holds, e.g.
-	// `"metacensus.v1.PropContent"`.
-	//
-	// Separate from `spec` so that neither has to be parsed out of the other. It
-	// is what stops a signature over one content type being replayed as another
-	// whose JSON happens to have the same shape — two messages of two strings are
-	// one document once they are canonical.
+	// Full proto name of the message `content` holds, e.g.
+	// "metacensus.v1.PropContent". Stops a signature over one type being
+	// replayed as another.
 	ContentType string `protobuf:"bytes,7,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	// base64url, unpadded, of the signature over the digest.
-	//
-	// Excluded from its own digest by being set to the empty string rather than
-	// by being dropped. Which generator agreement that rests on, and why an
-	// omission rule would be one more of them with nothing checking it: the
-	// go/signing package comment.
+	// Excluded from its own digest by being emptied, not dropped.
 	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -398,15 +331,8 @@ func (x *UserSignature) GetValue() string {
 	return ""
 }
 
-// UserContent is the part of a user record its owner signs.
-//
-// It is here rather than in user.proto because two resource files need it and
-// the cross-file rule sanctions exactly this file for that: `SignUpRequest` in
-// auth.proto signs it at enrolment and `User` in user.proto stores it. They
-// have to be one message rather than two of the same shape — a signature made
-// over `SignUpContent` would not verify against a record holding `UserContent`,
-// and the whole point of the chain is that a record stays verifiable after it
-// is stored.
+// The part of a user record its owner signs. Lives here, not user.proto,
+// because auth.proto's SignUpRequest and user.proto's User both need it.
 type UserContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`

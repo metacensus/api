@@ -76,30 +76,18 @@ func (x *LoginRequest) GetPassword() string {
 	return ""
 }
 
-// SignUpRequest both creates an account and enrols the signing key every later
-// write is signed with. It is the one request whose signature carries its own
-// public key, because it is the one signer who cannot yet be looked up.
-//
-// **This is trust on first use, with proof of possession.** Nobody vouches for
-// the key: the service takes the one it is handed and binds it to the account.
-// That concedes nothing it had not already conceded — the same request carries
-// the password, so an API server able to substitute the key could already
-// impersonate the account outright. What the signature adds is *binding*:
-// without it anyone could enrol a public key that is not theirs and later claim
-// the signatures made with it, and the proof costs nothing here because the
-// client is holding the private key as it sends this.
+// Creates an account and enrolls the signing key every later write is
+// signed with: trust on first use — nobody vouches for the key, the service
+// binds whatever it's handed, and the signature proves possession of the
+// matching private key at enrollment.
 type SignUpRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the new user signs, and what their user record will hold verbatim.
-	Content *UserContent `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
-	// Deliberately outside `content`: content is what gets persisted, and a
-	// password must never be inside a signed, stored document.
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Content *UserContent           `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	// Deliberately outside `content`: a password must never be inside a
+	// signed, stored document.
 	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	// Over `content`, made with the key being enrolled. `signer_id` is empty —
-	// no id exists yet — and `public_key` carries the key inline. Before minting
-	// an account, persistence owes two checks: that `key_id` is the thumbprint
-	// of `public_key`, and that the signature verifies under it. Nothing in this
-	// repository performs them; see README.md, "Open questions".
+	// Over `content`, made with the key being enrolled. `signer_id` is empty
+	// (no id exists yet) and `public_key` carries the key inline.
 	UserSignature *UserSignature `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

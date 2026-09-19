@@ -3,38 +3,25 @@
 // Package routes is every MetaCensus route on one screen, generated from the
 // google.api.http annotations on each resource's service.
 //
-// Each surface declared here has its own prefix:
-//
 {{range .Packages}}//	{{printf "%-12s %-20s %s" .GoConst .Prefix .Summary}}
 {{end}}//
-// One manifest rather than one per surface: the client that consumes both is
-// the reason the contract lives in one repository at all, and a route table
-// split in two is a table no one reads whole.
+// One manifest, not one per surface: the client that consumes both is why
+// the contract lives in one repository at all.
 package routes
 {{end}}
 {{define "prefix"}}
-// {{.GoConst}} is the path {{.Proto}} routes hang off:
-// {{.Summary}}.
+// {{.GoConst}} is the path {{.Proto}} routes hang off: {{.Summary}}.
 //
-// Join it with a Route's Path to get the path a client actually requests; the
-// reverse proxy in front of the services is what makes that resolve. A Route
-// carries its own Prefix, so joining does not mean knowing which surface a
-// route came from.
+// Join it with a Route's Path — a Route carries its own Prefix, so joining
+// does not mean knowing which surface it came from.
 const {{.GoConst}} = {{printf "%q" .Prefix}}
 {{end}}
 {{define "routeType"}}
-// Route is one declared route. Path is relative to the route's own Prefix and
-// spells its parameters {lowerCamelCase}, as the wire does. Params, Query and
-// Body between them account for every field of Request: Params bind path
-// segments, Query travels in the query string, and Body is "*" when the rest
-// travels in the body and empty when none does.
-//
-// Signed says the request carries a `content` message and a `userSignature`
-// over it: the caller needs a signing key, not only a session token, and a
-// request without one is a 400 before any handler runs. It is here so that a
-// consumer can ask which routes those are without reflecting over descriptors
-// — the same reason the prefixes are generated here rather than copied into
-// each repository.
+// Route is one declared route. Path is relative to the route's own Prefix,
+// spelling parameters {lowerCamelCase} as the wire does. Params, Query and
+// Body between them account for every field of Request. Signed means the
+// request carries a `content` message and a `userSignature` over it, and is
+// rejected with a 400 before any handler runs if it doesn't.
 type Route struct {
 	Prefix   string
 	Service  string
@@ -49,8 +36,7 @@ type Route struct {
 	Response string
 }
 
-// Routes is every route across every surface, ordered by package, then by
-// file, then by declaration.
+// Routes is every route across every surface.
 var Routes = []Route{
 {{end}}
 {{define "route"}}	{Prefix: {{.Pkg.GoConst}}, Service: {{printf "%q" .Service}}, RPC: {{printf "%q" .RPC}}, Method: {{printf "%q" .Method}}, Path: {{printf "%q" .Path}}, Params: {{goSlice .Params}}, Query: {{goSlice .Query}}, Body: {{printf "%q" .Body}}, Signed: {{.Signed}}, Request: {{printf "%q" .Request}}, Response: {{printf "%q" .Response}}},

@@ -6,22 +6,19 @@
 //   apiPrefix    /metacensus/api/v1   the authenticated API
 //   publicPrefix /metacensus/public   the public, unauthenticated surface
 //
-// One manifest rather than one per surface: the client that consumes both is
-// the reason the contract lives in one repository at all, and a route table
-// split in two is a table no one reads whole.
+// One manifest rather than one per surface, since the client that consumes
+// both is the reason the contract lives in one repository at all.
 
-// The path metacensus.v1 routes hang off:
-// the authenticated API. Join it with a route's `path` to get the path a client
-// actually requests; the reverse proxy in front of the services is what makes
-// that resolve. A route carries its own `prefix`, so joining does not mean
-// knowing which surface it came from.
+// The path metacensus.v1 routes hang off: the authenticated API.
+//
+// Join it with a route's `path` — a route carries its own `prefix`, so
+// joining does not mean knowing which surface it came from.
 export const apiPrefix = "/metacensus/api/v1";
 
-// The path metacensus.public.v1 routes hang off:
-// the public, unauthenticated surface. Join it with a route's `path` to get the path a client
-// actually requests; the reverse proxy in front of the services is what makes
-// that resolve. A route carries its own `prefix`, so joining does not mean
-// knowing which surface it came from.
+// The path metacensus.public.v1 routes hang off: the public, unauthenticated surface.
+//
+// Join it with a route's `path` — a route carries its own `prefix`, so
+// joining does not mean knowing which surface it came from.
 export const publicPrefix = "/metacensus/public";
 
 // `path` is relative to `prefix` and spells its parameters {lowerCamelCase},
@@ -32,10 +29,7 @@ export const publicPrefix = "/metacensus/public";
 //
 // `signed` says the request carries a `content` message and a `userSignature`
 // over it: the caller needs a signing key, not only a session token, and a
-// request without one is a 400 before any handler runs. It is here so that a
-// consumer can ask which routes those are without reflecting over descriptors
-// — the same reason the prefixes are generated here rather than copied into
-// each repository.
+// request without one is a 400 before any handler runs.
 export interface Route {
   readonly prefix: string;
   readonly service: string;

@@ -50,19 +50,15 @@ func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v
 }
 
 // signedBody wraps a content document in the envelope every write carries.
-//
-// The signature is empty on purpose: this package checks that the two halves
-// are there and that the ids agree, never whether the signature is good. A
-// test that had to mint a real key to exercise binding would be testing the
-// wrong boundary.
+// The signature is empty on purpose — this package checks presence and id
+// agreement, never signature validity.
 func signedBody(content string) string {
 	return `{"content":` + content + `,"userSignature":{}}`
 }
 
-// Registering every service proves the manifest's patterns do not conflict
-// under ServeMux's rules, which would panic here rather than at runtime in a
-// backend. The count is deliberately not written here: it was already wrong,
-// and go/routes/manifest.go is the table.
+// registerAll registers every service, proving the manifest's patterns don't
+// conflict under ServeMux's rules (which would panic here, not just at
+// runtime in a real backend).
 func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, props server.PropRoutes) *http.ServeMux {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -73,11 +69,8 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 	server.RegisterTopicRoutes(std, rt, topics)
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
 
-	// The public surface hangs off its own prefix, so it gets its own
-	// Runtime — a copy of rt with only Prefix changed, so a test setting
-	// MaxBodyBytes sets it for both surfaces. This is how a
-	// process serving both actually mounts them: Prefix is the one field
-	// that is per surface.
+	// The public surface gets its own Runtime, a copy of rt with only Prefix
+	// changed — so e.g. MaxBodyBytes set by a test applies to both surfaces.
 	pub := *rt
 	pub.Prefix = routes.PublicPrefix
 	server.RegisterPartnerRoutes(std, &pub, server.UnimplementedPartnerRoutes{})
@@ -197,10 +190,9 @@ func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 	}
 }
 
-// Every id the path binds is repeated inside the signed content, so the two
-// can disagree — and that is the one disagreement worth naming: a record filed
-// under one address while attesting to another. It is a 400 for the error
-// message's sake and not as a control; see contentParam.
+// Path and signed content can disagree about an id — filed under one address
+// while attesting to another. It's a 400 for the message's sake, not as a
+// control; see contentParam.
 func TestPathAndSignedContentMustAgree(t *testing.T) {
 	props := &fakeProps{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, props)
@@ -218,18 +210,16 @@ func TestPathAndSignedContentMustAgree(t *testing.T) {
 		t.Errorf("message %q names neither value", msg)
 	}
 
-	// The signed copy left empty is still a disagreement: it is not a field
-	// the server may fill in, because filling it in would be the server
-	// choosing part of what the signature covers.
+	// An empty signed copy is still a disagreement: the server may not fill
+	// in part of what the signature covers.
 	rec = do(t, mux, "POST", "/topic/t1/prop", signedBody(`{"type":"Statement","description":"x"}`))
 	if rec.Code != 400 {
 		t.Errorf("empty signed copy: status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
-// A signed route needs both halves, and neither is something the server can
-// supply. This is a shape check: it never looks at the signature's value, and
-// the empty signature below is accepted precisely because verification is not
+// A signed route needs both content and userSignature; this is a shape
+// check only — the empty signature is accepted since verification isn't
 // this layer's job.
 func TestSignedRouteRequiresBothHalves(t *testing.T) {
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, &fakeProps{})
@@ -267,16 +257,10 @@ func TestBodySizeCap(t *testing.T) {
 	}
 }
 
-// What used to be TestVerifyBodySeesRawOctets.
-//
-// The seam it tested is gone, and no hook here sees raw octets. What is worth
-// keeping is the property that made that seam necessary — protojson's output
-// is not byte-stable — now as the reason the design does not depend on it.
-//
-// A body whose whitespace and key order protojson would never reproduce is
-// accepted, reaches the handler as an ordinary message, and is answered with a
-// document that looks nothing like it. A digest over the bytes could not have
-// survived that; a digest over the message does.
+// protojson's output is not byte-stable, so a digest over raw bytes could
+// not survive re-encoding — only a digest over the decoded message can. This
+// pins that a body with unreproducible whitespace/key order is still
+// accepted and answered normally.
 func TestABodyIsAcceptedHoweverItWasSpelled(t *testing.T) {
 	topics := &fakeTopics{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
@@ -335,9 +319,9 @@ func TestErrorModel(t *testing.T) {
 	}
 }
 
-// No route declares a query field, so every query parameter is unknown on
-// every route. Silently ignoring one would let ?page=2 through at the only
-// layer a caller can see, which is what TestNoPaginationFields exists to stop.
+// No route declares a query field, so every query parameter is unknown
+// everywhere; silently ignoring one would let ?page=2 slip past
+// TestNoPaginationFields at the only layer a caller can see.
 func TestUnknownQueryParamsAreRejectedOnEveryRoute(t *testing.T) {
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, &fakeProps{})
 
@@ -382,10 +366,9 @@ func TestEveryManifestRouteIsServed(t *testing.T) {
 	}
 }
 
-// An *Error built as a composite literal can leave Status out and still
-// compile; net/http panics on WriteHeader(0), so the whole request used to
-// take the connection down instead of answering. The same for a typed-nil
-// *Error, which reaches writeError as a non-nil error interface.
+// An *Error left with Status unset (or a typed-nil *Error, which reaches
+// writeError as a non-nil error interface) used to panic on WriteHeader(0)
+// instead of answering; now it's a 500.
 func TestErrorWithNoUsableStatusIs500(t *testing.T) {
 	topics := &fakeTopics{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, topics, &fakeProps{})
