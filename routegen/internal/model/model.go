@@ -640,9 +640,9 @@ func GoSlice(items []string) string {
 	return "[]string{" + strings.Join(QuoteAll(items), ", ") + "}"
 }
 
-// GoFormat gofmts generated Go, returning the unformatted source alongside
-// the error: that is what the error's line numbers refer to. what names the
-// output for the message.
+// GoFormat gofmts generated Go. On failure the error carries the unformatted
+// source — what gofmt's line numbers refer to — prefixed by what, the name of
+// the output being formatted.
 func GoFormat(what string, src []byte) ([]byte, error) {
 	out, err := format.Source(src)
 	if err != nil {
