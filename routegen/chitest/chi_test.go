@@ -34,7 +34,7 @@ type topics struct {
 
 func (t *topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.Topic, error) {
 	t.gotID = req.TopicId
-	return &v1.Topic{Id: req.TopicId, Name: "t"}, nil
+	return &v1.Topic{Id: req.TopicId, Content: &v1.TopicContent{Name: "t"}}, nil
 }
 
 func get(h http.Handler, path string) *httptest.ResponseRecorder {
@@ -197,7 +197,7 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 		}
 		var body io.Reader = http.NoBody
 		if route.Body == "*" {
-			body = strings.NewReader("{}")
+			body = strings.NewReader(minimalBody(route))
 		}
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(route.Method, route.Prefix+path, body)
@@ -207,6 +207,25 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 			t.Errorf("%s %s: status %d, want 501: %s", route.Method, path, rec.Code, rec.Body)
 		}
 	}
+}
+
+// minimalBody is the smallest body that gets a route past binding and into a
+// generated handler, which is all these tests want: enough to reach the 501.
+//
+// A signed route needs both halves and needs every id the path bound to match
+// its signed copy, so the content here repeats each parameter with the same
+// placeholder the path was built from. The signature is empty — nothing in
+// go/server verifies one, which is the property that makes an empty one
+// sufficient.
+func minimalBody(route routes.Route) string {
+	if !route.Signed {
+		return "{}"
+	}
+	fields := make([]string, 0, len(route.Params))
+	for _, p := range route.Params {
+		fields = append(fields, `"`+p+`":"x"`)
+	}
+	return `{"content":{` + strings.Join(fields, ",") + `},"userSignature":{}}`
 }
 
 // What chi answers before a generated handler runs. server.Mux's doc comment
@@ -274,15 +293,19 @@ func TestServiceSplitAcrossAnAuthBoundary(t *testing.T) {
 
 	for _, tc := range []struct {
 		path      string
+		body      string
 		wantAuthd bool
 	}{
-		{"/login", false},
-		{"/signup", false},
-		{"/logout", true},
+		{"/login", "{}", false},
+		// SignUp is a signed write, so an empty body is a 400 before the
+		// handler: the point here is which side of the middleware it mounts
+		// on, which only a request that reaches a handler can show.
+		{"/signup", `{"content":{},"userSignature":{}}`, false},
+		{"/logout", "{}", true},
 	} {
 		authed = nil
 		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, httptest.NewRequest("POST", routes.Prefix+tc.path, strings.NewReader("{}")))
+		r.ServeHTTP(rec, httptest.NewRequest("POST", routes.Prefix+tc.path, strings.NewReader(tc.body)))
 		// Unimplemented, which means it reached a generated handler at all.
 		if rec.Code != http.StatusNotImplemented {
 			t.Errorf("%s: status %d, want 501: %s", tc.path, rec.Code, rec.Body)

@@ -29,6 +29,13 @@ export const publicPrefix = "/metacensus/public";
 // every field of `request`: `params` bind path segments, `query` travels in
 // the query string, and `body` is "*" when the rest travels in the body and
 // "" when none does.
+//
+// `signed` says the request carries a `content` message and a `userSignature`
+// over it: the caller needs a signing key, not only a session token, and a
+// request without one is a 400 before any handler runs. It is here so that a
+// consumer can ask which routes those are without reflecting over descriptors
+// — the same reason the prefixes are generated here rather than copied into
+// each repository.
 export interface Route {
   readonly prefix: string;
   readonly service: string;
@@ -38,27 +45,28 @@ export interface Route {
   readonly params: readonly string[];
   readonly query: readonly string[];
   readonly body: string;
+  readonly signed: boolean;
   readonly request: string;
   readonly response: string;
 }
 
 export const routes: readonly Route[] = [
-  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Login", method: "POST", path: "/login", params: [], query: [], body: "*", request: "LoginRequest", response: "Session" },
-  { prefix: apiPrefix, service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], query: [], body: "*", request: "SignUpRequest", response: "Session" },
-  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "", request: "LogoutRequest", response: "LogoutResponse" },
-  { prefix: apiPrefix, service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], query: [], body: "", request: "HealthcheckRequest", response: "HealthcheckResponse" },
-  { prefix: apiPrefix, service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "", request: "PropListRequest", response: "PropList" },
-  { prefix: apiPrefix, service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], query: [], body: "", request: "PropGetRequest", response: "Prop" },
-  { prefix: apiPrefix, service: "PropRoutes", rpc: "CreateProp", method: "POST", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "*", request: "PropCreateRequest", response: "Prop" },
-  { prefix: apiPrefix, service: "PropRoutes", rpc: "ListVotes", method: "GET", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "", request: "VoteListRequest", response: "VoteList" },
-  { prefix: apiPrefix, service: "PropRoutes", rpc: "SetVote", method: "POST", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "*", request: "VoteSetRequest", response: "Vote" },
-  { prefix: apiPrefix, service: "TopicRoutes", rpc: "ListTopics", method: "GET", path: "/topic", params: [], query: [], body: "", request: "TopicListRequest", response: "TopicList" },
-  { prefix: apiPrefix, service: "TopicRoutes", rpc: "GetTopic", method: "GET", path: "/topic/{topicId}", params: ["topicId"], query: [], body: "", request: "TopicGetRequest", response: "Topic" },
-  { prefix: apiPrefix, service: "TopicRoutes", rpc: "CreateTopic", method: "POST", path: "/topic", params: [], query: [], body: "*", request: "TopicCreateRequest", response: "Topic" },
-  { prefix: apiPrefix, service: "TopicRoutes", rpc: "ListMembers", method: "GET", path: "/topic/{topicId}/member", params: ["topicId"], query: [], body: "", request: "MemberListRequest", response: "MemberList" },
-  { prefix: apiPrefix, service: "TopicRoutes", rpc: "GetMember", method: "GET", path: "/topic/{topicId}/member/{userId}", params: ["topicId", "userId"], query: [], body: "", request: "MemberGetRequest", response: "Member" },
-  { prefix: apiPrefix, service: "UserRoutes", rpc: "ListUsers", method: "GET", path: "/user", params: [], query: [], body: "", request: "UserListRequest", response: "UserList" },
-  { prefix: apiPrefix, service: "UserRoutes", rpc: "GetUser", method: "GET", path: "/user/{userId}", params: ["userId"], query: [], body: "", request: "UserGetRequest", response: "User" },
-  { prefix: apiPrefix, service: "UserRoutes", rpc: "GetSelf", method: "GET", path: "/self", params: [], query: [], body: "", request: "SelfGetRequest", response: "User" },
-  { prefix: publicPrefix, service: "PartnerRoutes", rpc: "SubmitPartnerInterest", method: "POST", path: "/partner", params: [], query: [], body: "*", request: "PartnerSubmission", response: "PartnerReceipt" },
+  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Login", method: "POST", path: "/login", params: [], query: [], body: "*", signed: false, request: "LoginRequest", response: "Session" },
+  { prefix: apiPrefix, service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], query: [], body: "*", signed: true, request: "SignUpRequest", response: "Session" },
+  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "", signed: false, request: "LogoutRequest", response: "LogoutResponse" },
+  { prefix: apiPrefix, service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], query: [], body: "", signed: false, request: "HealthcheckRequest", response: "HealthcheckResponse" },
+  { prefix: apiPrefix, service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "", signed: false, request: "PropListRequest", response: "PropList" },
+  { prefix: apiPrefix, service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], query: [], body: "", signed: false, request: "PropGetRequest", response: "Prop" },
+  { prefix: apiPrefix, service: "PropRoutes", rpc: "CreateProp", method: "POST", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "*", signed: true, request: "PropCreateRequest", response: "Prop" },
+  { prefix: apiPrefix, service: "PropRoutes", rpc: "ListVotes", method: "GET", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "", signed: false, request: "VoteListRequest", response: "VoteList" },
+  { prefix: apiPrefix, service: "PropRoutes", rpc: "SetVote", method: "POST", path: "/topic/{topicId}/prop/{propId}/vote", params: ["topicId", "propId"], query: [], body: "*", signed: true, request: "VoteSetRequest", response: "Vote" },
+  { prefix: apiPrefix, service: "TopicRoutes", rpc: "ListTopics", method: "GET", path: "/topic", params: [], query: [], body: "", signed: false, request: "TopicListRequest", response: "TopicList" },
+  { prefix: apiPrefix, service: "TopicRoutes", rpc: "GetTopic", method: "GET", path: "/topic/{topicId}", params: ["topicId"], query: [], body: "", signed: false, request: "TopicGetRequest", response: "Topic" },
+  { prefix: apiPrefix, service: "TopicRoutes", rpc: "CreateTopic", method: "POST", path: "/topic", params: [], query: [], body: "*", signed: true, request: "TopicCreateRequest", response: "Topic" },
+  { prefix: apiPrefix, service: "TopicRoutes", rpc: "ListMembers", method: "GET", path: "/topic/{topicId}/member", params: ["topicId"], query: [], body: "", signed: false, request: "MemberListRequest", response: "MemberList" },
+  { prefix: apiPrefix, service: "TopicRoutes", rpc: "GetMember", method: "GET", path: "/topic/{topicId}/member/{userId}", params: ["topicId", "userId"], query: [], body: "", signed: false, request: "MemberGetRequest", response: "Member" },
+  { prefix: apiPrefix, service: "UserRoutes", rpc: "ListUsers", method: "GET", path: "/user", params: [], query: [], body: "", signed: false, request: "UserListRequest", response: "UserList" },
+  { prefix: apiPrefix, service: "UserRoutes", rpc: "GetUser", method: "GET", path: "/user/{userId}", params: ["userId"], query: [], body: "", signed: false, request: "UserGetRequest", response: "User" },
+  { prefix: apiPrefix, service: "UserRoutes", rpc: "GetSelf", method: "GET", path: "/self", params: [], query: [], body: "", signed: false, request: "SelfGetRequest", response: "User" },
+  { prefix: publicPrefix, service: "PartnerRoutes", rpc: "SubmitPartnerInterest", method: "POST", path: "/partner", params: [], query: [], body: "*", signed: false, request: "PartnerSubmission", response: "PartnerReceipt" },
 ];

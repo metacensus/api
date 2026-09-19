@@ -28,6 +28,13 @@ const {{.GoConst}} = {{printf "%q" .Prefix}}
 // Body between them account for every field of Request: Params bind path
 // segments, Query travels in the query string, and Body is "*" when the rest
 // travels in the body and empty when none does.
+//
+// Signed says the request carries a `content` message and a `userSignature`
+// over it: the caller needs a signing key, not only a session token, and a
+// request without one is a 400 before any handler runs. It is here so that a
+// consumer can ask which routes those are without reflecting over descriptors
+// — the same reason the prefixes are generated here rather than copied into
+// each repository.
 type Route struct {
 	Prefix   string
 	Service  string
@@ -37,6 +44,7 @@ type Route struct {
 	Params   []string
 	Query    []string
 	Body     string
+	Signed   bool
 	Request  string
 	Response string
 }
@@ -45,7 +53,7 @@ type Route struct {
 // file, then by declaration.
 var Routes = []Route{
 {{end}}
-{{define "route"}}	{Prefix: {{.Pkg.GoConst}}, Service: {{printf "%q" .Service}}, RPC: {{printf "%q" .RPC}}, Method: {{printf "%q" .Method}}, Path: {{printf "%q" .Path}}, Params: {{goSlice .Params}}, Query: {{goSlice .Query}}, Body: {{printf "%q" .Body}}, Request: {{printf "%q" .Request}}, Response: {{printf "%q" .Response}}},
+{{define "route"}}	{Prefix: {{.Pkg.GoConst}}, Service: {{printf "%q" .Service}}, RPC: {{printf "%q" .RPC}}, Method: {{printf "%q" .Method}}, Path: {{printf "%q" .Path}}, Params: {{goSlice .Params}}, Query: {{goSlice .Query}}, Body: {{printf "%q" .Body}}, Signed: {{.Signed}}, Request: {{printf "%q" .Request}}, Response: {{printf "%q" .Response}}},
 {{end}}
 {{define "footer"}}}
 {{end}}

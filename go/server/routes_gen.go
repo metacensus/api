@@ -51,10 +51,6 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
@@ -73,15 +69,23 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
 		}
 		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		// Signed route: the two halves must be present, and every id the
+		// path bound must match its signed copy. Neither check looks at the
+		// signature itself — that is persistence's, inside the chaincode
+		// boundary. See requireField and contentParam.
+		if err := requireField(req.Content != nil, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -217,10 +221,6 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
@@ -230,6 +230,22 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			return
 		}
 		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		// Signed route: the two halves must be present, and every id the
+		// path bound must match its signed copy. Neither check looks at the
+		// signature itself — that is persistence's, inside the chaincode
+		// boundary. See requireField and contentParam.
+		if err := requireField(req.Content != nil, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := contentParam("topicId", req.TopicId, req.Content.TopicId); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -261,10 +277,6 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
@@ -278,6 +290,26 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			return
 		}
 		if req.PropId, err = rt.pathParam(r, "propId", req.PropId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		// Signed route: the two halves must be present, and every id the
+		// path bound must match its signed copy. Neither check looks at the
+		// signature itself — that is persistence's, inside the chaincode
+		// boundary. See requireField and contentParam.
+		if err := requireField(req.Content != nil, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := contentParam("topicId", req.TopicId, req.Content.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := contentParam("propId", req.PropId, req.Content.PropId); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -362,15 +394,23 @@ func RegisterTopicRoutes(mux Mux, rt *Runtime, impl TopicRoutes) {
 			rt.writeError(w, err)
 			return
 		}
-		if err := rt.verifyBody(r, raw); err != nil {
-			rt.writeError(w, err)
-			return
-		}
 		if err := rt.decodeBody(raw, req); err != nil {
 			rt.writeError(w, err)
 			return
 		}
 		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		// Signed route: the two halves must be present, and every id the
+		// path bound must match its signed copy. Neither check looks at the
+		// signature itself — that is persistence's, inside the chaincode
+		// boundary. See requireField and contentParam.
+		if err := requireField(req.Content != nil, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.UserSignature != nil, "userSignature"); err != nil {
 			rt.writeError(w, err)
 			return
 		}
@@ -505,10 +545,6 @@ func RegisterPartnerRoutes(mux Mux, rt *Runtime, impl PartnerRoutes) {
 		req := new(publicv1.PartnerSubmission)
 		raw, err := rt.readBody(w, r)
 		if err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.verifyBody(r, raw); err != nil {
 			rt.writeError(w, err)
 			return
 		}

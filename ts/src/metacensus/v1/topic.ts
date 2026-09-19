@@ -5,15 +5,36 @@
 // source: metacensus/v1/topic.proto
 
 /* eslint-disable */
+import type { UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
 /** Topics and their membership. */
 
-/** Topic is a systematic review in progress. */
+/**
+ * Topic is a systematic review in progress, as a signed record: the server's
+ * own fields, the content its author signed, and the signature over it.
+ */
 export interface Topic {
+  /**
+   * Minted by the server, outside the signature. The topic's address, not part
+   * of what it means.
+   */
   id: string;
-  created?: string | undefined;
+  /**
+   * When the server recorded the write; the server's observation, outside the
+   * signature. UserSignature.signing_time is the author's claim.
+   */
+  recorded?: string | undefined;
+  content?: TopicContent | undefined;
+  userSignature?: UserSignature | undefined;
+}
+
+/**
+ * TopicContent is what a topic's author signs. It carries no id: a topic's key
+ * is minted by the server, and there is no other id in scope here.
+ */
+export interface TopicContent {
   name: string;
   description: string;
 }
@@ -30,13 +51,13 @@ export interface TopicGetRequest {
 }
 
 export interface TopicCreateRequest {
-  name: string;
-  description: string;
+  content?: TopicContent | undefined;
+  userSignature?: UserSignature | undefined;
 }
 
 /**
  * Member is a user's membership of a topic. No backend implements the member
- * routes yet.
+ * routes yet, and no route writes one, so it carries no signature.
  */
 export interface Member {
   /** The member's user id, not an id of the membership itself. */

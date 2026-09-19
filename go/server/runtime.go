@@ -6,16 +6,20 @@
 // route manifest; every other file in this package is hand-written.
 package server
 
-import "net/http"
-
 // DefaultMaxBodyBytes caps a request body when Runtime.MaxBodyBytes is zero.
 const DefaultMaxBodyBytes int64 = 1 << 20
 
 // Runtime is what every generated handler runs against. The zero value is
-// usable on a StdMux: no prefix, DefaultMaxBodyBytes, StdPathValue, no body
-// verification. Any other Mux has to set PathValue.
+// usable on a StdMux: no prefix, DefaultMaxBodyBytes, StdPathValue. Any
+// other Mux has to set PathValue.
 // It persists nothing and validates only what binding requires; wiring
-// persistence, or any authentication beyond VerifyBody, is the implementer's.
+// persistence, or any authentication at all, is the implementer's.
+//
+// **There is deliberately no hook here that sees a raw request body.** A
+// participant's signature is verified behind persistence, over the decoded
+// message rather than the octets — see UserSignature in the contract — so a
+// raw-body seam would buy nothing and read as an invitation to check the
+// signature at the edge. Anything else it might do is middleware's.
 type Runtime struct {
 	// Prefix is the path every route hangs off, and "" means exactly that:
 	// no prefix. That is what a router already mounted at the contract's
@@ -45,15 +49,6 @@ type Runtime struct {
 	// unset; Register<Service> panics for any other Mux — a chi.Router
 	// included — until it is set.
 	PathValue PathValueFunc
-
-	// VerifyBody, when set, sees the raw request body — the octets as
-	// received, before they are decoded — for every route that carries a
-	// body. This is where an X-Signature check belongs: protojson output is
-	// not byte-stable, so a signature over the body can only be checked
-	// against the bytes that arrived, never against a re-encoding. Return an
-	// *Error to choose the status; any other error is a 401. Runtime enforces
-	// no authentication policy of its own; this is the only seam.
-	VerifyBody func(r *http.Request, raw []byte) error
 }
 
 // checkPathValue fails registration when the runtime cannot know how mux's

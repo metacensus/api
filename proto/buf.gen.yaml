@@ -12,7 +12,10 @@ plugins:
     out: ts/src
     opt:
       # These five together describe protojson output rather than protobuf
-      # binary. Nothing verifies the pairing yet: metacensus/ui#49.
+      # binary. The signing digest is taken over that output, so changing one
+      # of them changes a signature, not just a shape: ts/test/wire.test.mjs
+      # has each language verify what the other signed, and is what refuses a
+      # drift here.
       - onlyTypes=true
       - useDate=string
       - stringEnums=true

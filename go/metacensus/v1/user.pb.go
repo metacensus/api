@@ -25,13 +25,25 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// User is a signed record: the server's own fields, the content its owner
+// signed, and the signature over that content.
+//
+// **This surface is also the key directory.** `user_signature.public_key` on a
+// user's enrolling signature is how anyone verifies that user's other
+// signatures, so reading a user is how a verifier resolves a `key_id`.
 type User struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
-	Country       string                 `protobuf:"bytes,4,opt,name=country,proto3" json:"country,omitempty"`
-	Created       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created,proto3" json:"created,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Minted by the server, and therefore outside the signature: a client cannot
+	// be trusted to choose its own key, so it cannot have signed one. This id is
+	// the record's *address*; nothing it addresses changes meaning when it
+	// changes.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// When the server recorded the write. The server's observation, outside the
+	// signature; `content`'s signature carries the claimed time. See
+	// UserSignature.signing_time for what the pair does and does not bound.
+	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content       *UserContent           `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,30 +85,23 @@ func (x *User) GetId() string {
 	return ""
 }
 
-func (x *User) GetName() string {
+func (x *User) GetRecorded() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Name
+		return x.Recorded
 	}
-	return ""
+	return nil
 }
 
-func (x *User) GetEmail() string {
+func (x *User) GetContent() *UserContent {
 	if x != nil {
-		return x.Email
+		return x.Content
 	}
-	return ""
+	return nil
 }
 
-func (x *User) GetCountry() string {
+func (x *User) GetUserSignature() *UserSignature {
 	if x != nil {
-		return x.Country
-	}
-	return ""
-}
-
-func (x *User) GetCreated() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Created
+		return x.UserSignature
 	}
 	return nil
 }
@@ -266,13 +271,12 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x90\x01\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcf\x01\n" +
 	"\x04User\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05email\x18\x03 \x01(\tR\x05email\x12\x18\n" +
-	"\acountry\x18\x04 \x01(\tR\acountry\x124\n" +
-	"\acreated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\acreated\"\x11\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
+	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.UserContentR\acontent\x12C\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\x11\n" +
 	"\x0fUserListRequest\"5\n" +
 	"\bUserList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
@@ -305,21 +309,25 @@ var file_metacensus_v1_user_proto_goTypes = []any{
 	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
 	(*SelfGetRequest)(nil),        // 4: metacensus.v1.SelfGetRequest
 	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
+	(*UserContent)(nil),           // 6: metacensus.v1.UserContent
+	(*UserSignature)(nil),         // 7: metacensus.v1.UserSignature
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
-	5, // 0: metacensus.v1.User.created:type_name -> google.protobuf.Timestamp
-	0, // 1: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
-	1, // 2: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
-	3, // 3: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
-	4, // 4: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
-	2, // 5: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
-	0, // 6: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.User
-	0, // 7: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.User
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	5, // 0: metacensus.v1.User.recorded:type_name -> google.protobuf.Timestamp
+	6, // 1: metacensus.v1.User.content:type_name -> metacensus.v1.UserContent
+	7, // 2: metacensus.v1.User.user_signature:type_name -> metacensus.v1.UserSignature
+	0, // 3: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
+	1, // 4: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
+	3, // 5: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
+	4, // 6: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
+	2, // 7: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
+	0, // 8: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.User
+	0, // 9: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.User
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_user_proto_init() }
@@ -327,6 +335,7 @@ func file_metacensus_v1_user_proto_init() {
 	if File_metacensus_v1_user_proto != nil {
 		return
 	}
+	file_metacensus_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
