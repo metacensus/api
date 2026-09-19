@@ -5,7 +5,7 @@
 //	digest = SHA-384( JCS( {"content": C, "signature": S} ) )
 //
 // C is the content as protojson; S is the UserSignature as protojson with Value
-// "". Two non-obvious choices this file is the source for:
+// "". Three non-obvious choices this file is the source for:
 //
 //   - Canonical JSON of the decoded message, not the octets received: protojson
 //     is not byte-stable, so a digest over received bytes is checkable only by
@@ -14,6 +14,9 @@
 //   - Value is emptied rather than dropped, because EmitDefaultValues and
 //     ts-proto's useOptionals=messages already agree every scalar is present; an
 //     omission rule would be one more generator agreement with nothing checking it.
+//   - The signed attributes (time, spec, contentType) sit on the signature, not
+//     on each content type: they are readable before anything is parsed and need
+//     not be repeated onto every resource.
 package signing
 
 import (
