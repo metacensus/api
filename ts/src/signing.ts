@@ -21,12 +21,10 @@
 // record stay verifiable after it has been relayed, re-encoded and stored —
 // and it is why the client hands the transport a body nobody has to sign.
 //
-// **No runtime dependency, by construction.** The canonicaliser below is ~60
-// lines rather than a package, and the cryptography is WebCrypto through the
-// `crypto` global — not an import, so `check-no-runtime.mjs` passes over this
-// file unchanged. `@metacensus/api/signing` is a third entry point because it
-// is a different API surface from the types, not because it needed an
-// exception.
+// **No runtime dependency, by construction.** The canonicaliser below is
+// written here rather than installed, and the cryptography is WebCrypto
+// through the `crypto` global — not an import, so `check-no-runtime.mjs`
+// refuses a regression rather than a reader catching one.
 
 import type { UserSignature } from "./metacensus/v1/common.js";
 

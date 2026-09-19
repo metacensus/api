@@ -225,10 +225,9 @@ type PathField struct {
 //
 // The repetition is the design: every id the path binds is inside the
 // content and covered by the signature, so that a record cannot be filed
-// under one address while attesting to another. Nothing but the signed copy
-// decides where the record goes — persistence keys off content — which is
-// why the generated comparison is a better error message rather than a
-// control.
+// under one address while attesting to another. The comparison this
+// generates is a better error message rather than a control; the rendered
+// helper, server.contentParam, is where that is explained.
 type ContentParam struct {
 	JSONName       string
 	PathGoField    string

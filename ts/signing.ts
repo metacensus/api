@@ -8,9 +8,8 @@
 // canonicaliser and a pile of WebCrypto calls. The public surface has no
 // identities and nothing on it is ever signed.
 //
-// It carries no runtime dependency. The canonicaliser is written here rather
-// than installed, and the cryptography is the `crypto` global, so
-// `check-no-runtime.mjs` reads this file like any other.
+// The runtime half is src/signing.ts, which go/signing is the other side of;
+// neither may be edited alone.
 
 export {
   SPEC,

@@ -199,12 +199,8 @@ func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 
 // Every id the path binds is repeated inside the signed content, so the two
 // can disagree — and that is the one disagreement worth naming: a record filed
-// under one address while attesting to another.
-//
-// It is a 400 for the error message's sake, not as a control. Persistence keys
-// the record off content, which is the signed copy, so a server that skipped
-// this would write the record the signature describes rather than the one the
-// URL asked for.
+// under one address while attesting to another. It is a 400 for the error
+// message's sake and not as a control; see contentParam.
 func TestPathAndSignedContentMustAgree(t *testing.T) {
 	props := &fakeProps{}
 	mux := registerAll(t, &server.Runtime{Prefix: routes.Prefix}, &fakeTopics{}, props)

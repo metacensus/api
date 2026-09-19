@@ -137,9 +137,8 @@ export interface PropGetRequest {
  * `topic_id` appears twice on purpose — once at the top level, where the route
  * binds it from the path, and once inside `content`, where it is signed. They
  * must agree, and the generated binding refuses the request when they do not.
- * That check is a good error message rather than a control: persistence keys
- * the record off `content`, so a server that skipped the comparison would write
- * the record the signature describes, not the one the URL asked for.
+ * That check is a good error message rather than a control; see contentParam
+ * in go/server/binding.go.
  */
 export interface PropCreateRequest {
   topicId: string;

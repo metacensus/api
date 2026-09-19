@@ -304,11 +304,9 @@ type UserSignature struct {
 	// base64url, unpadded, of the signature over the digest.
 	//
 	// Excluded from its own digest by being set to the empty string rather than
-	// by being dropped: `EmitDefaultValues` on the Go side and `useOptionals=messages`
-	// on the TypeScript side already agree that every scalar is present, and that
-	// agreement is tested (ts/test/wire.test.mjs). An omission rule would be a
-	// sixth thing the two generators have to agree about and nothing would check
-	// it.
+	// by being dropped. Which generator agreement that rests on, and why an
+	// omission rule would be one more of them with nothing checking it: the
+	// go/signing package comment.
 	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

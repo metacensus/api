@@ -7,9 +7,8 @@ response under `/metacensus/api/v1` and `/metacensus/public`, generated from the
 What ships is the generated interfaces, the route manifest, `protobufPackage`,
 a typed client per surface — over a transport you supply — and the signing
 chain. It reaches for nothing at runtime; `scripts/check-no-runtime.mjs` is
-what says so, and what fails the build. The signing module is part of that
-rather than an exception to it: it writes its own canonicaliser instead of
-installing one, and reaches WebCrypto through the `crypto` global.
+what says so, and what fails the build. The signing module is inside that
+guard rather than an exception to it.
 
 ```bash
 npm install @metacensus/api
@@ -48,8 +47,8 @@ optional.
 
 ## The public surface
 
-The public, unauthenticated surface is a second entry point in the same package,
-with a client of its own:
+The public, unauthenticated surface is an entry point of its own in the same
+package, with a client to match:
 
 ```ts
 import type { PartnerSubmission } from "@metacensus/api/public";
