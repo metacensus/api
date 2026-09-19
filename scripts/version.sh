@@ -21,7 +21,6 @@ set -euo pipefail
 
 VERSION_REGEX="^v?[0-9]+\.[0-9]+\.[0-9]+$"
 
-# Get latest version
 # `|| true` on the grep: with no tags yet it matches nothing and exits 1,
 # which under `set -o pipefail` would abort the whole script instead of
 # reporting "no previous version".
@@ -29,12 +28,10 @@ get_latest_version() {
     git tag -l "v*" | { grep -E "$VERSION_REGEX" || true; } | sort -V | tail -1 | sed 's/^v//'
 }
 
-# Validate version format
 validate_version() {
     if echo "$1" | grep -qE "$VERSION_REGEX"; then echo "valid"; else echo "invalid"; fi
 }
 
-# Bump version based on type
 bump_version() {
     local version=$1
     local type=$2
@@ -52,7 +49,6 @@ bump_version() {
     }'
 }
 
-# Main function to determine version
 determine_version() {
     local version=${1:-}
     local type=${2:-}
