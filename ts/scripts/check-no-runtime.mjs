@@ -1,10 +1,6 @@
-// Assert the package reaches for no runtime: no declared dependencies, and no
-// value import in anything that ships — the files under src/ and the entry
-// points package.json points at. ts-proto's default forceLong would pull in
-// `long`; dropping onlyTypes would pull in protobufjs.
-//
-// This is not "the package contains no code" — src/client.ts does. It is that
-// nothing that ships depends on a module it would have to ship with it.
+// Assert nothing that ships depends on a module it would ship with it: no
+// declared dependencies, and no value import under src/ or in the published
+// entry points. (Not "no code" — src/client.ts is code.) See ts/README.md.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -18,10 +14,8 @@ const srcRoot = join(pkgRoot, "src");
 
 const failures = [];
 
-// The entry points are hand-written and outside src/, so walking src/ alone
-// would leave every published module but the generated ones unchecked. Derived
-// from package.json, so this covers whatever it publishes rather than whatever
-// was true when this line was written.
+// Entry points are hand-written and outside src/; derived from package.json so
+// this covers whatever it publishes.
 const published = publishedEntryPoints(pkgRoot);
 failures.push(...published.failures);
 const entryPoints = published.entryPoints.map((f) => join(pkgRoot, f));

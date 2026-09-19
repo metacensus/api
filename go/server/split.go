@@ -43,7 +43,6 @@ func Except(mux, alt Mux, rt *Runtime, rpcs ...string) Mux {
 	return exceptMux{mux: mux, alt: alt, moved: moved}
 }
 
-// rpcNames is what a failed Except prints, so the fix is in the message.
 func rpcNames() []string {
 	out := make([]string, 0, len(routes.Routes))
 	for _, r := range routes.Routes {

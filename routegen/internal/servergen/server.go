@@ -1,10 +1,6 @@
 // Package servergen renders go/server/routes_gen.go: per service, a handler
-// interface, an Unimplemented*, and a Register* that binds and dispatches.
-// The runtime it calls into is package server's hand-written files.
-//
-// Unimplemented<Service> lets a service be implemented one route at a time: a
-// renamed rpc still compiles and answers 501 at runtime instead of failing
-// the build.
+// interface, an Unimplemented*, and a Register* that binds and dispatches. See
+// README.md, "The generated server".
 package servergen
 
 import (
@@ -23,10 +19,10 @@ var tmpl = template.Must(template.New("server.go.tmpl").Funcs(template.FuncMap{
 	"goSlice": model.GoSlice,
 }).Parse(tmplSrc))
 
-// routeView is model.Route plus what the template cannot work out for
-// itself. NeedsErrVar: a handler declares `var err error` up front unless a
-// body="*" block already declared it with :=. Alias is the import alias for
-// the generated package this route's messages live in.
+// routeView is model.Route plus what the template cannot work out for itself,
+// decided here rather than with nested {{if}}. NeedsErrVar: a handler declares
+// `var err error` up front unless a body="*" block already did with :=. Alias:
+// the per-surface import alias for this route's messages.
 type routeView struct {
 	model.Route
 	ServiceRPC  string
@@ -43,8 +39,8 @@ func newRouteView(r model.Route) routeView {
 	}
 }
 
-// serviceView is what the per-service blocks need: the Go identifier they
-// build names from, and the prefix constant its routes hang off.
+// serviceView is what the per-service blocks need: the service's Go identifier
+// and the prefix constant its routes hang off.
 type serviceView struct {
 	Name        string
 	PrefixConst string
@@ -125,8 +121,6 @@ func Render(routes []model.Route) ([]byte, error) {
 	return model.GoFormat("go/server/routes_gen.go", b.Bytes())
 }
 
-// execute runs one named block, naming the template, the block, the service
-// and the route on failure.
 func execute(b *bytes.Buffer, block string, data any, service, rpc string) error {
 	if err := tmpl.ExecuteTemplate(b, block, data); err != nil {
 		if rpc != "" {

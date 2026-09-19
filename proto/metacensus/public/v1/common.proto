@@ -1,11 +1,9 @@
-// Shared types for the public surface, and where the surface-wide answers
-// live.
+// Shared types for the public surface. See README.md, "The two surfaces" and
+// "Errors on the two surfaces".
 //
-// Neither surface types its failures; the HTTP status is the signal. Below
-// are the statuses this surface answers with, on every route and on paths
-// no route claims (404, 405) — prose because `google.api.http` cannot
-// express responses. See README.md, "The two surfaces" and "Errors on the
-// two surfaces", for why.
+// The statuses this surface answers with, which `google.api.http` cannot
+// express and so live nowhere else. 400 and 403 share a sentence on purpose:
+// which applies is not a caller's business.
 //
 //   400  the submission was not valid, or the body was not JSON
 //   403  the `Origin` was absent or not allowlisted
@@ -14,8 +12,8 @@
 //   502  the submission could not be relayed upstream
 //   500  something else went wrong
 //
-// No messages yet: this file is the cross-file typing rule's one exemption,
-// so it's where a type shared across this surface's resources would go.
+// No messages yet: this is the one file the cross-file typing rule exempts, so
+// a type shared across the surface's resources would go here.
 syntax = "proto3";
 
 package metacensus.public.v1;
