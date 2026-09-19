@@ -176,3 +176,45 @@ func TestContentHasNoSingularMessageFields(t *testing.T) {
 		}
 	})
 }
+
+// TestSignedRecordsReserveTheNextField holds the room the institutional
+// signature lands in.
+//
+// A stored record's field 5 — 4 on Vote, which mints no id — is spoken for: an
+// institution will sign the *user's signature value*, endorsing the author
+// rather than the data, and that arrives as a field addition with nothing
+// above it reshaped. `reserved` is what makes protoc refuse the number. Without
+// this, the fifth signed record ships without one and the room is gone on the
+// single day it was bought for.
+func TestSignedRecordsReserveTheNextField(t *testing.T) {
+	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
+		fields := md.Fields()
+		var highest protoreflect.FieldNumber
+		signed := false
+		for i := 0; i < fields.Len(); i++ {
+			fd := fields.Get(i)
+			if fd.Number() > highest {
+				highest = fd.Number()
+			}
+			if fd.Message() != nil && fd.Message().FullName() == "metacensus.v1.UserSignature" {
+				signed = true
+			}
+		}
+		// A request carries a signature too, but nothing stores it, so there
+		// is nothing for an institution to endorse later.
+		if !signed || strings.HasSuffix(string(md.Name()), "Request") {
+			return
+		}
+		want := highest + 1
+		ranges := md.ReservedRanges()
+		for i := 0; i < ranges.Len(); i++ {
+			if r := ranges.Get(i); want >= r[0] && want < r[1] {
+				return
+			}
+		}
+		t.Errorf("%s stores a signature but does not `reserved %d;`. That number is "+
+			"where the institutional signature over user_signature.value lands, and a "+
+			"comment saying so is found by the next reader rather than by protoc.",
+			md.FullName(), want)
+	})
+}

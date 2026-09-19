@@ -224,7 +224,9 @@ than shared, and both fall out of the prefix:
   rather than duplicate is in "The generated client", below.
 
 Adopting any of this in `metacensus/service-public-api` or `metacensus/ui` is
-separate work; nothing in either repository is touched here.
+separate work; nothing in either repository is touched here. `metacensus/ui`
+signs a request body into an `X-Signature` header today, which nothing has ever
+verified and which this contract no longer has a reader for.
 
 ## The signing chain
 
@@ -251,7 +253,7 @@ Every write on `metacensus.v1` therefore carries two fields — a `content` mess
 
 **The server wraps, it never modifies.** Everything it adds — the minted id, the recording time — is added around the signed content, never inside it. `content` stays plain and typed, so chaincode reading one record to check an invariant against another does not have to unwrap or cast.
 
-Every signed record holds the field number after its last with `reserved`, so an institutional signature lands as a pure field addition. Which number that is differs — `Vote` mints no id, so its fields stop earlier than the rest — and `reserved` is what makes that the compiler's business rather than a reader's. The signature it holds will cover the *user's signature value* rather than the content: it endorses the author, not the data.
+A stored record reserves the field number after its last, so an institutional signature lands as a pure field addition. Which number that is differs — `Vote` mints no id, so its fields stop earlier than the rest — which is why `reserved` holds it and `TestSignedRecordsReserveTheNextField` holds that: protoc refuses the number, and the test refuses a record that forgot to spend one. The signature it holds will cover the *user's signature value* rather than the content: it endorses the author, not the data.
 
 ### Which ids are inside the signature
 
@@ -265,7 +267,7 @@ That puts a path-bound id in two places on a write — once at the top level, wh
 
 **Not at the API edge.** The signature travels in the body so that it reaches the persistence layer intact and is checked inside the chaincode boundary, where the record is written. `Runtime.VerifyBody` and the `X-Signature` header it existed for are both gone. The next section is what makes that possible.
 
-Nothing in this repository verifies a signature at any layer — `go/signing` computes and checks a digest, and stops short of resolving a key or an identity. See "Open questions".
+`signing.Verify` is here and is the one to call: **do not write a second implementation of this digest.** What no repository yet does is wire it into a write path and resolve a `keyId` to an enrolled identity. See "Open questions".
 
 ### The digest
 
@@ -273,28 +275,13 @@ Nothing in this repository verifies a signature at any layer — `go/signing` co
 digest = SHA-384( JCS( {"content": C, "signature": S} ) )
 ```
 
-`C` is the content message as the contract's JSON; `S` is the `userSignature` as the contract's JSON **with `value` set to the empty string** — emptied rather than dropped, because `EmitDefaultValues` and ts-proto's `useOptionals=messages` already agree that every scalar is present, and that agreement is tested. An omission rule would be a sixth thing the two generators have to agree about with nothing checking it.
+`C` is the content message as the contract's JSON; `S` is the `userSignature` as the contract's JSON with `value` set to the empty string. Why it is canonical JSON of the *decoded* message rather than the octets received, why `value` is emptied rather than dropped, and why the signed attributes sit on the signature rather than on every content type: the `go/signing` package comment, beside the code that does it.
 
-**Canonicalise the decoded message, never the octets received.** protojson's output is deliberately not byte-stable, so a digest over received bytes could only ever be checked by whoever received them; that is what forced the old header-and-seam design. A digest over the canonical form of the *message* survives being relayed, re-encoded and stored — which is what lets the API server decode a request and hand it on without mattering to the signature.
-
-Everything but `value` is a **signed attribute** — it is inside the digest. So a signature cannot be re-attributed to another signer, re-dated, or reinterpreted under another set of rules. It is also why timestamps and the version marker live on the signature rather than on every content type: they are readable before anything is parsed, and they are stated once.
-
-Two of those attributes are the version marker, split so that neither has to be parsed out of the other:
-
-- `spec` (`"metacensus.sig/1"`) pins the canonicalisation, the digest and the encoding of `value`. Change any of them and this string changes.
-- `contentType` (the full proto name) pins how the content is to be read. Without it, a signature over one message can be replayed as another whose JSON has the same shape — two messages of two strings are one document once they are canonical.
-
-The institutional signature will carry its own `spec` and its own `contentType`, which is how the two stay domain-separated without a third field.
-
-**Why JCS (RFC 8785).** ts-proto emits plain JavaScript objects, and its five options in `buf.gen.yaml` already make that output match Go's protojson. JCS canonicalises a cross-language agreement that exists and is tested, rather than requiring a second one.
-
-It has one trap, and the contract avoids it rather than solving it: JCS serialises numbers as ECMAScript would, and reproducing ECMAScript's printing of an arbitrary double in Go is where two implementations quietly stop agreeing. `TestNoWideNumbersCrossJCS` refuses every 64-bit integer, float and double in the schema, which leaves `int32` and `uint32` — integers both languages print identically. Both canonicalisers refuse anything else at runtime too.
+One consequence reaches back into the schema. JCS serialises numbers as ECMAScript would, and reproducing ECMAScript's printing of an arbitrary double in Go is where two implementations quietly stop agreeing. The contract avoids that rather than solving it: `TestNoWideNumbersCrossJCS` refuses every 64-bit integer, float and double, which leaves `int32` and `uint32` — integers both languages print identically. Both canonicalisers refuse anything else at runtime too.
 
 ### Enrolling the key
 
-Sign-up is where the keypair arrives, and it is the one signature that carries its own public key inline: the signer has no id yet, so there is nothing to look one up by. `signerId` is empty on exactly that record.
-
-**Trust on first use, with proof of possession.** Nobody vouches for the key; the service takes the one it is handed. That concedes nothing new — the same request carries the password, so an API server able to substitute the key could already impersonate the account outright. What the signature adds is *binding*: without it, anyone could enrol a public key that is not theirs and later claim the signatures made with it. `keyId` is `base64url(SHA-256(SPKI DER))`, so it is derived rather than minted, computable before an account exists and checkable rather than trustworthy.
+Sign-up is where the keypair arrives, and it is the one signature that carries its own public key inline: the signer has no id yet, so there is nothing to look one up by. `signerId` is empty on exactly that record. What the service does and does not concede by taking the key it is handed is on `SignUpRequest`, in `auth.proto`.
 
 `password` sits outside `content` deliberately: content is what gets persisted, and a password must never be inside a signed, stored document.
 
@@ -302,13 +289,11 @@ Reading a user is therefore how a verifier resolves a key: `GET /user/{userId}` 
 
 ### The two times
 
-`userSignature.signingTime` is a **claim** by the participant — it is inside the digest, so the participant chose it. `recorded` is the server's observation and sits outside. The pair bounds the participant and bounds nothing about the server.
-
-Any tolerance over the difference is a policy number and belongs in infra's chaincode configuration; one written into the contract would be a wire break to change. What the contract does fix is that ordering and conflict resolution use `recorded` and never `signingTime`, or a participant orders their own writes.
+`userSignature.signingTime` is the participant's claim and sits inside the digest; `recorded` is the server's observation and sits outside. **Ordering and conflict resolution use `recorded`, never `signingTime`**, or a participant orders their own writes. What the pair does and does not bound, and why no tolerance between them appears in the contract, is on `UserSignature.signing_time`.
 
 ### Computing it
 
-`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Both are dependency-free: the Go side is stdlib, so the module stays at two requirements; the TypeScript side writes its ~60 lines of JCS rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds. `@metacensus/api/signing` is a third entry point rather than an exception to either npm guard; see "What the tests check".
+`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Neither adds a requirement: the Go side reaches for the contract's own encoder and nothing else, so `go.mod` is unchanged; the TypeScript side writes its canonicaliser rather than installing one and reaches WebCrypto through the `crypto` global, so `dependencies: {}` holds. `@metacensus/api/signing` is an entry point rather than an exception to either npm guard; see "What the tests check".
 
 ```go
 sig := &v1.UserSignature{
@@ -427,9 +412,9 @@ import { sign } from "@metacensus/api/signing";                  // the signing 
 import "github.com/metacensus/api/go/signing" // the same chain, the same digest
 ```
 
-**One package, three entry points.** The SPA calls both surfaces from one build and takes one dependency; a consumer of only the public surface — a third party integrating against `/metacensus/public/*`, who never had a session — imports `@metacensus/api/public` and does not acquire the authenticated types. Go needed no equivalent for that split: its packages were already separate.
+**One package, one entry point per concern**, the set derived by `check-entry-points.mjs` from `package.json` rather than listed here. The SPA calls both surfaces from one build and takes one dependency; a consumer of only the public surface — a third party integrating against `/metacensus/public/*`, who never had a session — imports `@metacensus/api/public` and does not acquire the authenticated types. Go needed no equivalent for that split: its packages were already separate.
 
-The third splits by *concern* rather than by surface. `@metacensus/api/signing` is a canonicaliser and a pile of WebCrypto calls, and a consumer who only wants `Topic` should not resolve it; the public surface never signs anything, because it has no identities. It carries no runtime dependency either — see "The signing chain". The route manifest is exported from both, deliberately, because "every MetaCensus route on one screen" is the reason the contract lives in one repository, and the manifest is string literals rather than a type surface.
+`@metacensus/api/signing` splits by *concern* rather than by surface. `@metacensus/api/signing` is a canonicaliser and a pile of WebCrypto calls, and a consumer who only wants `Topic` should not resolve it; the public surface never signs anything, because it has no identities. It carries no runtime dependency either — see "The signing chain". The route manifest is exported from both, deliberately, because "every MetaCensus route on one screen" is the reason the contract lives in one repository, and the manifest is string literals rather than a type surface.
 
 **A consumer's Go must satisfy the `go` directive in the root `go.mod`**, which is a build error below it rather than a fallback. It is the one thing here that constrains another repository's toolchain, so a consumer still on an older Go has to move first. The directive is the language version the contract is developed and generated against; nothing in the generated types needs anything newer than the module system.
 
@@ -571,7 +556,7 @@ The same walk writes `ts/src/client.ts`: one class per surface — `Client` for 
 
 **The `Transport` is where the caller's own concerns live**, deliberately: auth headers, and status policy beyond "2xx parses, the rest throws" (the SPA's 401-clears-the-token-and-redirects behavior, or retries). The client does not call `fetch` itself and carries no cache of its own.
 
-It is not where signing happens. A participant's signature is part of the request *message*, built and signed before the client is called; see "The signing chain" below. The transport used to be where an `X-Signature` header was computed over `req.body`, and that is why the client still serialises the body exactly once and hands over the string — a property worth keeping for a caller who wants to log or hash what actually went out, but nothing in the contract depends on it any more.
+It is not where signing happens. A participant's signature is part of the request *message*, built and signed before the client is called; see "The signing chain" above. The transport used to be where an `X-Signature` header was computed over `req.body`, and that is why the client still serialises the body exactly once and hands over the string — a property worth keeping for a caller who wants to log or hash what actually went out, but nothing in the contract depends on it any more.
 
 A caller writes:
 
@@ -621,7 +606,7 @@ await pub.submitPartnerInterest({
 
 ## What the tests check
 
-`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file or from the other surface, a route manifest that covers every rpc with no two routes sharing a method and full path, and the four the signing chain needs — every write signed, content and signature paired, no number JCS cannot carry across the two languages, and no presence case inside signed content. `routegen/internal/model/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, both halves of a signed request being required and the path agreeing with its signed copy, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `routegen/chitest` re-runs the routes on real chi, which is where every claim `server.Mux`'s doc comment makes about router-owned behaviour is checked rather than asserted.
+`go test ./...` reads the compiled descriptors, so every check is a property of the schema: JSON name and enum casing, `Unspecified` zero values, string ids, no proto3 `optional` scalars, `{items}` on every list, no pagination fields, no message field typed from another resource's file or from the other surface, a route manifest that covers every rpc with no two routes sharing a method and full path, and what the signing chain needs — every write signed, content and signature paired, no number JCS cannot carry across the two languages, no presence case inside signed content, and the institutional signature's field number reserved on every stored record. `routegen/internal/model/naming_test.go` independently reconstructs a `CodeGeneratorRequest` and cross-checks every proto→Go field mapping the server renderer reads off `protobuf:"...,name=..."` struct tags against `compiler/protogen`, the public package `protoc-gen-go` itself is built on — the naming rule that produces those tags is in an internal, unimportable package, so this is read off the generated code rather than re-derived. `go/server/*_test.go` exercises the runtime: path/body precedence, the body size cap, both halves of a signed request being required and the path agreeing with its signed copy, the error model, unknown query parameters rejected on every route, and that every manifest route is actually served. `routegen/chitest` re-runs the routes on real chi, which is where every claim `server.Mux`'s doc comment makes about router-owned behaviour is checked rather than asserted.
 
 **The schema checks run over every package, and nothing can drop out of that set quietly.** Each one iterates `contractPackages`; a package missing from it would not be exempt but invisible, and the suite would pass over a schema smaller than the one that ships. Two checks close that:
 
@@ -644,7 +629,7 @@ Two scripts guard the npm package, both run by `npm run check`:
 Written down, not tracked — the four ui issues that held this work were closed as not-planned when the contract moved here, and nothing has replaced them. Each of these is a decision nobody has standing to take yet because the consumer that would settle it does not exist.
 
 - **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` envelope and the clients hand back the response text unparsed, on both surfaces. A real message (an error-code enum, field-level validation errors) is the obvious next step and is exactly the kind of schema that goes wrong when it is invented before a second consumer exists. See "Errors on the two surfaces" above for the trigger. Refs [#3](https://github.com/metacensus/api/issues/3).
-- **Nothing verifies a signature yet, and the contract states the obligations in four places rather than one.** `go/signing` computes and checks a digest; it stops there deliberately, because resolving a `keyId` to an enrolled key and deciding who may sign what are persistence's. What persistence owes, as of this contract: verify the digest under the key `keyId` resolves to; refuse a `signerId` that disagrees with the `userId` its content carries; check at sign-up that `keyId` is the thumbprint of the `publicKey` handed over; and hold a `signingTime`/`recorded` tolerance in chaincode configuration, since a number written into the contract would be a wire break to change. No repository implements any of it — `metacensus/infra` has no signature handling and still carries `AuthorId` — so the obligations above are the only statement of the work, and they are prose rather than a conformance suite. This is the seam the whole design rests on, and the one with no gate.
+- **No write path verifies a signature yet, and what persistence owes is stated in comments beside the fields it constrains, nowhere as a suite.** `signing.Verify` checks a digest against a key it is handed; resolving a `keyId` to an enrolled identity and deciding who may sign what are persistence's, deliberately. What persistence owes, as of this contract: verify the digest under the key `keyId` resolves to; refuse a `signerId` that disagrees with the `userId` its content carries; check at sign-up that `keyId` is the thumbprint of the `publicKey` handed over; and hold a `signingTime`/`recorded` tolerance in chaincode configuration, since a number written into the contract would be a wire break to change. No repository implements any of it — `metacensus/infra` has no signature handling and still carries `AuthorId` — so the obligations above are the only statement of the work, and they are prose rather than a conformance suite. This is the seam the whole design rests on, and the one with no gate.
 
 - **Key rotation.** `userSignature.keyId` exists from the first release so that a second key is a lookup rather than a reshaping, but no route enrols one and nothing says what happens to records signed by a key that has been retired. Sign-up is the only enrolment today.
 - **Should the client be an entry point of its own?** `@metacensus/api` and `@metacensus/api/public` split by *surface*; neither splits the client away from the types, so a consumer that only wants `Topic` still resolves `src/client.ts`. `sideEffects: false` lets a bundler drop it, which is why this is not urgent, but a `@metacensus/api/client` export would make it unconditional. `@metacensus/api/signing` has since made the same split for the same reason, which is an argument that the pattern works rather than a decision about this one. Adding a fourth is now gated rather than remembered: `check-entry-points.mjs` fails an entry point missing from either tsconfig. Refs [#4](https://github.com/metacensus/api/issues/4).
