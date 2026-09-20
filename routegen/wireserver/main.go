@@ -1,13 +1,13 @@
-// Command wireserver serves the generated routes so ts/test/wire.test.mjs can
-// drive the generated TypeScript client against them over real HTTP. It is a
-// test fixture, not a server: every handler echoes its request back through
-// the response message, because what is under test is the encoding, not any
-// behaviour.
+// Command wireserver serves the generated read routes so ts/test/wire.test.mjs
+// can drive the generated TypeScript client against them over real HTTP. It is
+// a test fixture, not a server: every handler echoes fixed data, because what
+// is under test is the encoding — that protojson and ts-proto emit the same
+// document.
 //
-// It also signs and verifies, which a real API server would not — the edge
-// never looks at a signature. Doing both halves here is the cheapest way to
-// show that go/signing and ts/src/signing.ts compute the same digest over the
-// same document: each language signs something the other verifies.
+// It signs the records it returns so the TypeScript side can verify a signature
+// Go made; the reverse direction, and every write, are cross-language
+// integration concerns deferred to the mock-persistence suite
+// (https://github.com/metacensus/api/issues/31).
 //
 // It prints its own public key, then "listening <addr>" on a port the OS
 // chooses, then serves until killed.
@@ -83,40 +83,6 @@ func (topics) ListTopics(context.Context, *v1.TopicListRequest) (*v1.TopicList, 
 	}}, nil
 }
 
-// CreateTopic echoes the content and signature it was handed, unchanged: the
-// server wraps, it never modifies.
-func (topics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.TopicSigned, error) {
-	return &v1.TopicSigned{
-		Id: "new", Recorded: recorded,
-		Content: req.Content, UserSignature: req.UserSignature,
-	}, nil
-}
-
-type props struct{ server.UnimplementedPropRoutes }
-
-func (props) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.PropSigned, error) {
-	// The minted id echoes the topic id the path bound.
-	return &v1.PropSigned{
-		Id: req.TopicId, Recorded: recorded,
-		Content: req.Content, UserSignature: req.UserSignature,
-	}, nil
-}
-
-type auth struct{ server.UnimplementedAuthRoutes }
-
-// SignUp is the one route where a signer's key legitimately travels inline,
-// because the signer has no id yet to look one up by.
-func (auth) SignUp(_ context.Context, req *v1.SignUpRequest) (*v1.Session, error) {
-	pub, err := signing.PublicKeyOf(req.UserSignature)
-	if err != nil {
-		return nil, server.Errorf(http.StatusBadRequest, "key_not_bound", "%v", err)
-	}
-	if err := signing.Verify(pub, req.Content, req.UserSignature); err != nil {
-		return nil, server.Errorf(http.StatusBadRequest, "signature_invalid", "%v", err)
-	}
-	return &v1.Session{Token: "signed-up:" + req.Content.GetEmail()}, nil
-}
-
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "wireserver:", err)
 	os.Exit(1)
@@ -135,9 +101,8 @@ func main() {
 	mux := http.NewServeMux()
 	std := server.StdMux{ServeMux: mux}
 	rt := &server.Runtime{Prefix: routes.Prefix}
-	server.RegisterAuthRoutes(std, rt, auth{})
 	server.RegisterTopicRoutes(std, rt, topics{})
-	server.RegisterPropRoutes(std, rt, props{})
+	// User routes stay unimplemented, for the 501 case.
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

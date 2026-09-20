@@ -53,7 +53,7 @@ Two facts reach the schema. **Every id the path binds is inside the signed conte
 
 **Verification happens behind persistence, not at the API edge** — the signature travels in the body so it reaches the chaincode boundary intact; `Runtime.VerifyBody` and the `X-Signature` header are gone. **Ordering uses `recorded` (the server's observation), never `signingTime` (the participant's claim)**, or a participant could order their own writes. A stored record carries an `institutional_signature` and reserves the field after it, so the next signature layer is a pure addition (`TestSignedRecordsReserveTheNextField`).
 
-**`ts/test/wire.test.mjs` is the gate:** it pins the protojson / ts-proto pairing the digest depends on, each language verifying what the other signed. A drift in `proto/buf.gen.yaml` or `go/wire.go` is now a signature that verifies only on the machine that made it, not just a readability problem.
+**`ts/test/wire.test.mjs` pins the wire:** protojson and ts-proto must emit the same document, or a signature verifies only on the machine that made it, not just a readability problem. It checks that pairing over reads; the two languages signing in conjunction across the write path waits on an integration suite over mock persistence ([#31](https://github.com/metacensus/api/issues/31)), and the signing module's own behaviour is unit-tested in `ts/test/signing.test.mjs`.
 
 ## JSON is the wire
 
@@ -154,7 +154,7 @@ On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside 
 
 ## The generated client
 
-The same walk writes `ts/src/client.ts`: one class per surface — `ClientSigned` (returning the `…Signed` envelopes) and `PublicClient` — each method building the path and query, serialising the body once, and handing `{method, path, body?}` to a caller-supplied `Transport`. A 2xx is parsed and cast; a non-2xx throws `ApiError` (status, path, raw text). **The `Transport` is where the caller's concerns live** — auth headers, retries, status policy — and signing is *not* one of them: the signature is part of the request message, built before the client is called. `ApiError` is one class across both entry points, which is why both classes share one file. Usage and the public-surface variant are in [ts/README.md](ts/README.md).
+The same walk writes `ts/src/client.ts`: one **batteries-included** client per surface — `Client` for the authenticated API, `PublicClient` for the public one. Constructed with `{ baseUrl, fetch?, signer?, token? }`, `Client` owns its HTTP — it builds the path, holds the session token across `login`/`logout` (adding `Authorization` itself), and signs writes through the injected `signer`. Reads return flat records (`getTopic` → `TopicRecord`, `{id, recorded, ...content}`); a signed-envelope read also gets a `getTopicSigned` twin returning the raw envelope, for verifying authorship. Writes take flat content, never an envelope. A 2xx is parsed and cast; a non-2xx throws `ApiError` (status, url, raw text). `ApiError` is one class across both entry points, which is why both classes share one file. Usage and the public-surface variant are in [ts/README.md](ts/README.md).
 
 ## Open questions
 
