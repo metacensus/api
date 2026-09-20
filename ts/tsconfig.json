@@ -11,11 +11,9 @@
     // the browser is the consumer that matters. It is a type-level lib, not a
     // runtime dependency: nothing it names is imported.
     //
-    // ESNext.TypedArrays is added, not the whole of ESNext, for exactly one
-    // thing: Uint8Array's base64 codec (toBase64/fromBase64), which src/
-    // signing.ts uses in place of a hand-rolled btoa loop. It is present in
-    // Node 22+ and current browsers; a consumer on an older runtime is the
-    // reason it's called out here rather than folded into a blanket ESNext.
+    // ESNext.TypedArrays, not the whole of ESNext, for one thing: Uint8Array's
+    // base64 codec (toBase64/fromBase64) that src/signing.ts uses. Node 22+ and
+    // current browsers have it; older runtimes are why it's named, not assumed.
     "lib": ["ES2022", "DOM", "ESNext.TypedArrays"],
 
     // strictNullChecks is what makes `?: T | undefined` mean anything.

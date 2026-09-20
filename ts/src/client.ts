@@ -9,14 +9,7 @@ import type { HealthcheckRequest, HealthcheckResponse } from "./metacensus/v1/co
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "./metacensus/v1/prop.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "./metacensus/v1/user.js";
-
-// The same literal as route-manifest.ts's apiPrefix, emitted here too so a
-// path builds without an import.
-const apiPrefixDefault = "/metacensus/api/v1";
-
-// The same literal as route-manifest.ts's publicPrefix, emitted here too so a
-// path builds without an import.
-const publicPrefixDefault = "/metacensus/public";
+import { apiPrefix, publicPrefix } from "./route-manifest.js";
 function param(v: string | number | boolean): string {
   return encodeURIComponent(String(v));
 }
@@ -63,7 +56,7 @@ export class Client {
   // test harness can mount the same routes elsewhere.
   constructor(
     private readonly transport: Transport,
-    private readonly prefix: string = apiPrefixDefault,
+    private readonly prefix: string = apiPrefix,
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {
@@ -173,7 +166,7 @@ export class PublicClient {
   // test harness can mount the same routes elsewhere.
   constructor(
     private readonly transport: Transport,
-    private readonly prefix: string = publicPrefixDefault,
+    private readonly prefix: string = publicPrefix,
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {

@@ -232,21 +232,14 @@ The split has one reason: a `tool` directive is a real module requirement, and a
 
 ## Dependencies
 
-The stance is **skeptical curiosity, not abstinence.** A dependency is evaluated, not banned — this module already rests on protobuf and genproto, so "zero" was never the real position, and reimplementing a well-scoped library from scratch is often the *lower*-quality choice, not the higher one. High standards are not the same as owning every line. When weighing one, ask:
+The stance is **skeptical curiosity**: a dependency is weighed, not banned — the enforced no-runtime check is gone, and no test pins a count. This module already rests on protobuf and genproto, so "zero" was never the real position, and reimplementing a well-scoped library from scratch is often the *lower*-quality choice. When weighing one, ask:
 
-1. the cost of ownership taking it on incurs, now and later;
-2. the opportunity cost of *not* using the shared library — reimplementation, bugs, missed maintenance;
-3. if a library is wanted here, whether this is the best one available;
+1. the cost of ownership it incurs, now and later;
+2. the opportunity cost of *not* using it — reimplementation, bugs, missed maintenance;
+3. whether, if a library is wanted here, this is the best one available;
 4. what makes a library worthwhile in the abstract, and whether this candidate clears that bar.
 
-**Importing the package's own modules is not a dependency in this sense, and is always fine** — a value import of `route-manifest.ts` from `client.ts` carries no supply-chain or bundle cost, only the benefit of not duplicating a constant.
-
-Two costs are concrete enough to already shape the layout, so they are settled once here rather than re-argued per candidate:
-
-- **The contract module is imported by consumers**, so a new requirement in the root `go.mod` lands on every consumer's graph. That is why generation's heavy graph (buf, protoc-gen-go, chi) lives in the separate `routegen` module — see "Layout".
-- **The npm package ships to browsers**, so a runtime dependency there is bundle size and supply-chain surface a consumer inherits.
-
-Neither is a veto; both are weight on the first two questions above. Nothing enforces a count — a dependency is a judgement made in review, not a number a test pins.
+Two costs weigh heavier here than any count did: a requirement in the root `go.mod` reaches every consumer (why generation's heavy graph lives in `routegen` — see "Layout"), and a runtime dependency in the npm package ships to the browser. **Importing the package's own modules is neither, and always fine** — it is how `client.ts` takes its route prefixes from `route-manifest.ts`.
 
 ## Working on it
 

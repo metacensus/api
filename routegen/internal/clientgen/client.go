@@ -251,12 +251,16 @@ func Render(routes []model.Route) ([]byte, error) {
 		}
 	}
 
-	// Unexported: exported would collide with route-manifest.ts's under
-	// ts/index.ts's `export *` (an ambiguous star export, TS2308).
+	// The prefixes come from route-manifest.ts, their one home. A value import,
+	// not a re-emitted literal; client.ts is re-exported by name (not `export
+	// *`), so an imported binding it doesn't re-export can't collide there.
+	var consts []string
 	for _, pkg := range withRoutes(methods) {
-		if err := execute(&b, "prefixConst", pkg); err != nil {
-			return nil, err
-		}
+		consts = append(consts, pkg.TSConst)
+	}
+	sort.Strings(consts)
+	if err := execute(&b, "valueImport", fileImport{File: "./route-manifest.js", Names: consts}); err != nil {
+		return nil, err
 	}
 	// param and query are emitted only where a route needs them, to avoid
 	// dead code in a package that ships almost nothing.
