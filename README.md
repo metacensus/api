@@ -122,7 +122,7 @@ Every write on `metacensus.v1` carries two fields — `content` and a `userSigna
 
 **The server wraps, it never modifies.** Everything it adds — the minted id, the recording time — sits around the signed content, never inside it, so a reader checking one record against another never has to unwrap or cast.
 
-A stored record reserves the field number after its last, so an institutional signature lands as a pure field addition later. Which number differs per message (`VoteSigned` mints no id, so its fields stop earlier); `reserved` holds it and `TestSignedRecordsReserveTheNextField` holds that. That future signature would cover the *user's signature value*, not the content — it endorses the author, not the data.
+A stored record carries an `institutional_signature` and reserves the field number after it, so the next signature layer is again a pure field addition. Which numbers these are differs per message (`VoteSigned` mints no id, so its fields stop earlier); `reserved` holds the next one and `TestSignedRecordsReserveTheNextField` holds that. The institutional signature covers the *user's signature value*, not the content — it endorses the author, not the data. What computes and checks it is the persistence layer's, below the seam; the contract carries only its shape.
 
 ### Which ids are inside the signature
 

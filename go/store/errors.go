@@ -90,15 +90,13 @@ func Errf(kind Kind, op string, cause error) *Error {
 }
 
 // KindOf reports the Kind an error carries, or "" if it carries none — the
-// server's single point of translation to a status.
+// server's single point of translation to a status. A bare Kind, a wrapped
+// one, and an *Error all satisfy this, since each holds a Kind errors.As
+// reaches.
 func KindOf(err error) Kind {
-	for _, k := range []Kind{
-		NotFound, AlreadyExists, InvalidContent,
-		SignatureInvalid, Unauthenticated, Unavailable,
-	} {
-		if errors.Is(err, k) {
-			return k
-		}
+	var k Kind
+	if errors.As(err, &k) {
+		return k
 	}
 	return ""
 }
