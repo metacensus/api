@@ -5,7 +5,7 @@
 // source: metacensus/v1/prop.proto
 
 /* eslint-disable */
-import type { UserSignature } from "./common.js";
+import type { InstitutionalSignature, UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -25,7 +25,14 @@ export interface PropSigned {
    */
   recorded?: string | undefined;
   content?: Prop | undefined;
-  userSignature?: UserSignature | undefined;
+  userSignature?:
+    | UserSignature
+    | undefined;
+  /**
+   * The institution's countersignature over user_signature.value; see
+   * UserSigned.
+   */
+  institutionalSignature?: InstitutionalSignature | undefined;
 }
 
 /**
@@ -62,7 +69,14 @@ export interface VoteSigned {
    */
   recorded?: string | undefined;
   content?: Vote | undefined;
-  userSignature?: UserSignature | undefined;
+  userSignature?:
+    | UserSignature
+    | undefined;
+  /**
+   * The institution's countersignature over user_signature.value; see
+   * UserSigned. VoteSigned mints no id, so this is 4, not 5.
+   */
+  institutionalSignature?: InstitutionalSignature | undefined;
 }
 
 /**

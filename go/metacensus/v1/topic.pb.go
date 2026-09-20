@@ -35,8 +35,11 @@ type TopicSigned struct {
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
 	Content       *Topic                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// The institution's countersignature over user_signature.value; see
+	// UserSigned.
+	InstitutionalSignature *InstitutionalSignature `protobuf:"bytes,5,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *TopicSigned) Reset() {
@@ -93,6 +96,13 @@ func (x *TopicSigned) GetContent() *Topic {
 func (x *TopicSigned) GetUserSignature() *UserSignature {
 	if x != nil {
 		return x.UserSignature
+	}
+	return nil
+}
+
+func (x *TopicSigned) GetInstitutionalSignature() *InstitutionalSignature {
+	if x != nil {
+		return x.InstitutionalSignature
 	}
 	return nil
 }
@@ -526,12 +536,13 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xd0\x01\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xb0\x02\n" +
 	"\vTopicSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12.\n" +
 	"\acontent\x18\x03 \x01(\v2\x14.metacensus.v1.TopicR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"=\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\x12^\n" +
+	"\x17institutional_signature\x18\x05 \x01(\v2%.metacensus.v1.InstitutionalSignatureR\x16institutionalSignatureJ\x04\b\x06\x10\a\"=\n" +
 	"\x05Topic\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x12\n" +
@@ -576,43 +587,45 @@ func file_metacensus_v1_topic_proto_rawDescGZIP() []byte {
 
 var file_metacensus_v1_topic_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_metacensus_v1_topic_proto_goTypes = []any{
-	(*TopicSigned)(nil),           // 0: metacensus.v1.TopicSigned
-	(*Topic)(nil),                 // 1: metacensus.v1.Topic
-	(*TopicListRequest)(nil),      // 2: metacensus.v1.TopicListRequest
-	(*TopicList)(nil),             // 3: metacensus.v1.TopicList
-	(*TopicGetRequest)(nil),       // 4: metacensus.v1.TopicGetRequest
-	(*TopicCreateRequest)(nil),    // 5: metacensus.v1.TopicCreateRequest
-	(*Member)(nil),                // 6: metacensus.v1.Member
-	(*MemberListRequest)(nil),     // 7: metacensus.v1.MemberListRequest
-	(*MemberList)(nil),            // 8: metacensus.v1.MemberList
-	(*MemberGetRequest)(nil),      // 9: metacensus.v1.MemberGetRequest
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
-	(*UserSignature)(nil),         // 11: metacensus.v1.UserSignature
+	(*TopicSigned)(nil),            // 0: metacensus.v1.TopicSigned
+	(*Topic)(nil),                  // 1: metacensus.v1.Topic
+	(*TopicListRequest)(nil),       // 2: metacensus.v1.TopicListRequest
+	(*TopicList)(nil),              // 3: metacensus.v1.TopicList
+	(*TopicGetRequest)(nil),        // 4: metacensus.v1.TopicGetRequest
+	(*TopicCreateRequest)(nil),     // 5: metacensus.v1.TopicCreateRequest
+	(*Member)(nil),                 // 6: metacensus.v1.Member
+	(*MemberListRequest)(nil),      // 7: metacensus.v1.MemberListRequest
+	(*MemberList)(nil),             // 8: metacensus.v1.MemberList
+	(*MemberGetRequest)(nil),       // 9: metacensus.v1.MemberGetRequest
+	(*timestamppb.Timestamp)(nil),  // 10: google.protobuf.Timestamp
+	(*UserSignature)(nil),          // 11: metacensus.v1.UserSignature
+	(*InstitutionalSignature)(nil), // 12: metacensus.v1.InstitutionalSignature
 }
 var file_metacensus_v1_topic_proto_depIdxs = []int32{
 	10, // 0: metacensus.v1.TopicSigned.recorded:type_name -> google.protobuf.Timestamp
 	1,  // 1: metacensus.v1.TopicSigned.content:type_name -> metacensus.v1.Topic
 	11, // 2: metacensus.v1.TopicSigned.user_signature:type_name -> metacensus.v1.UserSignature
-	0,  // 3: metacensus.v1.TopicList.items:type_name -> metacensus.v1.TopicSigned
-	1,  // 4: metacensus.v1.TopicCreateRequest.content:type_name -> metacensus.v1.Topic
-	11, // 5: metacensus.v1.TopicCreateRequest.user_signature:type_name -> metacensus.v1.UserSignature
-	10, // 6: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
-	6,  // 7: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
-	2,  // 8: metacensus.v1.TopicRoutes.ListTopics:input_type -> metacensus.v1.TopicListRequest
-	4,  // 9: metacensus.v1.TopicRoutes.GetTopic:input_type -> metacensus.v1.TopicGetRequest
-	5,  // 10: metacensus.v1.TopicRoutes.CreateTopic:input_type -> metacensus.v1.TopicCreateRequest
-	7,  // 11: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.MemberListRequest
-	9,  // 12: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.MemberGetRequest
-	3,  // 13: metacensus.v1.TopicRoutes.ListTopics:output_type -> metacensus.v1.TopicList
-	0,  // 14: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.TopicSigned
-	0,  // 15: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.TopicSigned
-	8,  // 16: metacensus.v1.TopicRoutes.ListMembers:output_type -> metacensus.v1.MemberList
-	6,  // 17: metacensus.v1.TopicRoutes.GetMember:output_type -> metacensus.v1.Member
-	13, // [13:18] is the sub-list for method output_type
-	8,  // [8:13] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	12, // 3: metacensus.v1.TopicSigned.institutional_signature:type_name -> metacensus.v1.InstitutionalSignature
+	0,  // 4: metacensus.v1.TopicList.items:type_name -> metacensus.v1.TopicSigned
+	1,  // 5: metacensus.v1.TopicCreateRequest.content:type_name -> metacensus.v1.Topic
+	11, // 6: metacensus.v1.TopicCreateRequest.user_signature:type_name -> metacensus.v1.UserSignature
+	10, // 7: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
+	6,  // 8: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
+	2,  // 9: metacensus.v1.TopicRoutes.ListTopics:input_type -> metacensus.v1.TopicListRequest
+	4,  // 10: metacensus.v1.TopicRoutes.GetTopic:input_type -> metacensus.v1.TopicGetRequest
+	5,  // 11: metacensus.v1.TopicRoutes.CreateTopic:input_type -> metacensus.v1.TopicCreateRequest
+	7,  // 12: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.MemberListRequest
+	9,  // 13: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.MemberGetRequest
+	3,  // 14: metacensus.v1.TopicRoutes.ListTopics:output_type -> metacensus.v1.TopicList
+	0,  // 15: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.TopicSigned
+	0,  // 16: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.TopicSigned
+	8,  // 17: metacensus.v1.TopicRoutes.ListMembers:output_type -> metacensus.v1.MemberList
+	6,  // 18: metacensus.v1.TopicRoutes.GetMember:output_type -> metacensus.v1.Member
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_topic_proto_init() }
