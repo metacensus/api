@@ -6,9 +6,9 @@
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse } from "./metacensus/v1/common.js";
-import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, Vote, VoteList, VoteListRequest, VoteSetRequest } from "./metacensus/v1/prop.js";
-import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest } from "./metacensus/v1/topic.js";
-import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "./metacensus/v1/user.js";
+import type { PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
+import type { Member, MemberGetRequest, MemberList, MemberListRequest, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
+import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
 
 // The same literal as route-manifest.ts's apiPrefix, re-emitted rather than
 // imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
@@ -57,8 +57,8 @@ export class ApiError extends Error {
   }
 }
 
-// Client calls the authenticated API: every route under /metacensus/api/v1.
-export class Client {
+// ClientSigned calls the authenticated API: every route under /metacensus/api/v1.
+export class ClientSigned {
   // Defaults to this surface's own apiPrefix, but can be overridden so a
   // test harness can mount the same routes elsewhere.
   constructor(
@@ -104,12 +104,12 @@ export class Client {
   }
 
   // PropRoutes.GetProp: GET /topic/{topicId}/prop/{propId}
-  getProp(req: PropGetRequest): Promise<Prop> {
+  getProp(req: PropGetRequest): Promise<PropSigned> {
     return this.call("GET", `/topic/${param(req.topicId)}/prop/${param(req.propId)}`, undefined);
   }
 
   // PropRoutes.CreateProp: POST /topic/{topicId}/prop
-  createProp(req: PropCreateRequest): Promise<Prop> {
+  createProp(req: PropCreateRequest): Promise<PropSigned> {
     const { topicId, ...body } = req;
     return this.call("POST", `/topic/${param(topicId)}/prop`, JSON.stringify(body));
   }
@@ -120,7 +120,7 @@ export class Client {
   }
 
   // PropRoutes.SetVote: POST /topic/{topicId}/prop/{propId}/vote
-  setVote(req: VoteSetRequest): Promise<Vote> {
+  setVote(req: VoteSetRequest): Promise<VoteSigned> {
     const { topicId, propId, ...body } = req;
     return this.call("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify(body));
   }
@@ -131,12 +131,12 @@ export class Client {
   }
 
   // TopicRoutes.GetTopic: GET /topic/{topicId}
-  getTopic(req: TopicGetRequest): Promise<Topic> {
+  getTopic(req: TopicGetRequest): Promise<TopicSigned> {
     return this.call("GET", `/topic/${param(req.topicId)}`, undefined);
   }
 
   // TopicRoutes.CreateTopic: POST /topic
-  createTopic(req: TopicCreateRequest): Promise<Topic> {
+  createTopic(req: TopicCreateRequest): Promise<TopicSigned> {
     const body = req;
     return this.call("POST", "/topic", JSON.stringify(body));
   }
@@ -157,12 +157,12 @@ export class Client {
   }
 
   // UserRoutes.GetUser: GET /user/{userId}
-  getUser(req: UserGetRequest): Promise<User> {
+  getUser(req: UserGetRequest): Promise<UserSigned> {
     return this.call("GET", `/user/${param(req.userId)}`, undefined);
   }
 
   // UserRoutes.GetSelf: GET /self
-  getSelf(req: SelfGetRequest): Promise<User> {
+  getSelf(req: SelfGetRequest): Promise<UserSigned> {
     return this.call("GET", "/self", undefined);
   }
 }

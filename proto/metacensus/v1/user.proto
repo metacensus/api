@@ -14,18 +14,18 @@ service UserRoutes {
     option (google.api.http) = {get: "/user"};
   }
 
-  rpc GetUser(UserGetRequest) returns (User) {
+  rpc GetUser(UserGetRequest) returns (UserSigned) {
     option (google.api.http) = {get: "/user/{user_id}"};
   }
 
-  rpc GetSelf(SelfGetRequest) returns (User) {
+  rpc GetSelf(SelfGetRequest) returns (UserSigned) {
     option (google.api.http) = {get: "/self"};
   }
 }
 
 // A signed record. Also the key directory: reading a user's enrolling
 // `user_signature.public_key` is how a verifier resolves a `key_id`.
-message User {
+message UserSigned {
   // Minted by the server, outside the signature.
   string id = 1;
 
@@ -33,7 +33,7 @@ message User {
   // claim.
   google.protobuf.Timestamp recorded = 2;
 
-  UserContent content = 3;
+  User content = 3;
 
   UserSignature user_signature = 4;
 
@@ -46,7 +46,7 @@ message User {
 message UserListRequest {}
 
 message UserList {
-  repeated User items = 1;
+  repeated UserSigned items = 1;
 }
 
 message UserGetRequest {

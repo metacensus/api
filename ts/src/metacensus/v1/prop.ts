@@ -16,7 +16,7 @@ export const protobufPackage = "metacensus.v1";
  * `created` were removed: they're `user_signature.signer_id` and
  * `.signing_time` now.
  */
-export interface Prop {
+export interface PropSigned {
   /** Minted by the server, outside the signature. */
   id: string;
   /**
@@ -24,7 +24,7 @@ export interface Prop {
    * claim.
    */
   recorded?: string | undefined;
-  content?: PropContent | undefined;
+  content?: Prop | undefined;
   userSignature?: UserSignature | undefined;
 }
 
@@ -32,15 +32,15 @@ export interface Prop {
  * What a prop's author signs; carries `topic_id` but not the prop's own
  * server-minted id.
  */
-export interface PropContent {
+export interface Prop {
   topicId: string;
-  type: PropContent_Type;
+  type: Prop_Type;
   /** The text `VoteContent.citations` indexes into. */
   description: string;
 }
 
 /** What the proposition would do if it passed. */
-export enum PropContent_Type {
+export enum Prop_Type {
   Unspecified = "Unspecified",
   Statement = "Statement",
   TopicQuestion = "TopicQuestion",
@@ -55,13 +55,13 @@ export enum PropContent_Type {
  * One member's position on one prop, keyed by `(propId, userId)`; a second
  * vote from the same user replaces the first rather than adding to it.
  */
-export interface Vote {
+export interface VoteSigned {
   /**
    * Server's observation, and the only ordering a reader may use —
    * `user_signature.signing_time` is the voter's own claim.
    */
   recorded?: string | undefined;
-  content?: VoteContent | undefined;
+  content?: Vote | undefined;
   userSignature?: UserSignature | undefined;
 }
 
@@ -70,11 +70,11 @@ export interface Vote {
  * design; persistence owes refusing the two when they disagree (see
  * README.md, "Open questions").
  */
-export interface VoteContent {
+export interface Vote {
   topicId: string;
   propId: string;
   userId: string;
-  position: VoteContent_Position;
+  position: Vote_Position;
   explanation: string;
   /**
    * Highlighted spans of the prop's `description`; meaningful only for
@@ -83,7 +83,7 @@ export interface VoteContent {
   citations: PropCitation[];
 }
 
-export enum VoteContent_Position {
+export enum Vote_Position {
   Unspecified = "Unspecified",
   For = "For",
   Against = "Against",
@@ -101,7 +101,7 @@ export interface PropListRequest {
 }
 
 export interface PropList {
-  items: Prop[];
+  items: PropSigned[];
 }
 
 export interface PropGetRequest {
@@ -115,7 +115,7 @@ export interface PropGetRequest {
  */
 export interface PropCreateRequest {
   topicId: string;
-  content?: PropContent | undefined;
+  content?: Prop | undefined;
   userSignature?: UserSignature | undefined;
 }
 
@@ -126,7 +126,7 @@ export interface VoteListRequest {
 
 /** The only way to read a prop's votes. */
 export interface VoteList {
-  items: Vote[];
+  items: VoteSigned[];
 }
 
 /**
@@ -136,6 +136,6 @@ export interface VoteList {
 export interface VoteSetRequest {
   topicId: string;
   propId: string;
-  content?: VoteContent | undefined;
+  content?: Vote | undefined;
   userSignature?: UserSignature | undefined;
 }

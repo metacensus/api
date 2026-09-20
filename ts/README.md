@@ -15,16 +15,20 @@ npm install @metacensus/api
 ```
 
 ```ts
-import type { Topic, PropCreateRequest } from "@metacensus/api";
-import { routes, Client, ApiError, type Transport } from "@metacensus/api";
+import type { TopicSigned, PropCreateRequest } from "@metacensus/api";
+import { routes, ClientSigned, ApiError, type Transport } from "@metacensus/api";
 
 const transport: Transport = async ({ method, path, body }) => {
   const r = await fetch(baseUrl + path, { method, body });
   return { status: r.status, body: await r.text() };
 };
-const api = new Client(transport);
-const topic = await api.getTopic({ topicId });
+const api = new ClientSigned(transport);
+const topic = await api.getTopic({ topicId }); // TopicSigned
 ```
+
+`ClientSigned` returns the `…Signed` envelopes (`getTopic` → `TopicSigned`,
+wrapping the plain `Topic` it carries in `content`); the name `Client` is
+reserved for a sugar client returning the domain objects, not built yet.
 
 `path` is absolute and already carries `/metacensus/api/v1`, every segment
 percent-encoded; prepend only an origin. `body`, when present, is the exact
@@ -67,7 +71,7 @@ per surface because a consumer of only the public surface should not acquire the
 authenticated types. `@metacensus/api/signing` is a third, splitting by concern
 rather than by surface — nothing on the public surface is ever signed.
 `PublicClient` sends no credentials of its own; pass it a separate transport
-from the one you pass `Client`.
+from the one you pass `ClientSigned`.
 
 `ApiError` is the same class from either entry point, so `instanceof ApiError`
 holds for a failure from either surface. Importing it twice is harmless.
@@ -106,7 +110,7 @@ const userSignature = {
   publicKey: "", // inline only on sign-up, which is what enrols the key
   signingTime: new Date().toISOString(),
   spec: SPEC,
-  contentType: "metacensus.v1.TopicContent",
+  contentType: "metacensus.v1.Topic",
   value: "",
 };
 userSignature.value = await sign(privateKey, content, userSignature);

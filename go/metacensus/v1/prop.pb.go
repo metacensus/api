@@ -26,22 +26,22 @@ const (
 )
 
 // What the proposition would do if it passed.
-type PropContent_Type int32
+type Prop_Type int32
 
 const (
-	PropContent_Unspecified              PropContent_Type = 0
-	PropContent_Statement                PropContent_Type = 1
-	PropContent_TopicQuestion            PropContent_Type = 2
-	PropContent_TopicChange              PropContent_Type = 3
-	PropContent_UserAdmit                PropContent_Type = 4
-	PropContent_UserExpulse              PropContent_Type = 5
-	PropContent_PaperExtractionComplete  PropContent_Type = 6
-	PropContent_PaperIncludeMetaAnalysis PropContent_Type = 7
+	Prop_Unspecified              Prop_Type = 0
+	Prop_Statement                Prop_Type = 1
+	Prop_TopicQuestion            Prop_Type = 2
+	Prop_TopicChange              Prop_Type = 3
+	Prop_UserAdmit                Prop_Type = 4
+	Prop_UserExpulse              Prop_Type = 5
+	Prop_PaperExtractionComplete  Prop_Type = 6
+	Prop_PaperIncludeMetaAnalysis Prop_Type = 7
 )
 
-// Enum value maps for PropContent_Type.
+// Enum value maps for Prop_Type.
 var (
-	PropContent_Type_name = map[int32]string{
+	Prop_Type_name = map[int32]string{
 		0: "Unspecified",
 		1: "Statement",
 		2: "TopicQuestion",
@@ -51,7 +51,7 @@ var (
 		6: "PaperExtractionComplete",
 		7: "PaperIncludeMetaAnalysis",
 	}
-	PropContent_Type_value = map[string]int32{
+	Prop_Type_value = map[string]int32{
 		"Unspecified":              0,
 		"Statement":                1,
 		"TopicQuestion":            2,
@@ -63,51 +63,51 @@ var (
 	}
 )
 
-func (x PropContent_Type) Enum() *PropContent_Type {
-	p := new(PropContent_Type)
+func (x Prop_Type) Enum() *Prop_Type {
+	p := new(Prop_Type)
 	*p = x
 	return p
 }
 
-func (x PropContent_Type) String() string {
+func (x Prop_Type) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (PropContent_Type) Descriptor() protoreflect.EnumDescriptor {
+func (Prop_Type) Descriptor() protoreflect.EnumDescriptor {
 	return file_metacensus_v1_prop_proto_enumTypes[0].Descriptor()
 }
 
-func (PropContent_Type) Type() protoreflect.EnumType {
+func (Prop_Type) Type() protoreflect.EnumType {
 	return &file_metacensus_v1_prop_proto_enumTypes[0]
 }
 
-func (x PropContent_Type) Number() protoreflect.EnumNumber {
+func (x Prop_Type) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use PropContent_Type.Descriptor instead.
-func (PropContent_Type) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Prop_Type.Descriptor instead.
+func (Prop_Type) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1, 0}
 }
 
-type VoteContent_Position int32
+type Vote_Position int32
 
 const (
-	VoteContent_Unspecified VoteContent_Position = 0
-	VoteContent_For         VoteContent_Position = 1
-	VoteContent_Against     VoteContent_Position = 2
-	VoteContent_Abstain     VoteContent_Position = 3
+	Vote_Unspecified Vote_Position = 0
+	Vote_For         Vote_Position = 1
+	Vote_Against     Vote_Position = 2
+	Vote_Abstain     Vote_Position = 3
 )
 
-// Enum value maps for VoteContent_Position.
+// Enum value maps for Vote_Position.
 var (
-	VoteContent_Position_name = map[int32]string{
+	Vote_Position_name = map[int32]string{
 		0: "Unspecified",
 		1: "For",
 		2: "Against",
 		3: "Abstain",
 	}
-	VoteContent_Position_value = map[string]int32{
+	Vote_Position_value = map[string]int32{
 		"Unspecified": 0,
 		"For":         1,
 		"Against":     2,
@@ -115,52 +115,122 @@ var (
 	}
 )
 
-func (x VoteContent_Position) Enum() *VoteContent_Position {
-	p := new(VoteContent_Position)
+func (x Vote_Position) Enum() *Vote_Position {
+	p := new(Vote_Position)
 	*p = x
 	return p
 }
 
-func (x VoteContent_Position) String() string {
+func (x Vote_Position) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (VoteContent_Position) Descriptor() protoreflect.EnumDescriptor {
+func (Vote_Position) Descriptor() protoreflect.EnumDescriptor {
 	return file_metacensus_v1_prop_proto_enumTypes[1].Descriptor()
 }
 
-func (VoteContent_Position) Type() protoreflect.EnumType {
+func (Vote_Position) Type() protoreflect.EnumType {
 	return &file_metacensus_v1_prop_proto_enumTypes[1]
 }
 
-func (x VoteContent_Position) Number() protoreflect.EnumNumber {
+func (x Vote_Position) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use VoteContent_Position.Descriptor instead.
-func (VoteContent_Position) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use Vote_Position.Descriptor instead.
+func (Vote_Position) EnumDescriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3, 0}
 }
 
 // A motion a topic's members vote on, as a signed record. `author_id` and
 // `created` were removed: they're `user_signature.signer_id` and
 // `.signing_time` now.
-type Prop struct {
+type PropSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Minted by the server, outside the signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Server's observation; see UserSignature.signing_time for the author's
 	// claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *PropContent           `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *Prop                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PropSigned) Reset() {
+	*x = PropSigned{}
+	mi := &file_metacensus_v1_prop_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PropSigned) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PropSigned) ProtoMessage() {}
+
+func (x *PropSigned) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_prop_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PropSigned.ProtoReflect.Descriptor instead.
+func (*PropSigned) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PropSigned) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PropSigned) GetRecorded() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Recorded
+	}
+	return nil
+}
+
+func (x *PropSigned) GetContent() *Prop {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *PropSigned) GetUserSignature() *UserSignature {
+	if x != nil {
+		return x.UserSignature
+	}
+	return nil
+}
+
+// What a prop's author signs; carries `topic_id` but not the prop's own
+// server-minted id.
+type Prop struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	TopicId string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	Type    Prop_Type              `protobuf:"varint,2,opt,name=type,proto3,enum=metacensus.v1.Prop_Type" json:"type,omitempty"`
+	// The text `VoteContent.citations` indexes into.
+	Description   string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Prop) Reset() {
 	*x = Prop{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[0]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -172,7 +242,7 @@ func (x *Prop) String() string {
 func (*Prop) ProtoMessage() {}
 
 func (x *Prop) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[0]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -185,64 +255,58 @@ func (x *Prop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Prop.ProtoReflect.Descriptor instead.
 func (*Prop) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{0}
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Prop) GetId() string {
+func (x *Prop) GetTopicId() string {
 	if x != nil {
-		return x.Id
+		return x.TopicId
 	}
 	return ""
 }
 
-func (x *Prop) GetRecorded() *timestamppb.Timestamp {
+func (x *Prop) GetType() Prop_Type {
 	if x != nil {
-		return x.Recorded
+		return x.Type
 	}
-	return nil
+	return Prop_Unspecified
 }
 
-func (x *Prop) GetContent() *PropContent {
+func (x *Prop) GetDescription() string {
 	if x != nil {
-		return x.Content
+		return x.Description
 	}
-	return nil
+	return ""
 }
 
-func (x *Prop) GetUserSignature() *UserSignature {
-	if x != nil {
-		return x.UserSignature
-	}
-	return nil
-}
-
-// What a prop's author signs; carries `topic_id` but not the prop's own
-// server-minted id.
-type PropContent struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	TopicId string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	Type    PropContent_Type       `protobuf:"varint,2,opt,name=type,proto3,enum=metacensus.v1.PropContent_Type" json:"type,omitempty"`
-	// The text `VoteContent.citations` indexes into.
-	Description   string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+// One member's position on one prop, keyed by `(propId, userId)`; a second
+// vote from the same user replaces the first rather than adding to it.
+type VoteSigned struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server's observation, and the only ordering a reader may use —
+	// `user_signature.signing_time` is the voter's own claim.
+	Recorded      *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content       *Vote                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PropContent) Reset() {
-	*x = PropContent{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
+func (x *VoteSigned) Reset() {
+	*x = VoteSigned{}
+	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PropContent) String() string {
+func (x *VoteSigned) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PropContent) ProtoMessage() {}
+func (*VoteSigned) ProtoMessage() {}
 
-func (x *PropContent) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[1]
+func (x *VoteSigned) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,48 +317,52 @@ func (x *PropContent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PropContent.ProtoReflect.Descriptor instead.
-func (*PropContent) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use VoteSigned.ProtoReflect.Descriptor instead.
+func (*VoteSigned) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *PropContent) GetTopicId() string {
+func (x *VoteSigned) GetRecorded() *timestamppb.Timestamp {
 	if x != nil {
-		return x.TopicId
+		return x.Recorded
 	}
-	return ""
+	return nil
 }
 
-func (x *PropContent) GetType() PropContent_Type {
+func (x *VoteSigned) GetContent() *Vote {
 	if x != nil {
-		return x.Type
+		return x.Content
 	}
-	return PropContent_Unspecified
+	return nil
 }
 
-func (x *PropContent) GetDescription() string {
+func (x *VoteSigned) GetUserSignature() *UserSignature {
 	if x != nil {
-		return x.Description
+		return x.UserSignature
 	}
-	return ""
+	return nil
 }
 
-// One member's position on one prop, keyed by `(propId, userId)`; a second
-// vote from the same user replaces the first rather than adding to it.
+// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
+// design; persistence owes refusing the two when they disagree (see
+// README.md, "Open questions").
 type Vote struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Server's observation, and the only ordering a reader may use —
-	// `user_signature.signing_time` is the voter's own claim.
-	Recorded      *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *VoteContent           `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TopicId     string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	PropId      string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
+	UserId      string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Position    Vote_Position          `protobuf:"varint,4,opt,name=position,proto3,enum=metacensus.v1.Vote_Position" json:"position,omitempty"`
+	Explanation string                 `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`
+	// Highlighted spans of the prop's `description`; meaningful only for
+	// `Against`, cleared otherwise.
+	Citations     []*PropCitation `protobuf:"bytes,6,rep,name=citations,proto3" json:"citations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Vote) Reset() {
 	*x = Vote{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -306,7 +374,7 @@ func (x *Vote) String() string {
 func (*Vote) ProtoMessage() {}
 
 func (x *Vote) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[2]
+	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -319,113 +387,45 @@ func (x *Vote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vote.ProtoReflect.Descriptor instead.
 func (*Vote) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Vote) GetRecorded() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Recorded
-	}
-	return nil
-}
-
-func (x *Vote) GetContent() *VoteContent {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *Vote) GetUserSignature() *UserSignature {
-	if x != nil {
-		return x.UserSignature
-	}
-	return nil
-}
-
-// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
-// design; persistence owes refusing the two when they disagree (see
-// README.md, "Open questions").
-type VoteContent struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	TopicId     string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	PropId      string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
-	UserId      string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Position    VoteContent_Position   `protobuf:"varint,4,opt,name=position,proto3,enum=metacensus.v1.VoteContent_Position" json:"position,omitempty"`
-	Explanation string                 `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`
-	// Highlighted spans of the prop's `description`; meaningful only for
-	// `Against`, cleared otherwise.
-	Citations     []*PropCitation `protobuf:"bytes,6,rep,name=citations,proto3" json:"citations,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VoteContent) Reset() {
-	*x = VoteContent{}
-	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VoteContent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VoteContent) ProtoMessage() {}
-
-func (x *VoteContent) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_prop_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VoteContent.ProtoReflect.Descriptor instead.
-func (*VoteContent) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *VoteContent) GetTopicId() string {
+func (x *Vote) GetTopicId() string {
 	if x != nil {
 		return x.TopicId
 	}
 	return ""
 }
 
-func (x *VoteContent) GetPropId() string {
+func (x *Vote) GetPropId() string {
 	if x != nil {
 		return x.PropId
 	}
 	return ""
 }
 
-func (x *VoteContent) GetUserId() string {
+func (x *Vote) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *VoteContent) GetPosition() VoteContent_Position {
+func (x *Vote) GetPosition() Vote_Position {
 	if x != nil {
 		return x.Position
 	}
-	return VoteContent_Unspecified
+	return Vote_Unspecified
 }
 
-func (x *VoteContent) GetExplanation() string {
+func (x *Vote) GetExplanation() string {
 	if x != nil {
 		return x.Explanation
 	}
 	return ""
 }
 
-func (x *VoteContent) GetCitations() []*PropCitation {
+func (x *Vote) GetCitations() []*PropCitation {
 	if x != nil {
 		return x.Citations
 	}
@@ -531,7 +531,7 @@ func (x *PropListRequest) GetTopicId() string {
 
 type PropList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Prop                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*PropSigned          `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -566,7 +566,7 @@ func (*PropList) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *PropList) GetItems() []*Prop {
+func (x *PropList) GetItems() []*PropSigned {
 	if x != nil {
 		return x.Items
 	}
@@ -630,7 +630,7 @@ func (x *PropGetRequest) GetPropId() string {
 type PropCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	Content       *PropContent           `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *Prop                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -673,7 +673,7 @@ func (x *PropCreateRequest) GetTopicId() string {
 	return ""
 }
 
-func (x *PropCreateRequest) GetContent() *PropContent {
+func (x *PropCreateRequest) GetContent() *Prop {
 	if x != nil {
 		return x.Content
 	}
@@ -742,7 +742,7 @@ func (x *VoteListRequest) GetPropId() string {
 // The only way to read a prop's votes.
 type VoteList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Vote                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*VoteSigned          `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -777,7 +777,7 @@ func (*VoteList) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_prop_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *VoteList) GetItems() []*Vote {
+func (x *VoteList) GetItems() []*VoteSigned {
 	if x != nil {
 		return x.Items
 	}
@@ -790,7 +790,7 @@ type VoteSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	PropId        string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
-	Content       *VoteContent           `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *Vote                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -840,7 +840,7 @@ func (x *VoteSetRequest) GetPropId() string {
 	return ""
 }
 
-func (x *VoteSetRequest) GetContent() *VoteContent {
+func (x *VoteSetRequest) GetContent() *Vote {
 	if x != nil {
 		return x.Content
 	}
@@ -858,15 +858,16 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcf\x01\n" +
-	"\x04Prop\x12\x0e\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xce\x01\n" +
+	"\n" +
+	"PropSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
-	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
-	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.PropContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\xa7\x02\n" +
-	"\vPropContent\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\x123\n" +
-	"\x04type\x18\x02 \x01(\x0e2\x1f.metacensus.v1.PropContent.TypeR\x04type\x12 \n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12C\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\x99\x02\n" +
+	"\x04Prop\x12\x19\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12,\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x18.metacensus.v1.Prop.TypeR\x04type\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\"\xa5\x01\n" +
 	"\x04Type\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\r\n" +
@@ -876,16 +877,17 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\tUserAdmit\x10\x04\x12\x0f\n" +
 	"\vUserExpulse\x10\x05\x12\x1b\n" +
 	"\x17PaperExtractionComplete\x10\x06\x12\x1c\n" +
-	"\x18PaperIncludeMetaAnalysis\x10\a\"\xbf\x01\n" +
-	"\x04Vote\x126\n" +
-	"\brecorded\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
-	"\acontent\x18\x02 \x01(\v2\x1a.metacensus.v1.VoteContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x04\x10\x05\"\xb8\x02\n" +
-	"\vVoteContent\x12\x19\n" +
+	"\x18PaperIncludeMetaAnalysis\x10\a\"\xbe\x01\n" +
+	"\n" +
+	"VoteSigned\x126\n" +
+	"\brecorded\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
+	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12C\n" +
+	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x04\x10\x05\"\xaa\x02\n" +
+	"\x04Vote\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12\x17\n" +
-	"\auser_id\x18\x03 \x01(\tR\x06userId\x12?\n" +
-	"\bposition\x18\x04 \x01(\x0e2#.metacensus.v1.VoteContent.PositionR\bposition\x12 \n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x128\n" +
+	"\bposition\x18\x04 \x01(\x0e2\x1c.metacensus.v1.Vote.PositionR\bposition\x12 \n" +
 	"\vexplanation\x18\x05 \x01(\tR\vexplanation\x129\n" +
 	"\tcitations\x18\x06 \x03(\v2\x1b.metacensus.v1.PropCitationR\tcitations\">\n" +
 	"\bPosition\x12\x0f\n" +
@@ -897,34 +899,34 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\x05start\x18\x01 \x01(\rR\x05start\x12\x10\n" +
 	"\x03end\x18\x02 \x01(\rR\x03end\",\n" +
 	"\x0fPropListRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"5\n" +
-	"\bPropList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.PropR\x05items\"D\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\";\n" +
+	"\bPropList\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.PropSignedR\x05items\"D\n" +
 	"\x0ePropGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\"\xa9\x01\n" +
+	"\aprop_id\x18\x02 \x01(\tR\x06propId\"\xa2\x01\n" +
 	"\x11PropCreateRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\x124\n" +
-	"\acontent\x18\x02 \x01(\v2\x1a.metacensus.v1.PropContentR\acontent\x12C\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12-\n" +
+	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12C\n" +
 	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"E\n" +
 	"\x0fVoteListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\"5\n" +
-	"\bVoteList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.VoteR\x05items\"\xbf\x01\n" +
+	"\aprop_id\x18\x02 \x01(\tR\x06propId\";\n" +
+	"\bVoteList\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.VoteSignedR\x05items\"\xb8\x01\n" +
 	"\x0eVoteSetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\x124\n" +
-	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.VoteContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature2\xa9\x04\n" +
+	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12-\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12C\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature2\xbb\x04\n" +
 	"\n" +
 	"PropRoutes\x12d\n" +
-	"\tListProps\x12\x1e.metacensus.v1.PropListRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12g\n" +
-	"\aGetProp\x12\x1d.metacensus.v1.PropGetRequest\x1a\x13.metacensus.v1.Prop\"(\x82\xd3\xe4\x93\x02\"\x12 /topic/{topic_id}/prop/{prop_id}\x12f\n" +
+	"\tListProps\x12\x1e.metacensus.v1.PropListRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12m\n" +
+	"\aGetProp\x12\x1d.metacensus.v1.PropGetRequest\x1a\x19.metacensus.v1.PropSigned\"(\x82\xd3\xe4\x93\x02\"\x12 /topic/{topic_id}/prop/{prop_id}\x12l\n" +
 	"\n" +
-	"CreateProp\x12 .metacensus.v1.PropCreateRequest\x1a\x13.metacensus.v1.Prop\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12s\n" +
-	"\tListVotes\x12\x1e.metacensus.v1.VoteListRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12o\n" +
-	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x13.metacensus.v1.Vote\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"CreateProp\x12 .metacensus.v1.PropCreateRequest\x1a\x19.metacensus.v1.PropSigned\"!\x82\xd3\xe4\x93\x02\x1b:\x01*\"\x16/topic/{topic_id}/prop\x12s\n" +
+	"\tListVotes\x12\x1e.metacensus.v1.VoteListRequest\x1a\x17.metacensus.v1.VoteList\"-\x82\xd3\xe4\x93\x02'\x12%/topic/{topic_id}/prop/{prop_id}/vote\x12u\n" +
+	"\aSetVote\x12\x1d.metacensus.v1.VoteSetRequest\x1a\x19.metacensus.v1.VoteSigned\"0\x82\xd3\xe4\x93\x02*:\x01*\"%/topic/{topic_id}/prop/{prop_id}/voteB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_prop_proto_rawDescOnce sync.Once
@@ -941,12 +943,12 @@ func file_metacensus_v1_prop_proto_rawDescGZIP() []byte {
 var file_metacensus_v1_prop_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_metacensus_v1_prop_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_metacensus_v1_prop_proto_goTypes = []any{
-	(PropContent_Type)(0),         // 0: metacensus.v1.PropContent.Type
-	(VoteContent_Position)(0),     // 1: metacensus.v1.VoteContent.Position
-	(*Prop)(nil),                  // 2: metacensus.v1.Prop
-	(*PropContent)(nil),           // 3: metacensus.v1.PropContent
-	(*Vote)(nil),                  // 4: metacensus.v1.Vote
-	(*VoteContent)(nil),           // 5: metacensus.v1.VoteContent
+	(Prop_Type)(0),                // 0: metacensus.v1.Prop.Type
+	(Vote_Position)(0),            // 1: metacensus.v1.Vote.Position
+	(*PropSigned)(nil),            // 2: metacensus.v1.PropSigned
+	(*Prop)(nil),                  // 3: metacensus.v1.Prop
+	(*VoteSigned)(nil),            // 4: metacensus.v1.VoteSigned
+	(*Vote)(nil),                  // 5: metacensus.v1.Vote
 	(*PropCitation)(nil),          // 6: metacensus.v1.PropCitation
 	(*PropListRequest)(nil),       // 7: metacensus.v1.PropListRequest
 	(*PropList)(nil),              // 8: metacensus.v1.PropList
@@ -959,20 +961,20 @@ var file_metacensus_v1_prop_proto_goTypes = []any{
 	(*UserSignature)(nil),         // 15: metacensus.v1.UserSignature
 }
 var file_metacensus_v1_prop_proto_depIdxs = []int32{
-	14, // 0: metacensus.v1.Prop.recorded:type_name -> google.protobuf.Timestamp
-	3,  // 1: metacensus.v1.Prop.content:type_name -> metacensus.v1.PropContent
-	15, // 2: metacensus.v1.Prop.user_signature:type_name -> metacensus.v1.UserSignature
-	0,  // 3: metacensus.v1.PropContent.type:type_name -> metacensus.v1.PropContent.Type
-	14, // 4: metacensus.v1.Vote.recorded:type_name -> google.protobuf.Timestamp
-	5,  // 5: metacensus.v1.Vote.content:type_name -> metacensus.v1.VoteContent
-	15, // 6: metacensus.v1.Vote.user_signature:type_name -> metacensus.v1.UserSignature
-	1,  // 7: metacensus.v1.VoteContent.position:type_name -> metacensus.v1.VoteContent.Position
-	6,  // 8: metacensus.v1.VoteContent.citations:type_name -> metacensus.v1.PropCitation
-	2,  // 9: metacensus.v1.PropList.items:type_name -> metacensus.v1.Prop
-	3,  // 10: metacensus.v1.PropCreateRequest.content:type_name -> metacensus.v1.PropContent
+	14, // 0: metacensus.v1.PropSigned.recorded:type_name -> google.protobuf.Timestamp
+	3,  // 1: metacensus.v1.PropSigned.content:type_name -> metacensus.v1.Prop
+	15, // 2: metacensus.v1.PropSigned.user_signature:type_name -> metacensus.v1.UserSignature
+	0,  // 3: metacensus.v1.Prop.type:type_name -> metacensus.v1.Prop.Type
+	14, // 4: metacensus.v1.VoteSigned.recorded:type_name -> google.protobuf.Timestamp
+	5,  // 5: metacensus.v1.VoteSigned.content:type_name -> metacensus.v1.Vote
+	15, // 6: metacensus.v1.VoteSigned.user_signature:type_name -> metacensus.v1.UserSignature
+	1,  // 7: metacensus.v1.Vote.position:type_name -> metacensus.v1.Vote.Position
+	6,  // 8: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
+	2,  // 9: metacensus.v1.PropList.items:type_name -> metacensus.v1.PropSigned
+	3,  // 10: metacensus.v1.PropCreateRequest.content:type_name -> metacensus.v1.Prop
 	15, // 11: metacensus.v1.PropCreateRequest.user_signature:type_name -> metacensus.v1.UserSignature
-	4,  // 12: metacensus.v1.VoteList.items:type_name -> metacensus.v1.Vote
-	5,  // 13: metacensus.v1.VoteSetRequest.content:type_name -> metacensus.v1.VoteContent
+	4,  // 12: metacensus.v1.VoteList.items:type_name -> metacensus.v1.VoteSigned
+	5,  // 13: metacensus.v1.VoteSetRequest.content:type_name -> metacensus.v1.Vote
 	15, // 14: metacensus.v1.VoteSetRequest.user_signature:type_name -> metacensus.v1.UserSignature
 	7,  // 15: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.PropListRequest
 	9,  // 16: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.PropGetRequest
@@ -980,10 +982,10 @@ var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	11, // 18: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.VoteListRequest
 	13, // 19: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.VoteSetRequest
 	8,  // 20: metacensus.v1.PropRoutes.ListProps:output_type -> metacensus.v1.PropList
-	2,  // 21: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.Prop
-	2,  // 22: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.Prop
+	2,  // 21: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.PropSigned
+	2,  // 22: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.PropSigned
 	12, // 23: metacensus.v1.PropRoutes.ListVotes:output_type -> metacensus.v1.VoteList
-	4,  // 24: metacensus.v1.PropRoutes.SetVote:output_type -> metacensus.v1.Vote
+	4,  // 24: metacensus.v1.PropRoutes.SetVote:output_type -> metacensus.v1.VoteSigned
 	20, // [20:25] is the sub-list for method output_type
 	15, // [15:20] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name

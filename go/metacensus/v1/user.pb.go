@@ -27,33 +27,33 @@ const (
 
 // A signed record. Also the key directory: reading a user's enrolling
 // `user_signature.public_key` is how a verifier resolves a `key_id`.
-type User struct {
+type UserSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Minted by the server, outside the signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Server's observation; see UserSignature.signing_time for the author's
 	// claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *UserContent           `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *User                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *User) Reset() {
-	*x = User{}
+func (x *UserSigned) Reset() {
+	*x = UserSigned{}
 	mi := &file_metacensus_v1_user_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *User) String() string {
+func (x *UserSigned) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*User) ProtoMessage() {}
+func (*UserSigned) ProtoMessage() {}
 
-func (x *User) ProtoReflect() protoreflect.Message {
+func (x *UserSigned) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_user_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -65,33 +65,33 @@ func (x *User) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use User.ProtoReflect.Descriptor instead.
-func (*User) Descriptor() ([]byte, []int) {
+// Deprecated: Use UserSigned.ProtoReflect.Descriptor instead.
+func (*UserSigned) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *User) GetId() string {
+func (x *UserSigned) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *User) GetRecorded() *timestamppb.Timestamp {
+func (x *UserSigned) GetRecorded() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Recorded
 	}
 	return nil
 }
 
-func (x *User) GetContent() *UserContent {
+func (x *UserSigned) GetContent() *User {
 	if x != nil {
 		return x.Content
 	}
 	return nil
 }
 
-func (x *User) GetUserSignature() *UserSignature {
+func (x *UserSigned) GetUserSignature() *UserSignature {
 	if x != nil {
 		return x.UserSignature
 	}
@@ -136,7 +136,7 @@ func (*UserListRequest) Descriptor() ([]byte, []int) {
 
 type UserList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*User                `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*UserSigned          `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -171,7 +171,7 @@ func (*UserList) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_user_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *UserList) GetItems() []*User {
+func (x *UserList) GetItems() []*UserSigned {
 	if x != nil {
 		return x.Items
 	}
@@ -263,23 +263,24 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xcf\x01\n" +
-	"\x04User\x12\x0e\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xce\x01\n" +
+	"\n" +
+	"UserSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
-	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x124\n" +
-	"\acontent\x18\x03 \x01(\v2\x1a.metacensus.v1.UserContentR\acontent\x12C\n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.UserR\acontent\x12C\n" +
 	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"\x11\n" +
-	"\x0fUserListRequest\"5\n" +
-	"\bUserList\x12)\n" +
-	"\x05items\x18\x01 \x03(\v2\x13.metacensus.v1.UserR\x05items\")\n" +
+	"\x0fUserListRequest\";\n" +
+	"\bUserList\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.UserSignedR\x05items\")\n" +
 	"\x0eUserGetRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x10\n" +
-	"\x0eSelfGetRequest2\x87\x02\n" +
+	"\x0eSelfGetRequest2\x93\x02\n" +
 	"\n" +
 	"UserRoutes\x12S\n" +
-	"\tListUsers\x12\x1e.metacensus.v1.UserListRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12V\n" +
-	"\aGetUser\x12\x1d.metacensus.v1.UserGetRequest\x1a\x13.metacensus.v1.User\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12L\n" +
-	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x13.metacensus.v1.User\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\tListUsers\x12\x1e.metacensus.v1.UserListRequest\x1a\x17.metacensus.v1.UserList\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/user\x12\\\n" +
+	"\aGetUser\x12\x1d.metacensus.v1.UserGetRequest\x1a\x19.metacensus.v1.UserSigned\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/user/{user_id}\x12R\n" +
+	"\aGetSelf\x12\x1d.metacensus.v1.SelfGetRequest\x1a\x19.metacensus.v1.UserSigned\"\r\x82\xd3\xe4\x93\x02\a\x12\x05/selfB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_user_proto_rawDescOnce sync.Once
@@ -295,26 +296,26 @@ func file_metacensus_v1_user_proto_rawDescGZIP() []byte {
 
 var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_user_proto_goTypes = []any{
-	(*User)(nil),                  // 0: metacensus.v1.User
+	(*UserSigned)(nil),            // 0: metacensus.v1.UserSigned
 	(*UserListRequest)(nil),       // 1: metacensus.v1.UserListRequest
 	(*UserList)(nil),              // 2: metacensus.v1.UserList
 	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
 	(*SelfGetRequest)(nil),        // 4: metacensus.v1.SelfGetRequest
 	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
-	(*UserContent)(nil),           // 6: metacensus.v1.UserContent
+	(*User)(nil),                  // 6: metacensus.v1.User
 	(*UserSignature)(nil),         // 7: metacensus.v1.UserSignature
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
-	5, // 0: metacensus.v1.User.recorded:type_name -> google.protobuf.Timestamp
-	6, // 1: metacensus.v1.User.content:type_name -> metacensus.v1.UserContent
-	7, // 2: metacensus.v1.User.user_signature:type_name -> metacensus.v1.UserSignature
-	0, // 3: metacensus.v1.UserList.items:type_name -> metacensus.v1.User
+	5, // 0: metacensus.v1.UserSigned.recorded:type_name -> google.protobuf.Timestamp
+	6, // 1: metacensus.v1.UserSigned.content:type_name -> metacensus.v1.User
+	7, // 2: metacensus.v1.UserSigned.user_signature:type_name -> metacensus.v1.UserSignature
+	0, // 3: metacensus.v1.UserList.items:type_name -> metacensus.v1.UserSigned
 	1, // 4: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
 	3, // 5: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
 	4, // 6: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
 	2, // 7: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
-	0, // 8: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.User
-	0, // 9: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.User
+	0, // 8: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.UserSigned
+	0, // 9: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.UserSigned
 	7, // [7:10] is the sub-list for method output_type
 	4, // [4:7] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name

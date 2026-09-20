@@ -37,7 +37,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { Client, ApiError } from "../dist/src/client.js";
+import { ClientSigned, ApiError } from "../dist/src/client.js";
 import {
   SPEC,
   canonicalize,
@@ -109,7 +109,7 @@ before(async () => {
   });
 
   const base = `http://${addr}`;
-  api = new Client(async (req) => {
+  api = new ClientSigned(async (req) => {
     sent.push(req);
     const r = await fetch(base + req.path, {
       method: req.method,
@@ -272,7 +272,7 @@ test("a signature TypeScript made verifies in Go", async () => {
     publicKey: await encodePublicKey(publicKey),
     signingTime: "2024-01-01T00:00:00Z",
     spec: SPEC,
-    contentType: "metacensus.v1.UserContent",
+    contentType: "metacensus.v1.User",
     value: "",
   };
   signature.value = await sign(privateKey, content, signature);
@@ -291,7 +291,7 @@ test("Go rejects a TypeScript signature over content that changed in flight", as
     publicKey: await encodePublicKey(publicKey),
     signingTime: "2024-01-01T00:00:00Z",
     spec: SPEC,
-    contentType: "metacensus.v1.UserContent",
+    contentType: "metacensus.v1.User",
     value: "",
   };
   signature.value = await sign(privateKey, content, signature);
@@ -324,7 +324,7 @@ test("Go rejects an enrolled key that is not the one keyId names", async () => {
     publicKey: await encodePublicKey(mine.publicKey),
     signingTime: "2024-01-01T00:00:00Z",
     spec: SPEC,
-    contentType: "metacensus.v1.UserContent",
+    contentType: "metacensus.v1.User",
     value: "",
   };
   signature.value = await sign(mine.privateKey, content, signature);
@@ -367,7 +367,7 @@ test("a signature survives the server decoding and re-encoding the document", as
     publicKey: "",
     signingTime: "2024-01-01T00:00:00Z",
     spec: SPEC,
-    contentType: "metacensus.v1.TopicContent",
+    contentType: "metacensus.v1.Topic",
     value: "",
   };
   signature.value = await sign(privateKey, content, signature);

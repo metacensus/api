@@ -5,7 +5,7 @@
 // source: metacensus/v1/user.proto
 
 /* eslint-disable */
-import type { UserContent, UserSignature } from "./common.js";
+import type { User, UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -15,7 +15,7 @@ export const protobufPackage = "metacensus.v1";
  * A signed record. Also the key directory: reading a user's enrolling
  * `user_signature.public_key` is how a verifier resolves a `key_id`.
  */
-export interface User {
+export interface UserSigned {
   /** Minted by the server, outside the signature. */
   id: string;
   /**
@@ -23,7 +23,7 @@ export interface User {
    * claim.
    */
   recorded?: string | undefined;
-  content?: UserContent | undefined;
+  content?: User | undefined;
   userSignature?: UserSignature | undefined;
 }
 
@@ -31,7 +31,7 @@ export interface UserListRequest {
 }
 
 export interface UserList {
-  items: User[];
+  items: UserSigned[];
 }
 
 export interface UserGetRequest {

@@ -82,7 +82,7 @@ func (x *LoginRequest) GetPassword() string {
 // matching private key at enrollment.
 type SignUpRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
-	Content *UserContent           `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Content *User                  `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	// Deliberately outside `content`: a password must never be inside a
 	// signed, stored document.
 	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
@@ -123,7 +123,7 @@ func (*SignUpRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SignUpRequest) GetContent() *UserContent {
+func (x *SignUpRequest) GetContent() *User {
 	if x != nil {
 		return x.Content
 	}
@@ -268,9 +268,9 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\x18metacensus/v1/auth.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1ametacensus/v1/common.proto\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"\xa6\x01\n" +
-	"\rSignUpRequest\x124\n" +
-	"\acontent\x18\x01 \x01(\v2\x1a.metacensus.v1.UserContentR\acontent\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"\x9f\x01\n" +
+	"\rSignUpRequest\x12-\n" +
+	"\acontent\x18\x01 \x01(\v2\x13.metacensus.v1.UserR\acontent\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12C\n" +
 	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"\x1f\n" +
 	"\aSession\x12\x14\n" +
@@ -302,11 +302,11 @@ var file_metacensus_v1_auth_proto_goTypes = []any{
 	(*Session)(nil),        // 2: metacensus.v1.Session
 	(*LogoutRequest)(nil),  // 3: metacensus.v1.LogoutRequest
 	(*LogoutResponse)(nil), // 4: metacensus.v1.LogoutResponse
-	(*UserContent)(nil),    // 5: metacensus.v1.UserContent
+	(*User)(nil),           // 5: metacensus.v1.User
 	(*UserSignature)(nil),  // 6: metacensus.v1.UserSignature
 }
 var file_metacensus_v1_auth_proto_depIdxs = []int32{
-	5, // 0: metacensus.v1.SignUpRequest.content:type_name -> metacensus.v1.UserContent
+	5, // 0: metacensus.v1.SignUpRequest.content:type_name -> metacensus.v1.User
 	6, // 1: metacensus.v1.SignUpRequest.user_signature:type_name -> metacensus.v1.UserSignature
 	0, // 2: metacensus.v1.AuthRoutes.Login:input_type -> metacensus.v1.LoginRequest
 	1, // 3: metacensus.v1.AuthRoutes.SignUp:input_type -> metacensus.v1.SignUpRequest

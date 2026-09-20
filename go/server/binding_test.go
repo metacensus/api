@@ -14,7 +14,7 @@ import (
 func TestBindQuery(t *testing.T) {
 	rt := &Runtime{}
 
-	// PropCitation has two uint32 fields; VoteContent an enum and a string.
+	// PropCitation has two uint32 fields; Vote an enum and a string.
 	cases := []struct {
 		name    string
 		query   string
@@ -32,8 +32,8 @@ func TestBindQuery(t *testing.T) {
 		{
 			name: "enum by name and string", query: "position=Against&explanation=why", allowed: []string{"position", "explanation"},
 			msg: func() (any, func() bool) {
-				m := &v1.VoteContent{}
-				return m, func() bool { return m.Position == v1.VoteContent_Against && m.Explanation == "why" }
+				m := &v1.Vote{}
+				return m, func() bool { return m.Position == v1.Vote_Against && m.Explanation == "why" }
 			},
 		},
 		{
@@ -43,7 +43,7 @@ func TestBindQuery(t *testing.T) {
 		},
 		{
 			name: "not allowed even if a field", query: "propId=x", allowed: []string{"position"},
-			msg:     func() (any, func() bool) { return &v1.VoteContent{}, nil },
+			msg:     func() (any, func() bool) { return &v1.Vote{}, nil },
 			wantErr: "query_unknown",
 		},
 		{
@@ -53,7 +53,7 @@ func TestBindQuery(t *testing.T) {
 		},
 		{
 			name: "bad enum", query: "position=Maybe", allowed: []string{"position"},
-			msg:     func() (any, func() bool) { return &v1.VoteContent{}, nil },
+			msg:     func() (any, func() bool) { return &v1.Vote{}, nil },
 			wantErr: "query_invalid",
 		},
 		{
@@ -90,7 +90,7 @@ func TestBindQueryAcceptsEitherSpelling(t *testing.T) {
 	rt := &Runtime{}
 
 	for _, q := range []string{"explanation=why", "explanation=why&position=Against"} {
-		m := &v1.VoteContent{}
+		m := &v1.Vote{}
 		r := httptest.NewRequest("GET", "/x?"+q, nil)
 		if err := rt.bindQuery(r, m, []string{"position", "explanation"}); err != nil {
 			t.Fatalf("%s: %v", q, err)
@@ -102,7 +102,7 @@ func TestBindQueryAcceptsEitherSpelling(t *testing.T) {
 
 	// propId's proto name is prop_id; both spellings name the same field.
 	for _, q := range []string{"propId=p1", "prop_id=p1"} {
-		m := &v1.VoteContent{}
+		m := &v1.Vote{}
 		r := httptest.NewRequest("GET", "/x?"+q, nil)
 		if err := rt.bindQuery(r, m, []string{"propId"}); err != nil {
 			t.Fatalf("%s: %v", q, err)
@@ -114,7 +114,7 @@ func TestBindQueryAcceptsEitherSpelling(t *testing.T) {
 
 	// Both spellings at once: one field, two names, and nothing to say which
 	// wins — so neither does.
-	m := &v1.VoteContent{}
+	m := &v1.Vote{}
 	r := httptest.NewRequest("GET", "/x?propId=a&prop_id=b", nil)
 	err := rt.bindQuery(r, m, []string{"propId"})
 	e, ok := err.(*Error)
@@ -126,7 +126,7 @@ func TestBindQueryAcceptsEitherSpelling(t *testing.T) {
 	// under either spelling.
 	for _, q := range []string{"propId=p1", "prop_id=p1"} {
 		r := httptest.NewRequest("GET", "/x?"+q, nil)
-		err := rt.bindQuery(r, &v1.VoteContent{}, []string{"position"})
+		err := rt.bindQuery(r, &v1.Vote{}, []string{"position"})
 		if e, ok := err.(*Error); !ok || e.Code != "query_unknown" {
 			t.Errorf("%s: err %v, want query_unknown", q, err)
 		}

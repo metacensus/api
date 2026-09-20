@@ -17,8 +17,13 @@ export { protobufPackage } from "./src/metacensus/v1/common.js";
 
 // Named, not `export *`: src/client.ts has one class per surface, and this
 // entry point wants only the authenticated one.
+//
+// `ClientSigned` returns the `…Signed` envelopes. The name `Client` is
+// deliberately freed for a sugar client — returning the plain domain objects
+// — added in follow-up work; until it lands, `@metacensus/api` exports no
+// `Client`.
 export {
-  Client,
+  ClientSigned,
   ApiError,
   type ClientRequest,
   type ClientResponse,
