@@ -5,33 +5,35 @@
 // source: metacensus/v1/user.proto
 
 /* eslint-disable */
-import type { InstitutionalSignature, User, UserSignature } from "./common.js";
+import type { Interpretation, Signature, User } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
 /** Users. Sign-up and login live in auth.proto. */
 
 /**
- * A signed record. Also the key directory: reading a user's enrolling
- * `user_signature.public_key` is how a verifier resolves a `key_id`.
+ * A signed record. Also the key directory: a user's enrolling key (carried on
+ * the SignUpRequest that created them) is how a verifier resolves a `key_id` to
+ * its trust anchor.
  */
 export interface UserSigned {
-  /** Minted by the server, outside the signature. */
+  /** Minted by the server, outside every signature. */
   id: string;
-  /**
-   * Server's observation; see UserSignature.signing_time for the author's
-   * claim.
-   */
+  /** Server's observation; see Signature.time for the author's claim. */
   recorded?: string | undefined;
-  content?: User | undefined;
-  userSignature?:
-    | UserSignature
+  content?:
+    | User
     | undefined;
-  /**
-   * The institution's countersignature over `user_signature.value`; see the
-   * InstitutionalSignature type.
-   */
-  institutionalSignature?: InstitutionalSignature | undefined;
+  /** How to read this record; sealed by both signatures below. */
+  interpretation?:
+    | Interpretation
+    | undefined;
+  /** The participant vouches for `content`. */
+  userSignature?:
+    | Signature
+    | undefined;
+  /** The institution vouches for `user_signature`; see the Signature type. */
+  institutionalSignature?: Signature | undefined;
 }
 
 export interface UserListRequest {

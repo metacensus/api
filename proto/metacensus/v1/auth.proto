@@ -9,8 +9,8 @@ import "metacensus/v1/common.proto";
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
 // Login and Logout carry no user signature — neither moves content a
-// participant could vouch for. See `unsignedWrites` in go/signing_test.go
-// for which writes are exempt and why.
+// participant could vouch for. See `unsignedWrites` in
+// go/contract/signing_test.go for which writes are exempt and why.
 service AuthRoutes {
   rpc Login(LoginRequest) returns (Session) {
     option (google.api.http) = {
@@ -39,8 +39,9 @@ message LoginRequest {
 
 // Creates an account and enrolls the signing key every later write is
 // signed with: trust on first use — nobody vouches for the key, the service
-// binds whatever it's handed, and the signature proves possession of the
-// matching private key at enrollment.
+// binds whatever it's handed, and the assertion proves possession of the
+// matching private key at enrollment. This is the one write whose key is not
+// resolved from persistence: no account, and so no key history, exists yet.
 message SignUpRequest {
   User content = 1;
 
@@ -48,9 +49,20 @@ message SignUpRequest {
   // signed, stored document.
   string password = 2;
 
-  // Over `content`, made with the key being enrolled. `signer_id` is empty
-  // (no id exists yet) and `public_key` carries the key inline.
-  UserSignature user_signature = 3;
+  // How the enrolling assertion is to be read; re-stamped onto the UserSigned.
+  Interpretation interpretation = 3;
+
+  // The public half of the key being enrolled: base64url SPKI DER. Carried
+  // here, on the one enrollment write, rather than on every Signature — a
+  // usually-empty key field on every record is a footgun (forge content, key
+  // and signature and it "verifies"). The store checks `user_signature.key_id`
+  // thumbprints this key before binding it. For a passkey this is the public
+  // key the navigator.credentials.create() ceremony yielded.
+  string public_key = 4;
+
+  // Over `content`, made with the key being enrolled; verified at sign-up
+  // against `public_key` (bound by key_id), not against a resolved key.
+  Signature user_signature = 5;
 }
 
 message Session {

@@ -30,14 +30,12 @@ func (h *Handlers) CreateTopic(ctx context.Context, req *v1.TopicCreateRequest) 
 	if cerr != nil {
 		return nil, cerr
 	}
-	if serr := requireSigner(id, req.GetUserSignature()); serr != nil {
-		return nil, serr
-	}
 	record := &v1.TopicSigned{
-		Id:            h.newID(),
-		Recorded:      timestamppb.New(h.now()),
-		Content:       req.GetContent(),
-		UserSignature: req.GetUserSignature(),
+		Id:             h.newID(),
+		Recorded:       timestamppb.New(h.now()),
+		Content:        req.GetContent(),
+		Interpretation: req.GetInterpretation(),
+		UserSignature:  req.GetUserSignature(),
 	}
 	if err := h.store.CreateTopic(ctx, id, record); err != nil {
 		return nil, mapErr(err)

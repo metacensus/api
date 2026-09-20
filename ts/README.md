@@ -55,38 +55,58 @@ The envelope isn't uniform, so the record isn't either:
 | a member — already flat | `Member`, unchanged / `Member[]` |
 
 When you need the signature itself — verifying authorship, comparing `recorded`
-against the signer's `signingTime`, or re-hashing the document — each
-signed-envelope read has a **`getXSigned`** twin that returns the raw envelope:
+against the signer's `time`, or re-checking the assertion — each signed-envelope
+read has a **`getXSigned`** twin that returns the raw envelope:
 
 ```ts
-const signed = await client.getTopicSigned({ topicId }); // TopicSigned: { id, recorded, content, userSignature }
-await verify(pub, signed.content, signed.userSignature);
+import { verifyUser, participantPolicy } from "@metacensus/api/signing";
+
+const signed = await client.getTopicSigned({ topicId }); // { id, recorded, content, interpretation, userSignature }
+const pub = await resolveEnrolledKey(signed.userSignature.keyId); // your key directory
+await verifyUser(pub, signed.content, signed.interpretation, signed.userSignature, participantPolicy(origin));
 ```
 
 `getXSigned` exists only where there's a signature to see; `Member` has none.
 
 ## Writes and the signer
 
-A write takes **flat content** — never the envelope — and the `signer` assembles
-the rest. The signer is set once on the constructor, because the key it signs
-with is identical for a session:
+A write takes **flat content** — never the envelope — and the `signer` returns
+the record's `interpretation`, the `Signature` over it, and (sign-up only) the
+enrolling `publicKey`; the client assembles the body. The signer is set once on
+the constructor, because the key it signs with is identical for a session. The
+signing mechanism is a **passkey (WebAuthn)**: the signer runs the ceremony and
+packages its assertion — the private key never enters the client, and cannot,
+because a passkey's key is non-extractable in the authenticator.
 
 ```ts
-import { SPEC, sign, keyId } from "@metacensus/api/signing";
+import {
+  interpretation, userChallenge, keyId, participantPolicy,
+} from "@metacensus/api/signing";
 
 const signer: Signer = async (content, contentType) => {
-  const s = {
-    signerId,
-    keyId: await keyId(publicKey),
-    alg: "Es384",
-    publicKey: "",
-    signingTime: new Date().toISOString(),
-    spec: SPEC,
-    contentType, // the client names it — you don't
-    value: "",
+  const interp = interpretation(contentType); // { spec, contentType } — the client names contentType
+  const kid = await keyId(publicKey);
+  const time = new Date().toISOString();
+
+  // The digest the assertion must commit to, carried as the WebAuthn challenge.
+  const challenge = await userChallenge(content, interp, kid, time);
+  const cred = await navigator.credentials.get({
+    publicKey: { challenge, allowCredentials: [/* this device's passkey */] },
+  }); // ui#55 owns provisioning and RP-ID scoping
+
+  const r = cred.response as AuthenticatorAssertionResponse;
+  return {
+    interpretation: interp,
+    signature: {
+      keyId: kid,
+      time,
+      assertion: {
+        authenticatorData: toBase64Url(r.authenticatorData),
+        clientDataJson: toBase64Url(r.clientDataJSON), // its challenge === base64url(challenge)
+        signature: toBase64Url(r.signature),           // DER, verified as-is
+      },
+    },
   };
-  s.value = await sign(privateKey, content, s);
-  return s;
 };
 
 const client = new Client({ baseUrl, signer });
@@ -94,18 +114,23 @@ const created = await client.createTopic({ content: { name: "A review", descript
 // TopicRecord, flattened like a read
 ```
 
-The client supplies `content` and the exact `contentType` (the one thing
-`sign`/`verify` leave to the caller, and the easiest to get wrong); your closure
-holds the key and does the crypto — the key never enters the client. A write on
-a client built without a signer throws.
+The client supplies `content` and the exact `contentType` (the one thing left to
+the caller, and the easiest to get wrong); the signer builds the interpretation
+and the assertion. A headless signer (a server or a test) builds the same shape
+with `assert()` instead of a browser ceremony — one format, both layers. A write
+on a client built without a signer throws. **The browser ceremony above is
+sketch, not shipped: provisioning a passkey to a device, RP-ID scoping across
+environments, and recovery are [ui#55](https://github.com/metacensus/ui/issues/55).**
 
 ## Auth and the session token
 
 `login` and `signUp` store the returned token; the client adds
 `Authorization: Bearer <token>` to every later request, and `logout` clears it.
-`signUp` signs its `User` content through the same signer (that signature enrols
-the key — inline `publicKey`, empty `signerId`; keep the password out of
-`content`, since content is what gets stored). `token` (a getter) exposes the
+`signUp` signs its `User` content through the same signer; the signer returns the
+enrolling `publicKey`, which the client sends on the request (not on the
+signature — no record carries its own verification key) and the store binds under
+the signature's `keyId`. Keep the password out of `content`, since content is what
+gets stored. `token` (a getter) exposes the
 current token, to persist and later restore a session via the `token` option.
 
 ## The public surface
@@ -145,26 +170,32 @@ the enum's comment for why.
 
 ## Signing
 
-Every write on the authenticated surface carries a `content` message and a
-`userSignature` over it. A session token says who is connected; the signature
-says who authored the record, and the API server does not check it — it is
-verified by the persistence layer, behind the edge. `@metacensus/api/signing` is
-what your `Signer` uses to make one:
+Every write on the authenticated surface carries a `content` message, an
+`interpretation`, and a `userSignature` over both. A session token says who is
+connected; the signature says who authored the record, and the API server does
+not check it — it is verified by the persistence layer, behind the edge.
+`@metacensus/api/signing` is what your `Signer` uses, and what a verifier calls:
 
 ```ts
-import { SPEC, sign, verify, keyId, generateKeyPair, encodePublicKey } from "@metacensus/api/signing";
+import {
+  SPEC, interpretation, userChallenge, assert, verifyUser,
+  authenticatorData, participantPolicy, keyId, generateKeyPair, FLAG_UP, FLAG_UV,
+} from "@metacensus/api/signing";
 
-const { privateKey, publicKey } = await generateKeyPair(); // ECDSA P-384
+const { privateKey, publicKey } = await generateKeyPair(); // ECDSA P-256 (ES256)
 ```
 
-The digest is SHA-384 over RFC 8785 canonical JSON of `{content, signature}`,
-with `value` emptied. Every field but `value` is inside it, so a signature cannot
-be re-attributed or re-dated — which is why `contentType` has to name the content
-you actually signed and `signingTime` has to be set. `routes` carries a `signed`
-flag per route, so "which routes need a key?" is a lookup rather than a guess.
+The mechanism is **WebAuthn/passkeys**, one format for both the participant and
+the institution (ECDSA P-256 / ES256). This module is the toolkit: `interpretation`
+and `userChallenge` build the digest, `assert` makes a headless assertion,
+`verifyUser`/`verifyCountersign` check one under a `participantPolicy` or
+`institutionPolicy`. `routes` carries a `signed` flag per route, so "which routes
+need a key?" is a lookup rather than a guess.
 
-The full account of the chain, and `go/signing`, the other half that has to
-compute the same digest, are in the repository README.
+The scheme, the digest, and the verify procedure are the repository README's
+"The signing chain"; `go/signing` is the other half that computes the same digest
+and whose DER assertions this module verifies. The browser passkey ceremony
+itself is [ui#55](https://github.com/metacensus/ui/issues/55).
 
 ## Both surfaces
 

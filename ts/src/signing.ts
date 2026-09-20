@@ -1,30 +1,56 @@
-// The TypeScript half of the MetaCensus signing chain; go/signing is the
-// other half, and ts/test/wire.test.mjs checks the two agree — neither may
-// be edited alone.
+// The TypeScript half of the MetaCensus signing chain; go/signing is the other
+// half, and ts/test/wire.test.mjs checks the two agree — neither may be edited
+// alone. See README.md, "The signing chain".
 //
-//     digest = SHA-384( JCS( {"content": C, "signature": S} ) )
+// One format serves both layers. A participant signs with a passkey (WebAuthn);
+// an institution countersigns headless. Both produce the same object — a
+// WebAuthn assertion whose challenge is the record's digest:
 //
-// C is the content message, S is the UserSignature with `value` cleared.
-// Canonical JSON (RFC 8785) rather than the wire bytes: protojson isn't
-// byte-stable, so only canonicalizing keeps a record verifiable after it's
-// relayed, re-encoded and stored.
+//     challenge = SHA-256( JCS( D ) )
 //
-// The canonicalizer below is hand-written — it must match go/signing byte for
-// byte, which no general RFC 8785 library does — and signing uses the WebCrypto
-// `crypto` global and the platform's own base64 codec, so it pulls in nothing.
+// D is {content, interpretation, keyId, time} for the participant and
+// {signature, interpretation, keyId, time} for the institution. The assertion
+// carries that challenge inside clientDataJSON and signs authenticatorData ‖
+// SHA-256(clientDataJSON). Verification recomputes the challenge, confirms the
+// binding, applies the layer's acceptance policy, then verifies the signature
+// over the wrapper — it never re-serialises clientDataJSON, only hashes the
+// stored bytes and parses them for `challenge`/`type`.
+//
+// This module holds the format primitives: the digest, a headless signer, and
+// verification. The browser passkey ceremony — navigator.credentials.create /
+// get — belongs to the consumer (metacensus/ui#55), which passes its assertion
+// here to be verified. Canonical JSON (RFC 8785) rather than the wire bytes:
+// protojson isn't byte-stable, so only canonicalizing keeps a record verifiable
+// after it's relayed, re-encoded and stored.
 
-import type { UserSignature } from "./metacensus/v1/common.js";
+import type { Interpretation, Signature, Signature_Assertion } from "./metacensus/v1/common.js";
 
-// Identifies this scheme (JCS + SHA-384 + base64url r||s); a verifier that
-// doesn't recognize it should refuse rather than guess.
-export const SPEC = "metacensus.sig/1";
+// WebCrypto's BufferSource excludes SharedArrayBuffer, so every byte string in
+// this module is an ArrayBuffer-backed Uint8Array.
+type Bytes = Uint8Array<ArrayBuffer>;
 
-// P-384/SHA-384 — `UserSignature.Alg`'s `Es384`. The enum is closed; adding
-// another algorithm is a contract release.
+// Versions the whole scheme (JCS + SHA-256 + P-256/ES256 + base64url) as one
+// atom; a verifier that doesn't recognize it should refuse rather than guess.
+export const SPEC = "metacensus.sig/2";
+
+// clientDataJSON.type values: the participant's is WebAuthn's own, the
+// institution's is honestly its own — never a forged "webauthn.get".
+export const TYPE_GET = "webauthn.get";
+export const TYPE_COUNTERSIGN = "metacensus.countersign";
+
+// authenticatorData flag bits (WebAuthn §6.1). BE/BS record credential custody
+// (synced vs device-bound) and are read, not set by policy.
+export const FLAG_UP = 1 << 0; // user present
+export const FLAG_UV = 1 << 2; // user verified (a gesture, not mere presence)
+export const FLAG_BE = 1 << 3; // backup eligible (a syncable passkey)
+export const FLAG_BS = 1 << 5; // backed up (currently synced)
+
+// ES256: ECDSA on P-256 with SHA-256 — WebAuthn's default and this scheme's
+// only algorithm. The enum is gone; a different curve is a different SPEC.
 const ALG: EcdsaParams & EcKeyImportParams & EcKeyGenParams = {
   name: "ECDSA",
-  namedCurve: "P-384",
-  hash: "SHA-384",
+  namedCurve: "P-256",
+  hash: "SHA-256",
 };
 
 // ---------------------------------------------------------------------------
@@ -32,8 +58,8 @@ const ALG: EcdsaParams & EcKeyImportParams & EcKeyGenParams = {
 // ---------------------------------------------------------------------------
 
 /**
- * `value` as RFC 8785 canonical JSON of a ts-proto message — shaped to
- * match what protojson emits on the Go side (see buf.gen.yaml, wire.test.mjs).
+ * A value as RFC 8785 canonical JSON of a ts-proto message — shaped to match
+ * what protojson emits on the Go side (see buf.gen.yaml, wire.test.mjs).
  */
 export function canonicalize(value: unknown): string {
   if (value === null) return "null";
@@ -109,69 +135,231 @@ function stringToJCS(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// The chain
+// The digest
+// ---------------------------------------------------------------------------
+
+/** An Interpretation for content of the given full proto name, under this SPEC. */
+export function interpretation(contentType: string): Interpretation {
+  return { spec: SPEC, contentType };
+}
+
+/**
+ * The exact string the participant digest is taken over: {content,
+ * interpretation, keyId, time}. Exported so a mismatch between implementations
+ * shows up as two strings, not two hashes.
+ */
+export function userSigningInput(
+  content: unknown,
+  interp: Interpretation,
+  keyId: string,
+  time: string,
+): string {
+  return canonicalize(baseFields(interp, keyId, time, { content }));
+}
+
+/** The string the institutional digest is taken over: {signature, interpretation, keyId, time}. */
+export function countersignInput(
+  userSignature: Signature,
+  interp: Interpretation,
+  keyId: string,
+  time: string,
+): string {
+  return canonicalize(baseFields(interp, keyId, time, { signature: userSignature }));
+}
+
+function baseFields(
+  interp: Interpretation,
+  keyId: string,
+  time: string,
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!time) {
+    // Message-typed, so canonicalization can't tell "absent" from a default;
+    // it must be set explicitly.
+    throw new Error("signing: time is unset; every signature carries the time its signer claims or observes");
+  }
+  if (!keyId) throw new Error("signing: keyId is unset; the signer's enrolled key must be named");
+  return { interpretation: interp, keyId, time, ...extra };
+}
+
+/** SHA-256 over userSigningInput — the participant assertion's challenge. */
+export async function userChallenge(
+  content: unknown,
+  interp: Interpretation,
+  keyId: string,
+  time: string,
+): Promise<Bytes> {
+  return challenge(userSigningInput(content, interp, keyId, time));
+}
+
+/** SHA-256 over countersignInput — the institutional assertion's challenge. */
+export async function countersignChallenge(
+  userSignature: Signature,
+  interp: Interpretation,
+  keyId: string,
+  time: string,
+): Promise<Bytes> {
+  return challenge(countersignInput(userSignature, interp, keyId, time));
+}
+
+async function challenge(input: string): Promise<Bytes> {
+  return new Uint8Array(await sha256(new TextEncoder().encode(input)));
+}
+
+// ---------------------------------------------------------------------------
+// The assertion
+// ---------------------------------------------------------------------------
+
+/** The clientDataJSON fields a headless signer sets; a passkey's carries more. */
+export interface ClientData {
+  type: string;
+  origin?: string;
+}
+
+/**
+ * authenticatorData for a headless signer: SHA-256(rpId) ‖ flags ‖ signCount(0).
+ * A participant's comes from the authenticator with the real UV/BE/BS flags.
+ */
+export async function authenticatorData(rpId: string, flags: number): Promise<Bytes> {
+  const hash = new Uint8Array(await sha256(new TextEncoder().encode(rpId)));
+  const out = new Uint8Array(37);
+  out.set(hash, 0);
+  out[32] = flags & 0xff;
+  return out;
+}
+
+/**
+ * Builds the assertion a headless signer emits: fills the challenge, serialises
+ * clientDataJSON, and signs authenticatorData ‖ SHA-256(clientDataJSON) with
+ * privateKey, DER-encoded as WebAuthn does. authData carries the honest flags
+ * (see authenticatorData). For a participant, the browser produces all of this
+ * and this module only verifies it.
+ */
+export async function assert(
+  privateKey: CryptoKey,
+  challenge: Bytes,
+  authData: Bytes,
+  clientData: ClientData,
+): Promise<Signature_Assertion> {
+  const cdj = new TextEncoder().encode(
+    JSON.stringify({ ...clientData, challenge: toBase64Url(challenge) }),
+  );
+  const raw = new Uint8Array(await crypto.subtle.sign(ALG, privateKey, await signedMessage(authData, cdj)));
+  return {
+    authenticatorData: toBase64Url(authData),
+    clientDataJson: toBase64Url(cdj),
+    signature: toBase64Url(rawToDer(raw)),
+  };
+}
+
+/** authenticatorData ‖ SHA-256(clientDataJSON) — what ES256 then hashes and signs. */
+async function signedMessage(authData: Bytes, clientDataJSON: Bytes): Promise<Bytes> {
+  const cdh = new Uint8Array(await sha256(clientDataJSON));
+  const msg = new Uint8Array(authData.length + cdh.length);
+  msg.set(authData, 0);
+  msg.set(cdh, authData.length);
+  return msg;
+}
+
+// ---------------------------------------------------------------------------
+// Verification
 // ---------------------------------------------------------------------------
 
 /**
- * The exact string the digest is taken over — exported so a mismatch between
- * implementations shows up as two strings, not two hashes.
+ * What a verifier requires of an assertion's own metadata — the one honest
+ * difference between the layers, and a check here rather than a second verify
+ * path. `type` is the required clientDataJSON.type; `origins`, when non-empty,
+ * is the closed set a participant assertion must name, and when empty requires
+ * no origin (a headless signer); `requireUV` demands the user-verified flag.
  */
-export function signingInput(content: unknown, signature: UserSignature): string {
-  if (!signature.signingTime) {
-    // Message-typed, so canonicalization can't tell "absent" from a default;
-    // it must be set explicitly.
-    throw new Error("signing: signingTime is unset; every signature carries the time its signer claims");
-  }
-  return canonicalize({ content, signature: { ...signature, value: "" } });
+export interface Policy {
+  type: string;
+  origins: string[];
+  requireUV: boolean;
 }
 
-/** SHA-384 over `signingInput`. */
-export async function digest(content: unknown, signature: UserSignature): Promise<ArrayBuffer> {
-  const bytes = new TextEncoder().encode(signingInput(content, signature));
-  return crypto.subtle.digest("SHA-384", bytes);
+/** Accepts a passkey assertion: webauthn.get from a known origin, user-verified. */
+export function participantPolicy(...origins: string[]): Policy {
+  return { type: TYPE_GET, origins, requireUV: true };
+}
+
+/** Accepts the headless countersignature: the institutional type, no origin. */
+export function institutionPolicy(): Policy {
+  return { type: TYPE_COUNTERSIGN, origins: [], requireUV: false };
 }
 
 /**
- * Signs `content`, returning the `value` for the signature. Fills in
- * nothing else — the other fields are the signer's own claims and are
- * already inside the digest.
+ * Checks one assertion against a challenge under publicKey and policy: the
+ * challenge binding, then the assertion's own metadata, then the signature over
+ * the wrapper. clientDataJSON is hashed as stored and only parsed to read
+ * `challenge`/`type`; it is never re-serialised.
  */
-export async function sign(
-  privateKey: CryptoKey,
-  content: unknown,
-  signature: UserSignature,
-): Promise<string> {
-  checkAttributes(signature);
-  const raw = await crypto.subtle.sign(ALG, privateKey, new TextEncoder().encode(signingInput(content, signature)));
-  // WebCrypto returns fixed-width r||s directly, not a DER SEQUENCE — no
-  // re-encoding needed.
-  return toBase64Url(new Uint8Array(raw));
+export async function verifyAssertion(
+  publicKey: CryptoKey,
+  assertion: Signature_Assertion,
+  challenge: Bytes,
+  policy: Policy,
+): Promise<boolean> {
+  const authData = fromBase64Url(assertion.authenticatorData);
+  const cdj = fromBase64Url(assertion.clientDataJson);
+  const sig = fromBase64Url(assertion.signature);
+  if (authData.length < 37) return false;
+
+  let cd: { type?: string; challenge?: string; origin?: string };
+  try {
+    cd = JSON.parse(new TextDecoder().decode(cdj));
+  } catch {
+    return false;
+  }
+
+  // Challenge binding: the assertion must commit to this record's digest.
+  if (cd.challenge !== toBase64Url(challenge)) return false;
+
+  // Acceptance policy — the honest per-layer difference.
+  if (cd.type !== policy.type) return false;
+  if (policy.origins.length === 0) {
+    if (cd.origin) return false;
+  } else if (!policy.origins.includes(cd.origin ?? "")) {
+    return false;
+  }
+  if (policy.requireUV && (authData[32] & FLAG_UV) === 0) return false;
+
+  return crypto.subtle.verify(ALG, publicKey, derToRaw(sig), await signedMessage(authData, cdj));
 }
 
-/** Checks `signature` against `content` under `publicKey`. */
-export async function verify(
+/**
+ * Checks a participant signature over content: the interpretation is this
+ * scheme's and names content's type, the assertion binds to the record's
+ * digest, and it satisfies policy. Resolving publicKey — the enrolled key keyId
+ * names — is the caller's, except at sign-up (see enrolledKey).
+ */
+export async function verifyUser(
   publicKey: CryptoKey,
   content: unknown,
-  signature: UserSignature,
+  interp: Interpretation,
+  signature: Signature,
+  policy: Policy,
 ): Promise<boolean> {
-  checkAttributes(signature);
-  const value = fromBase64Url(signature.value);
-  return crypto.subtle.verify(ALG, publicKey, value, new TextEncoder().encode(signingInput(content, signature)));
+  if (interp.spec !== SPEC) return false;
+  if (!signature.assertion) return false;
+  const challenge = await userChallenge(content, interp, signature.keyId, signature.time ?? "");
+  return verifyAssertion(publicKey, signature.assertion, challenge, policy);
 }
 
-// Checked by both sign and verify, so a signature this module would refuse
-// is one it will never produce. `contentType` is the caller's responsibility
-// to set correctly — nothing here knows a plain object's proto name.
-function checkAttributes(signature: UserSignature): void {
-  if (signature.spec !== SPEC) {
-    throw new Error(`signing: spec is ${JSON.stringify(signature.spec)}, and this module implements ${JSON.stringify(SPEC)}`);
-  }
-  if (signature.alg !== "Es384") {
-    throw new Error(`signing: alg is ${JSON.stringify(signature.alg)}, and this module implements "Es384"`);
-  }
-  if (!signature.contentType) {
-    throw new Error("signing: contentType is empty; it names the message the signature covers");
-  }
+/**
+ * Checks an institutional signature nesting over userSignature: it binds to
+ * userSignature (plus the record's interpretation) and satisfies policy.
+ */
+export async function verifyCountersign(
+  publicKey: CryptoKey,
+  userSignature: Signature,
+  interp: Interpretation,
+  institutional: Signature,
+  policy: Policy,
+): Promise<boolean> {
+  if (!institutional.assertion) return false;
+  const challenge = await countersignChallenge(userSignature, interp, institutional.keyId, institutional.time ?? "");
+  return verifyAssertion(publicKey, institutional.assertion, challenge, policy);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,12 +385,35 @@ export async function decodePublicKey(encoded: string): Promise<CryptoKey> {
 }
 
 /**
- * base64url of SHA-256 over the SPKI DER — `UserSignature.keyId`. Derived
- * rather than minted, so a client can compute it before it has an account.
+ * base64url of SHA-256 over the SPKI DER — `Signature.keyId`. Derived rather
+ * than minted, so a client can compute it before it has an account.
  */
 export async function keyId(publicKey: CryptoKey): Promise<string> {
   const spki = await crypto.subtle.exportKey("spki", publicKey);
-  return toBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", spki)));
+  return toBase64Url(new Uint8Array(await sha256(new Uint8Array(spki))));
+}
+
+/**
+ * Resolves the key being enrolled at sign-up, the one write whose key is not
+ * yet in persistence: the key offered must thumbprint to the keyId claimed, or
+ * a key that is not the sender's could be enrolled under their account. Every
+ * other record resolves keyId against its owner's enrolled key.
+ */
+export async function enrolledKey(publicKey: string, claimedKeyId: string): Promise<CryptoKey> {
+  if (!publicKey) throw new Error("signing: sign-up carries no enrolling public key");
+  const key = await decodePublicKey(publicKey);
+  if ((await keyId(key)) !== claimedKeyId) {
+    throw new Error("signing: keyId does not thumbprint the key offered");
+  }
+  return key;
+}
+
+// ---------------------------------------------------------------------------
+// Bytes
+// ---------------------------------------------------------------------------
+
+function sha256(bytes: BufferSource): Promise<ArrayBuffer> {
+  return crypto.subtle.digest("SHA-256", bytes);
 }
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -214,4 +425,64 @@ function toBase64Url(bytes: Uint8Array): string {
 // accepts the unpadded input toBase64Url writes.
 function fromBase64Url(s: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.fromBase64(s, { alphabet: "base64url" });
+}
+
+// WebCrypto signs and verifies fixed-width r‖s (IEEE P1363); WebAuthn stores an
+// ASN.1 DER SEQUENCE. These two bridge the formats for P-256 (32-byte coords),
+// so one stored format (DER) serves a passkey and a headless signer alike.
+
+function rawToDer(raw: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+  const r = derInt(raw.subarray(0, 32));
+  const s = derInt(raw.subarray(32, 64));
+  const body = new Uint8Array(r.length + s.length);
+  body.set(r, 0);
+  body.set(s, r.length);
+  const out = new Uint8Array(2 + body.length);
+  out[0] = 0x30; // SEQUENCE
+  out[1] = body.length;
+  out.set(body, 2);
+  return out;
+}
+
+// One ASN.1 INTEGER from a big-endian coordinate: strip leading zeros, prepend
+// a 0x00 when the high bit is set so the value stays positive.
+function derInt(coord: Uint8Array): Uint8Array {
+  let i = 0;
+  while (i < coord.length - 1 && coord[i] === 0) i++;
+  let v = coord.subarray(i);
+  if (v[0] & 0x80) {
+    const pad = new Uint8Array(v.length + 1);
+    pad.set(v, 1);
+    v = pad;
+  }
+  const out = new Uint8Array(2 + v.length);
+  out[0] = 0x02; // INTEGER
+  out[1] = v.length;
+  out.set(v, 2);
+  return out;
+}
+
+function derToRaw(der: Uint8Array): Uint8Array<ArrayBuffer> {
+  // SEQUENCE header, then two INTEGERs; left-pad each coordinate to 32 bytes.
+  let p = 2; // skip 0x30, length
+  if (der[p] !== 0x02) throw new Error("signing: malformed DER signature");
+  const rLen = der[p + 1];
+  const r = der.subarray(p + 2, p + 2 + rLen);
+  p = p + 2 + rLen;
+  if (der[p] !== 0x02) throw new Error("signing: malformed DER signature");
+  const sLen = der[p + 1];
+  const s = der.subarray(p + 2, p + 2 + sLen);
+  const out = new Uint8Array(64);
+  coordInto(out, 0, r);
+  coordInto(out, 32, s);
+  return out;
+}
+
+// Right-align a DER INTEGER (which may carry a leading 0x00 or be short) into a
+// 32-byte coordinate slot.
+function coordInto(out: Uint8Array, at: number, v: Uint8Array): void {
+  let i = 0;
+  while (i < v.length - 32) i++; // drop a leading 0x00 pad if present
+  const src = v.subarray(i);
+  out.set(src, at + (32 - src.length));
 }

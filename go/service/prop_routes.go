@@ -32,14 +32,12 @@ func (h *Handlers) CreateProp(ctx context.Context, req *v1.PropCreateRequest) (*
 	if cerr != nil {
 		return nil, cerr
 	}
-	if serr := requireSigner(id, req.GetUserSignature()); serr != nil {
-		return nil, serr
-	}
 	record := &v1.PropSigned{
-		Id:            h.newID(),
-		Recorded:      timestamppb.New(h.now()),
-		Content:       req.GetContent(),
-		UserSignature: req.GetUserSignature(),
+		Id:             h.newID(),
+		Recorded:       timestamppb.New(h.now()),
+		Content:        req.GetContent(),
+		Interpretation: req.GetInterpretation(),
+		UserSignature:  req.GetUserSignature(),
 	}
 	if err := h.store.CreateProp(ctx, id, record); err != nil {
 		return nil, mapErr(err)
@@ -57,23 +55,21 @@ func (h *Handlers) ListVotes(ctx context.Context, req *v1.VoteListRequest) (*v1.
 
 // SetVote records the caller's position on one prop. A vote carries no id — it
 // is keyed by (prop, user) — so the server mints only recorded. The vote's
-// user_id must be the session caller, as must the signature's signer; both are
-// re-checked in the store.
+// user_id must be the session caller (re-checked in the store, which also binds
+// the author key to the caller).
 func (h *Handlers) SetVote(ctx context.Context, req *v1.VoteSetRequest) (*v1.VoteSigned, error) {
 	id, cerr := h.caller(ctx)
 	if cerr != nil {
 		return nil, cerr
 	}
-	if serr := requireSigner(id, req.GetUserSignature()); serr != nil {
-		return nil, serr
-	}
 	if req.GetContent().GetUserId() != id {
 		return nil, unauthenticated("the vote's user_id is not the session caller")
 	}
 	record := &v1.VoteSigned{
-		Recorded:      timestamppb.New(h.now()),
-		Content:       req.GetContent(),
-		UserSignature: req.GetUserSignature(),
+		Recorded:       timestamppb.New(h.now()),
+		Content:        req.GetContent(),
+		Interpretation: req.GetInterpretation(),
+		UserSignature:  req.GetUserSignature(),
 	}
 	if err := h.store.SetVote(ctx, id, record); err != nil {
 		return nil, mapErr(err)

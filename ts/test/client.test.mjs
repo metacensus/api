@@ -81,13 +81,22 @@ test("a list flattens per item; the signed list keeps the envelopes", async () =
 
 // --- writes: flat content in, signer drives the envelope ----------------
 
+// A fake signer, standing in for a passkey ceremony: it returns the record's
+// interpretation and a Signature (contents unimportant to the client), plus, on
+// sign-up, the enrolling public key.
+const fakeSigner = (record = {}) => async (content, contentType) => ({
+  interpretation: { spec: "metacensus.sig/2", contentType },
+  signature: { keyId: "k1", assertion: { authenticatorData: "a", clientDataJson: "c", signature: "S" } },
+  ...record,
+});
+
 test("createTopic signs under its contentType, sends the envelope, returns the flat view", async () => {
   let signedWith;
   const signer = async (content, contentType) => {
     signedWith = { content, contentType };
-    return { signerId: "u1", value: "SIG" };
+    return (await fakeSigner()(content, contentType));
   };
-  const created = { id: "t9", recorded: "r", content: { name: "N", description: "" }, userSignature: { signerId: "u1", value: "SIG" } };
+  const created = { id: "t9", recorded: "r", content: { name: "N", description: "" }, userSignature: {} };
   const { calls, fetch } = fetcher(json(created));
 
   const view = await new Client({ baseUrl: BASE, fetch, signer }).createTopic({ content: { name: "N", description: "" } });
@@ -95,16 +104,17 @@ test("createTopic signs under its contentType, sends the envelope, returns the f
   assert.deepEqual(signedWith, { content: { name: "N", description: "" }, contentType: "metacensus.v1.Topic" });
   const body = JSON.parse(calls[0].body);
   assert.deepEqual(body.content, { name: "N", description: "" });
-  assert.deepEqual(body.userSignature, { signerId: "u1", value: "SIG" });
+  assert.deepEqual(body.interpretation, { spec: "metacensus.sig/2", contentType: "metacensus.v1.Topic" });
+  assert.equal(body.userSignature.keyId, "k1");
   assert.equal(calls[0].url, `${BASE}/metacensus/api/v1/topic`);
   assert.deepEqual(view, { id: "t9", recorded: "r", name: "N", description: "" });
 });
 
 test("createProp keeps the path id out of the body and signs under Prop", async () => {
   let contentType;
-  const signer = async (_c, ct) => {
+  const signer = async (c, ct) => {
     contentType = ct;
-    return { value: "S" };
+    return fakeSigner()(c, ct);
   };
   const created = { id: "p1", recorded: "r", content: { topicId: "t1", type: "Statement", description: "d" }, userSignature: {} };
   const { calls, fetch } = fetcher(json(created));
@@ -120,14 +130,15 @@ test("createProp keeps the path id out of the body and signs under Prop", async 
   assert.equal(body.topicId, undefined);
   assert.deepEqual(body.content, { topicId: "t1", type: "Statement", description: "d" });
   assert.ok(body.userSignature);
+  assert.ok(body.interpretation);
   assert.deepEqual(view, { id: "p1", recorded: "r", topicId: "t1", type: "Statement", description: "d" });
 });
 
 test("setVote binds both path ids and signs under Vote", async () => {
   let contentType;
-  const signer = async (_c, ct) => {
+  const signer = async (c, ct) => {
     contentType = ct;
-    return { value: "S" };
+    return fakeSigner()(c, ct);
   };
   const set = { recorded: "r", content: { topicId: "t1", propId: "p1", userId: "u1", position: "Against", explanation: "", citations: [] }, userSignature: {} };
   const { calls, fetch } = fetcher(json(set));
@@ -165,11 +176,11 @@ test("login stores the token, and later requests carry it", async () => {
   assert.equal(calls[1].headers["Authorization"], "Bearer TK");
 });
 
-test("signUp signs the User content, then stores the token", async () => {
+test("signUp carries the enrolling key and signature, then stores the token", async () => {
   let signedWith;
   const signer = async (content, contentType) => {
     signedWith = { content, contentType };
-    return { publicKey: "PK", value: "SIG" };
+    return fakeSigner({ publicKey: "PK" })(content, contentType);
   };
   const { calls, fetch } = fetcher(json({ token: "TK2" }));
   const client = new Client({ baseUrl: BASE, fetch, signer });
@@ -180,7 +191,9 @@ test("signUp signs the User content, then stores the token", async () => {
   const body = JSON.parse(calls[0].body);
   assert.deepEqual(body.content, { name: "Ada" });
   assert.equal(body.password, "hunter2");
+  assert.equal(body.publicKey, "PK");
   assert.ok(body.userSignature);
+  assert.ok(body.interpretation);
   assert.equal(session.token, "TK2");
   assert.equal(client.token, "TK2");
 });

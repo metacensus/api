@@ -33,16 +33,13 @@ func (h *Handlers) Login(ctx context.Context, req *v1.LoginRequest) (*v1.Session
 }
 
 // SignUp enrolls a user and returns a session for the new id. The enrolling key
-// travels inline in the signature (trust on first use); the signer_id is empty
-// because the id is minted here, and setting it would change the bytes the
-// client signed.
+// travels on the request (trust on first use), not on the signature — the store
+// binds it under the signature's key_id, which must thumbprint it. The signature
+// carries no signer id: the id is minted here, and the author is the enrolled
+// key's owner, never a client claim.
 func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Session, error) {
-	sig := req.GetUserSignature()
-	if sig.GetPublicKey() == "" {
-		return nil, badRequest("field_invalid", "sign-up must carry the enrolling public key in user_signature.public_key")
-	}
-	if sig.GetSignerId() != "" {
-		return nil, badRequest("field_invalid", "sign-up signature must not name a signer; the id is minted by the server")
+	if req.GetPublicKey() == "" {
+		return nil, badRequest("field_invalid", "sign-up must carry the enrolling public key in public_key")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), h.bcryptCost)
@@ -51,12 +48,13 @@ func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Sessi
 	}
 
 	record := &v1.UserSigned{
-		Id:            h.newID(),
-		Recorded:      timestamppb.New(h.now()),
-		Content:       req.GetContent(),
-		UserSignature: sig,
+		Id:             h.newID(),
+		Recorded:       timestamppb.New(h.now()),
+		Content:        req.GetContent(),
+		Interpretation: req.GetInterpretation(),
+		UserSignature:  req.GetUserSignature(),
 	}
-	if err := h.store.EnrollUser(ctx, record, string(hash)); err != nil {
+	if err := h.store.EnrollUser(ctx, record, req.GetPublicKey(), string(hash)); err != nil {
 		return nil, mapErr(err)
 	}
 	return h.issue(record.Id)

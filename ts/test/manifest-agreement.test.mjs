@@ -27,8 +27,12 @@ function fetcher() {
   return { calls, fetch };
 }
 
-// A signer so writes and sign-up can run; the value is irrelevant here.
-const signer = async () => ({ signerId: "", keyId: "", alg: "Unspecified", publicKey: "", signingTime: "", spec: "", contentType: "", value: "" });
+// A signer so writes and sign-up can run; the values are irrelevant here.
+const signer = async (_content, contentType) => ({
+  interpretation: { spec: "", contentType },
+  signature: { keyId: "", time: "", assertion: { authenticatorData: "", clientDataJson: "", signature: "" } },
+  publicKey: "",
+});
 
 const surfaces = {
   [apiPrefix]: () => {

@@ -5,7 +5,7 @@
 // source: metacensus/v1/topic.proto
 
 /* eslint-disable */
-import type { InstitutionalSignature, UserSignature } from "./common.js";
+import type { Interpretation, Signature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -13,22 +13,23 @@ export const protobufPackage = "metacensus.v1";
 
 /** A systematic review in progress, as a signed record. */
 export interface TopicSigned {
-  /** Minted by the server, outside the signature. */
+  /** Minted by the server, outside every signature. */
   id: string;
-  /**
-   * Server's observation; see UserSignature.signing_time for the author's
-   * claim.
-   */
+  /** Server's observation; see Signature.time for the author's claim. */
   recorded?: string | undefined;
-  content?: Topic | undefined;
-  userSignature?:
-    | UserSignature
+  content?:
+    | Topic
     | undefined;
-  /**
-   * The institution's countersignature over user_signature.value; see
-   * UserSigned.
-   */
-  institutionalSignature?: InstitutionalSignature | undefined;
+  /** How to read this record; sealed by both signatures below. */
+  interpretation?:
+    | Interpretation
+    | undefined;
+  /** The participant vouches for `content`. */
+  userSignature?:
+    | Signature
+    | undefined;
+  /** The institution vouches for `user_signature`; see UserSigned. */
+  institutionalSignature?: Signature | undefined;
 }
 
 /**
@@ -53,7 +54,8 @@ export interface TopicGetRequest {
 
 export interface TopicCreateRequest {
   content?: Topic | undefined;
-  userSignature?: UserSignature | undefined;
+  interpretation?: Interpretation | undefined;
+  userSignature?: Signature | undefined;
 }
 
 /**

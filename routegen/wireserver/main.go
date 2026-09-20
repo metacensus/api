@@ -39,29 +39,34 @@ var (
 	signingTime = timestamppb.New(time.Date(2023, 11, 14, 22, 13, 19, 0, time.UTC))
 )
 
+// Origin is the origin the fixture's participant assertions carry; the
+// TypeScript test verifies against it. Exported to stdout so the test needn't
+// hardcode a copy.
+const Origin = "https://wire.test.example"
+
 // serverKey is generated per run rather than checked in: the test reads the
 // public half off stdout, so nothing here is a credential to rotate.
 var serverKey *ecdsa.PrivateKey
 
-// sign fills in the conventional attributes and signs, so the fixture's
-// handlers read as one line each.
-func sign(content proto.Message) *v1.UserSignature {
-	id, err := signing.KeyID(&serverKey.PublicKey)
+// sign produces the interpretation and a participant Signature over content, so
+// the fixture's handlers read as one line each. It stands in for a passkey: a
+// user-verified webauthn.get from Origin, with a software key.
+func sign(content proto.Message) (*v1.Interpretation, *v1.Signature) {
+	interp := signing.Interpretation(content)
+	keyID, err := signing.KeyID(&serverKey.PublicKey)
 	if err != nil {
 		fail(err)
 	}
-	sig := &v1.UserSignature{
-		SignerId:    "wireserver",
-		KeyId:       id,
-		Alg:         v1.UserSignature_Es384,
-		SigningTime: signingTime,
-		Spec:        signing.Spec,
-		ContentType: string(content.ProtoReflect().Descriptor().FullName()),
-	}
-	if err := signing.Sign(serverKey, content, sig); err != nil {
+	challenge, err := signing.UserChallenge(content, interp, keyID, signingTime)
+	if err != nil {
 		fail(err)
 	}
-	return sig
+	authData := signing.AuthenticatorData("wire.test.example", signing.FlagUP|signing.FlagUV)
+	a, err := signing.Assert(serverKey, challenge, authData, signing.ClientData{Type: signing.TypeGet, Origin: Origin})
+	if err != nil {
+		fail(err)
+	}
+	return interp, &v1.Signature{KeyId: keyID, Time: signingTime, Assertion: a}
 }
 
 type topics struct {
@@ -73,13 +78,15 @@ func (topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.TopicSig
 		return nil, server.Errorf(http.StatusNotFound, "topic_not_found", "no topic %q", req.TopicId)
 	}
 	content := &v1.Topic{Name: "n", Description: ""}
-	return &v1.TopicSigned{Id: req.TopicId, Recorded: recorded, Content: content, UserSignature: sign(content)}, nil
+	interp, sig := sign(content)
+	return &v1.TopicSigned{Id: req.TopicId, Recorded: recorded, Content: content, Interpretation: interp, UserSignature: sig}, nil
 }
 
 func (topics) ListTopics(context.Context, *v1.TopicListRequest) (*v1.TopicList, error) {
 	content := &v1.Topic{Name: "n", Description: ""}
+	interp, sig := sign(content)
 	return &v1.TopicList{Items: []*v1.TopicSigned{
-		{Id: "t1", Recorded: recorded, Content: content, UserSignature: sign(content)},
+		{Id: "t1", Recorded: recorded, Content: content, Interpretation: interp, UserSignature: sig},
 	}}, nil
 }
 
@@ -90,7 +97,7 @@ func fail(err error) {
 
 func main() {
 	var err error
-	if serverKey, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader); err != nil {
+	if serverKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
 		fail(err)
 	}
 	pub, err := signing.EncodePublicKey(&serverKey.PublicKey)
@@ -111,6 +118,7 @@ func main() {
 	}
 	// Before "listening", which is what the test waits for.
 	fmt.Println("signing-key", pub)
+	fmt.Println("origin", Origin)
 	fmt.Println("listening", ln.Addr().String())
 	os.Stdout.Sync()
 	if err := http.Serve(ln, mux); err != nil {
