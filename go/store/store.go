@@ -37,12 +37,6 @@ type Caller struct {
 //   - Verification is inherited. A value checked at the write boundary is
 //     trusted by every later read; reads resolve state, they do not re-verify.
 //
-// Depth comes in two classes, one per kind of method: a write is
-// full-operation — the remaining work has a state-dependent invariant, a parent
-// that must exist or an id that must be unique, so the whole operation is
-// endorsed — and a read is material-return, a function of state with no write
-// invariant to endorse.
-//
 // What this seam deliberately omits is in doc.go.
 type Store interface {
 	// EnrollUser persists a new user and, with it, the signing key every later
@@ -68,11 +62,6 @@ type Store interface {
 	//
 	// Unauthenticated if no such email exists or the password does not match —
 	// one Kind for both, so a caller cannot probe which emails are enrolled.
-	//
-	// This is where the two backends part: a credential in Fabric world state
-	// is visible to every endorsing peer and chaincode is a poor place to hash
-	// one, so a real Fabric deployment likely keeps credentials off-ledger and
-	// implements only the record half of this method.
 	Authenticate(ctx context.Context, email, password string) (*v1.UserSigned, error)
 
 	// GetUser returns one user by id. This is also key resolution's public
@@ -80,10 +69,7 @@ type Store interface {
 	// above resolves to GetUser(caller.UserID). NotFound if absent.
 	GetUser(ctx context.Context, id string) (*v1.UserSigned, error)
 
-	// ListUsers returns every user; there is no pagination in this contract
-	// (see doc.go). Fabric serves it from a range scan, and WorldState.Range
-	// does not enter its reads into the tx read/write set — which is exactly why
-	// a list is a read, never part of a write's atom.
+	// ListUsers returns every user; no pagination (see doc.go).
 	ListUsers(ctx context.Context) ([]*v1.UserSigned, error)
 
 	// CreateTopic persists a new topic. The record is fully minted; caller must

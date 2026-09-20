@@ -135,10 +135,9 @@ func TestContentHasNoSingularMessageFields(t *testing.T) {
 	})
 }
 
-// Every stored signed record reserves the field just past its last one, so the
-// next signature layer has a home the wire already protects — the institutional
-// signature took the slot this rule held open before it, and the same rule now
-// holds the slot after it. See README.md ("The signing chain").
+// Every stored signed record reserves the field just past its last, so the next
+// signature layer is a pure field addition the wire already protects. See
+// README.md ("The signing chain").
 func TestSignedRecordsReserveTheNextField(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()

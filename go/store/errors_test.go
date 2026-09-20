@@ -49,10 +49,3 @@ func TestKindOfUnclassified(t *testing.T) {
 		t.Errorf("KindOf(nil) = %q; want \"\"", got)
 	}
 }
-
-// Compile-time proof the interface is nameable and implementable; the server PR
-// supplies real backends. A struct with no methods would not satisfy it, so
-// this also fails loudly if a method signature is mistyped against a stub.
-var _ store.Store = (*stubStore)(nil)
-
-type stubStore struct{ store.Store }
