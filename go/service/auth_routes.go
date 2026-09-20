@@ -23,14 +23,11 @@ func (h *Handlers) Healthcheck(_ context.Context, _ *v1.HealthcheckRequest) (*v1
 func (h *Handlers) Login(ctx context.Context, req *v1.LoginRequest) (*v1.Session, error) {
 	id, hash, err := h.store.Credential(ctx, req.GetEmail())
 	if err != nil {
-		// Compare against a throwaway hash so a missing email is not faster
-		// than a present one, then answer as if the password simply did not
-		// match.
 		_ = bcrypt.CompareHashAndPassword(h.dummyHash, []byte(req.GetPassword()))
-		return nil, unauthenticated()
+		return nil, unauthenticated("authentication required")
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.GetPassword())) != nil {
-		return nil, unauthenticated()
+		return nil, unauthenticated("authentication required")
 	}
 	return h.issue(id)
 }
@@ -38,8 +35,7 @@ func (h *Handlers) Login(ctx context.Context, req *v1.LoginRequest) (*v1.Session
 // SignUp enrolls a user and returns a session for the new id. The enrolling key
 // travels inline in the signature (trust on first use); the signer_id is empty
 // because the id is minted here, and setting it would change the bytes the
-// client signed. The password is hashed here — bcrypt mints its salt above the
-// seam, so the hash the store persists is deterministic across endorsing peers.
+// client signed.
 func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Session, error) {
 	sig := req.GetUserSignature()
 	if sig.GetPublicKey() == "" {
@@ -72,7 +68,7 @@ func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Sessi
 func (h *Handlers) Logout(ctx context.Context, _ *v1.LogoutRequest) (*v1.LogoutResponse, error) {
 	token, ok := auth.TokenFrom(ctx)
 	if !ok {
-		return nil, unauthenticated()
+		return nil, unauthenticated("authentication required")
 	}
 	if err := h.sessions.Revoke(token); err != nil {
 		return nil, internal(err)

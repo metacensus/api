@@ -9,10 +9,9 @@ import (
 
 // MemorySessions is the development placeholder Sessions: a random opaque token
 // mapped to a callerID in memory, dropped on revoke. No expiry, no persistence,
-// no cryptographic binding — a process restart forgets every session, and it is
-// not safe across more than one process. It exists so the request path runs end
-// to end while real authentication is still undesigned (see the package doc);
-// it is not a security boundary. Replace it by implementing Sessions.
+// no cryptographic binding — a restart forgets every session, it is not safe
+// across processes, and it is not a security boundary. See the package doc for
+// why authentication is deferred; replace it by implementing Sessions.
 //
 // The zero value is not ready; use NewMemorySessions.
 type MemorySessions struct {
@@ -25,7 +24,6 @@ func NewMemorySessions() *MemorySessions {
 	return &MemorySessions{byToken: make(map[string]string)}
 }
 
-// Issue mints a fresh random token for callerID and remembers the pairing.
 func (m *MemorySessions) Issue(callerID string) (string, error) {
 	if callerID == "" {
 		return "", errors.New("auth: cannot issue a token for an empty callerID")
@@ -40,7 +38,6 @@ func (m *MemorySessions) Issue(callerID string) (string, error) {
 	return token, nil
 }
 
-// Resolve returns the callerID a live token belongs to.
 func (m *MemorySessions) Resolve(token string) (string, error) {
 	m.mu.Lock()
 	callerID, ok := m.byToken[token]

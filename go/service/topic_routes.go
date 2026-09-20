@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ListTopics returns every topic.
 func (h *Handlers) ListTopics(ctx context.Context, _ *v1.TopicListRequest) (*v1.TopicList, error) {
 	topics, err := h.store.ListTopics(ctx)
 	if err != nil {
@@ -16,7 +15,6 @@ func (h *Handlers) ListTopics(ctx context.Context, _ *v1.TopicListRequest) (*v1.
 	return &v1.TopicList{Items: topics}, nil
 }
 
-// GetTopic returns one topic by id.
 func (h *Handlers) GetTopic(ctx context.Context, req *v1.TopicGetRequest) (*v1.TopicSigned, error) {
 	topic, err := h.store.GetTopic(ctx, req.GetTopicId())
 	if err != nil {

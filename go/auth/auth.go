@@ -94,8 +94,6 @@ func unauthorized(logDetail string) *server.Error {
 	}
 }
 
-// tokenFromHeader pulls the token out of an "Authorization: Bearer <token>"
-// header, case-insensitively on the scheme.
 func tokenFromHeader(r *http.Request) (string, error) {
 	h := r.Header.Get("Authorization")
 	if h == "" {

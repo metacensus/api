@@ -177,21 +177,15 @@ func resolvePathValue(mux server.Mux, rt *server.Runtime) *server.Runtime {
 func (h *Handlers) caller(ctx context.Context) (string, *server.Error) {
 	id, ok := auth.CallerFrom(ctx)
 	if !ok || id == "" {
-		return "", unauthenticated()
+		return "", unauthenticated("authentication required")
 	}
 	return id, nil
 }
 
-// requireSigner is the fail-fast that the signature's author is the session
-// caller. The store re-checks it authoritatively; this only saves a doomed
-// round trip and gives a clearer error.
+// requireSigner rejects a signature whose signer is not the session caller.
 func requireSigner(callerID string, sig *v1.UserSignature) *server.Error {
 	if sig.GetSignerId() != callerID {
-		return &server.Error{
-			Status:  http.StatusUnauthorized,
-			Code:    "unauthenticated",
-			Message: "the signature's signer is not the session caller",
-		}
+		return unauthenticated("the signature's signer is not the session caller")
 	}
 	return nil
 }
@@ -217,8 +211,8 @@ func mapErr(err error) *server.Error {
 	}
 }
 
-func unauthenticated() *server.Error {
-	return &server.Error{Status: http.StatusUnauthorized, Code: "unauthenticated", Message: "authentication required"}
+func unauthenticated(msg string) *server.Error {
+	return &server.Error{Status: http.StatusUnauthorized, Code: "unauthenticated", Message: msg}
 }
 
 func internal(err error) *server.Error {

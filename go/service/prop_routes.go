@@ -2,14 +2,11 @@ package service
 
 import (
 	"context"
-	"net/http"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
-	"github.com/metacensus/api/go/server"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ListProps returns every prop in one topic.
 func (h *Handlers) ListProps(ctx context.Context, req *v1.PropListRequest) (*v1.PropList, error) {
 	props, err := h.store.ListProps(ctx, req.GetTopicId())
 	if err != nil {
@@ -18,7 +15,6 @@ func (h *Handlers) ListProps(ctx context.Context, req *v1.PropListRequest) (*v1.
 	return &v1.PropList{Items: props}, nil
 }
 
-// GetProp returns one prop by the (topic, prop) tuple.
 func (h *Handlers) GetProp(ctx context.Context, req *v1.PropGetRequest) (*v1.PropSigned, error) {
 	prop, err := h.store.GetProp(ctx, req.GetTopicId(), req.GetPropId())
 	if err != nil {
@@ -51,7 +47,6 @@ func (h *Handlers) CreateProp(ctx context.Context, req *v1.PropCreateRequest) (*
 	return record, nil
 }
 
-// ListVotes returns every vote on one prop.
 func (h *Handlers) ListVotes(ctx context.Context, req *v1.VoteListRequest) (*v1.VoteList, error) {
 	votes, err := h.store.ListVotes(ctx, req.GetTopicId(), req.GetPropId())
 	if err != nil {
@@ -73,11 +68,7 @@ func (h *Handlers) SetVote(ctx context.Context, req *v1.VoteSetRequest) (*v1.Vot
 		return nil, serr
 	}
 	if req.GetContent().GetUserId() != id {
-		return nil, &server.Error{
-			Status:  http.StatusUnauthorized,
-			Code:    "unauthenticated",
-			Message: "the vote's user_id is not the session caller",
-		}
+		return nil, unauthenticated("the vote's user_id is not the session caller")
 	}
 	record := &v1.VoteSigned{
 		Recorded:      timestamppb.New(h.now()),
