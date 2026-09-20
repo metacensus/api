@@ -142,7 +142,7 @@ type Route struct {
 	Response string
 
 	// Signed is true when this route carries a Content field and a
-	// UserSignature over it; TestEveryWriteCarriesASignature holds which
+	// Signature over it; TestEveryWriteCarriesASignature holds which
 	// writes are exempt.
 	Signed bool
 
@@ -187,7 +187,7 @@ type ContentParam struct {
 const (
 	ContentField   = "content"
 	SignatureField = "user_signature"
-	SignatureType  = "metacensus.v1.UserSignature"
+	SignatureType  = "metacensus.v1.Signature"
 )
 
 // Walk reads every service in every contract package and returns one Route
@@ -402,7 +402,7 @@ func goTypeOf(pkg Package, md protoreflect.MessageDescriptor) (goType, error) {
 // signature over it, and the path parameters content has to repeat. It
 // rejects a misshapen signed route here rather than at a verifier: content
 // and signature must travel together, the signature must be a
-// UserSignature, and every path-bound id must be repeated inside content.
+// Signature, and every path-bound id must be repeated inside content.
 func describeSigned(pkg Package, md protoreflect.MessageDescriptor, req goType, params []string) (bool, string, string, []ContentParam, error) {
 	fields := md.Fields()
 	content := fields.ByName(ContentField)

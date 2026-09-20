@@ -38,27 +38,30 @@ service PropRoutes {
 }
 
 // A motion a topic's members vote on, as a signed record. `author_id` and
-// `created` were removed: they're `user_signature.signer_id` and
-// `.signing_time` now.
+// `created` were removed: the author is `user_signature.key_id`'s resolved
+// owner, and the claimed time is `user_signature.time`.
 message PropSigned {
-  // Minted by the server, outside the signature.
+  // Minted by the server, outside every signature.
   string id = 1;
 
-  // Server's observation; see UserSignature.signing_time for the author's
-  // claim.
+  // Server's observation; see Signature.time for the author's claim.
   google.protobuf.Timestamp recorded = 2;
 
   Prop content = 3;
 
-  UserSignature user_signature = 4;
+  // How to read this record; sealed by both signatures below.
+  Interpretation interpretation = 4;
 
-  // The institution's countersignature over user_signature.value; see
-  // UserSigned.
-  InstitutionalSignature institutional_signature = 5;
+  // The participant vouches for `content`.
+  Signature user_signature = 5;
+
+  // The institution vouches for `user_signature` (it nests over it); see
+  // UserSigned and README.md, "The signing chain".
+  Signature institutional_signature = 6;
 
   // Held for the next signature layer — see the reserve-the-next-field rule in
-  // go/signing_test.go.
-  reserved 6;
+  // go/contract/signing_test.go.
+  reserved 7;
 }
 
 // What a prop's author signs; carries `topic_id` but not the prop's own
@@ -88,24 +91,28 @@ message Prop {
 // vote from the same user replaces the first rather than adding to it.
 message VoteSigned {
   // Server's observation, and the only ordering a reader may use —
-  // `user_signature.signing_time` is the voter's own claim.
+  // `user_signature.time` is the voter's own claim.
   google.protobuf.Timestamp recorded = 1;
 
   Vote content = 2;
 
-  UserSignature user_signature = 3;
+  // How to read this record; sealed by both signatures below.
+  Interpretation interpretation = 3;
 
-  // The institution's countersignature over user_signature.value; see
-  // UserSigned. VoteSigned mints no id, so this is 4, not 5.
-  InstitutionalSignature institutional_signature = 4;
+  // The participant vouches for `content`.
+  Signature user_signature = 4;
+
+  // The institution vouches for `user_signature`; see UserSigned. VoteSigned
+  // mints no id, so the numbers run one lower than the other envelopes.
+  Signature institutional_signature = 5;
 
   // Held for the next signature layer — see the reserve-the-next-field rule in
-  // go/signing_test.go.
-  reserved 5;
+  // go/contract/signing_test.go.
+  reserved 6;
 }
 
-// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
-// design; persistence owes refusing the two when they disagree (see
+// What a voter signs. `user_id` duplicates the author `user_signature.key_id`
+// resolves to; persistence owes refusing the two when they disagree (see
 // README.md, "Open questions").
 message Vote {
   enum Position {
@@ -147,12 +154,14 @@ message PropGetRequest {
   string prop_id = 2;
 }
 
-// No author field — that's `user_signature.signer_id`. `topic_id` is bound
-// by the path and re-signed inside `content`; the two must agree.
+// No author field — the author is `user_signature.key_id`'s resolved owner.
+// `topic_id` is bound by the path and re-signed inside `content`; the two must
+// agree. `interpretation` is the client's, re-stamped onto the stored record.
 message PropCreateRequest {
   string topic_id = 1;
   Prop content = 2;
-  UserSignature user_signature = 3;
+  Interpretation interpretation = 3;
+  Signature user_signature = 4;
 }
 
 message VoteListRequest {
@@ -171,5 +180,6 @@ message VoteSetRequest {
   string topic_id = 1;
   string prop_id = 2;
   Vote content = 3;
-  UserSignature user_signature = 4;
+  Interpretation interpretation = 4;
+  Signature user_signature = 5;
 }

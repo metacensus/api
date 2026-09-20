@@ -15,7 +15,7 @@ import (
 )
 
 // Exercises the canonicaliser directly over documents, including shapes no
-// contract message reaches today; ts/test/wire.test.mjs checks ts/signing.ts
+// contract message reaches today; ts/test/wire.test.mjs checks ts/src/signing.ts
 // produces the same strings.
 func TestCanonicalOrdersAndEscapes(t *testing.T) {
 	for _, tc := range []struct {
@@ -53,7 +53,7 @@ func TestCanonicalOrdersAndEscapes(t *testing.T) {
 			// U+2028: encoding/json escapes it even with SetEscapeHTML(false).
 			name: "non-ascii stays literal",
 			in:   "{\"s\":\"h\\u00e9llo \\u2028 \\ud83d\\ude00\"}",
-			want: "{\"s\":\"h\u00e9llo \u2028 \U0001f600\"}",
+			want: "{\"s\":\"héllo   \U0001f600\"}",
 		},
 		{
 			name: "literals",
@@ -99,83 +99,83 @@ func decode(t *testing.T, s string) any {
 
 func key(t *testing.T) *ecdsa.PrivateKey {
 	t.Helper()
-	k, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return k
 }
 
-// attrs is a valid Topic signature so each test below varies one thing.
-func attrs(t *testing.T, priv *ecdsa.PrivateKey) *v1.UserSignature {
+var when = timestamppb.New(time.Unix(1700000000, 0).UTC())
+
+// signUser produces a participant Signature over content the way a passkey
+// would: a user-verified webauthn.get from origin. The key is software (a test
+// can't drive an authenticator), but the object is the shape a passkey emits.
+func signUser(t *testing.T, priv *ecdsa.PrivateKey, content *v1.Topic, interp *v1.Interpretation, origin string) *v1.Signature {
 	t.Helper()
-	id, err := KeyID(&priv.PublicKey)
+	keyID, err := KeyID(&priv.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &v1.UserSignature{
-		SignerId:    "u1",
-		KeyId:       id,
-		Alg:         v1.UserSignature_Es384,
-		SigningTime: timestamppb.New(time.Unix(1700000000, 0).UTC()),
-		Spec:        Spec,
-		ContentType: "metacensus.v1.Topic",
+	challenge, err := UserChallenge(content, interp, keyID, when)
+	if err != nil {
+		t.Fatal(err)
 	}
+	authData := AuthenticatorData("localhost", FlagUP|FlagUV)
+	a, err := Assert(priv, challenge, authData, ClientData{Type: TypeGet, Origin: origin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &v1.Signature{KeyId: keyID, Time: when, Assertion: a}
 }
 
-func TestSignVerifyRoundTrip(t *testing.T) {
+const origin = "https://app.metacensus.example"
+
+func TestUserSignVerifyRoundTrip(t *testing.T) {
 	priv := key(t)
 	content := &v1.Topic{Name: "n", Description: "d"}
-	sig := attrs(t, priv)
+	interp := Interpretation(content)
 
-	if err := Sign(priv, content, sig); err != nil {
-		t.Fatal(err)
-	}
-	if sig.Value == "" {
-		t.Fatal("Sign left value empty")
-	}
-	if err := Verify(&priv.PublicKey, content, sig); err != nil {
+	sig := signUser(t, priv, content, interp, origin)
+	if err := VerifyUser(&priv.PublicKey, content, interp, sig, ParticipantPolicy(origin)); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// The content is what is signed, so a change to it is what must be caught —
-// including one that leaves the document the same length.
+// The content is what the challenge binds, so a change to it is what must be
+// caught — including one that leaves the document the same length.
 func TestVerifyRejectsAlteredContent(t *testing.T) {
 	priv := key(t)
 	content := &v1.Topic{Name: "n", Description: "d"}
-	sig := attrs(t, priv)
-	if err := Sign(priv, content, sig); err != nil {
-		t.Fatal(err)
-	}
+	interp := Interpretation(content)
+	sig := signUser(t, priv, content, interp, origin)
 
 	content.Description = "e"
-	if err := Verify(&priv.PublicKey, content, sig); err == nil {
+	if err := VerifyUser(&priv.PublicKey, content, interp, sig, ParticipantPolicy(origin)); err == nil {
 		t.Error("an altered description verified")
 	}
 }
 
-// The signed attributes are inside the digest, so none can change after the
-// fact — a signature can't be re-attributed or re-dated.
-func TestVerifyRejectsAlteredAttributes(t *testing.T) {
+// key_id and time are inside the challenge, so neither can change after the
+// fact — a signature can't be re-attributed or re-dated. (Interpretation is
+// covered by TestVerifyRejectsSubstitutedContentType and
+// TestVerifyRefusesAnUnknownSpec.)
+func TestVerifyRejectsAlteredBoundFields(t *testing.T) {
 	priv := key(t)
 	content := &v1.Topic{Name: "n", Description: "d"}
 
 	for _, tc := range []struct {
 		name  string
-		alter func(*v1.UserSignature)
+		alter func(*v1.Signature)
 	}{
-		{"signer", func(s *v1.UserSignature) { s.SignerId = "u2" }},
-		{"signing time", func(s *v1.UserSignature) { s.SigningTime = timestamppb.New(time.Unix(1, 0).UTC()) }},
-		{"key id", func(s *v1.UserSignature) { s.KeyId = "not-the-thumbprint" }},
+		{"time", func(s *v1.Signature) { s.Time = timestamppb.New(time.Unix(1, 0).UTC()) }},
+		{"key id", func(s *v1.Signature) { s.KeyId = "not-the-thumbprint" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			sig := attrs(t, priv)
-			if err := Sign(priv, content, sig); err != nil {
-				t.Fatal(err)
-			}
-			tc.alter(sig)
-			if err := Verify(&priv.PublicKey, content, sig); err == nil {
+			interp := Interpretation(content)
+			sig := signUser(t, priv, content, interp, origin)
+			tc.alter(sig) // the assertion committed to the original; verify must fail
+			if err := VerifyUser(&priv.PublicKey, content, interp, sig, ParticipantPolicy(origin)); err == nil {
 				t.Errorf("an altered %s verified", tc.name)
 			}
 		})
@@ -186,13 +186,13 @@ func TestVerifyRejectsAlteredAttributes(t *testing.T) {
 // another whose canonical form happens to coincide.
 func TestVerifyRejectsSubstitutedContentType(t *testing.T) {
 	priv := key(t)
-	sig := attrs(t, priv)
-	if err := Sign(priv, &v1.Topic{Name: "n", Description: "d"}, sig); err != nil {
-		t.Fatal(err)
-	}
+	content := &v1.Topic{Name: "n", Description: "d"}
+	interp := Interpretation(content)
+	sig := signUser(t, priv, content, interp, origin)
 
-	// User's first two fields are also two strings.
-	err := Verify(&priv.PublicKey, &v1.User{Name: "n", Email: "d"}, sig)
+	// User's first two fields are also two strings; the interpretation still
+	// names a Topic, so verifying it as a User must fail on contentType.
+	err := VerifyUser(&priv.PublicKey, &v1.User{Name: "n", Email: "d"}, interp, sig, ParticipantPolicy(origin))
 	if err == nil {
 		t.Fatal("a Topic signature verified over a User")
 	}
@@ -201,45 +201,97 @@ func TestVerifyRejectsSubstitutedContentType(t *testing.T) {
 	}
 }
 
-func TestSignRefusesAnUnknownSpec(t *testing.T) {
+func TestVerifyRefusesAnUnknownSpec(t *testing.T) {
 	priv := key(t)
-	sig := attrs(t, priv)
-	sig.Spec = "metacensus.sig/99"
-	if err := Sign(priv, &v1.Topic{}, sig); err == nil {
-		t.Fatal("an unknown spec was signed")
+	content := &v1.Topic{Name: "n"}
+	interp := Interpretation(content)
+	sig := signUser(t, priv, content, interp, origin)
+	interp.Spec = "metacensus.sig/99"
+	if err := VerifyUser(&priv.PublicKey, content, interp, sig, ParticipantPolicy(origin)); err == nil {
+		t.Fatal("an unknown spec verified")
 	}
 }
 
-// signingTime is required rather than optional; see SigningInput.
-func TestDigestRefusesAnUnsetSigningTime(t *testing.T) {
-	priv := key(t)
-	sig := attrs(t, priv)
-	sig.SigningTime = nil
-	if _, err := Digest(&v1.Topic{}, sig); err == nil {
-		t.Fatal("a signature with no signing time was digested")
+// time is required rather than optional; see baseFields.
+func TestChallengeRefusesAnUnsetTime(t *testing.T) {
+	content := &v1.Topic{Name: "n"}
+	if _, err := UserChallenge(content, Interpretation(content), "k", nil); err == nil {
+		t.Fatal("a signature with no time was digested")
 	}
 }
 
-// Pins the shape of SigningInput: content then signature, value emptied
-// rather than dropped.
-func TestSigningInputIsTheDocumentBothLanguagesBuild(t *testing.T) {
-	priv := key(t)
-	sig := attrs(t, priv)
-	sig.Value = "this must not appear"
+// --- acceptance policy -----------------------------------------------------
 
-	in, err := SigningInput(&v1.Topic{Name: "n", Description: "d"}, sig)
+// The acceptance policy is the one honest difference between the layers, and it
+// is a per-layer check, not a second verify path.
+func TestPolicyHoldsTheLayerDifference(t *testing.T) {
+	priv := key(t)
+	content := &v1.Topic{Name: "n"}
+	interp := Interpretation(content)
+
+	// A participant assertion (webauthn.get, UV, an origin) fails the
+	// institution's policy (which wants the countersign type and no origin).
+	part := signUser(t, priv, content, interp, origin)
+	if err := VerifyUser(&priv.PublicKey, content, interp, part, InstitutionPolicy()); err == nil {
+		t.Error("a passkey assertion satisfied the institution policy")
+	}
+
+	// An assertion from an unknown origin fails the participant policy.
+	if err := VerifyUser(&priv.PublicKey, content, interp, part, ParticipantPolicy("https://evil.example")); err == nil {
+		t.Error("an assertion from an unaccepted origin verified")
+	}
+
+	// An assertion with no user-verified flag fails a policy that requires it.
+	keyID, _ := KeyID(&priv.PublicKey)
+	challenge, _ := UserChallenge(content, interp, keyID, when)
+	noUV := AuthenticatorData("localhost", FlagUP) // present, not verified
+	a, err := Assert(priv, challenge, noUV, ClientData{Type: TypeGet, Origin: origin})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := string(in)
-	if !strings.HasPrefix(got, `{"content":{"description":"d","name":"n"},"signature":{`) {
-		t.Errorf("unexpected shape: %s", got)
+	sig := &v1.Signature{KeyId: keyID, Time: when, Assertion: a}
+	if err := VerifyUser(&priv.PublicKey, content, interp, sig, ParticipantPolicy(origin)); err == nil {
+		t.Error("an assertion with no UV flag satisfied a UV-required policy")
 	}
-	if strings.Contains(got, "this must not appear") {
-		t.Errorf("value reached the digest: %s", got)
+}
+
+// --- the institutional layer -----------------------------------------------
+
+// The institution countersigns over the whole participant signature, in the
+// identical format, checked by the identical VerifyAssertion — one decoder, one
+// primitive, both layers.
+func TestCountersignRoundTripAndNesting(t *testing.T) {
+	userKey, instKey := key(t), key(t)
+	content := &v1.Topic{Name: "n", Description: "d"}
+	interp := Interpretation(content)
+	userSig := signUser(t, userKey, content, interp, origin)
+
+	instKeyID, err := KeyID(&instKey.PublicKey)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(got, `"value":""`) {
-		t.Errorf("value is dropped rather than emptied: %s", got)
+	challenge, err := CountersignChallenge(userSig, interp, instKeyID, when)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Headless: user-present but not user-verified, the institutional type, no
+	// browser origin.
+	authData := AuthenticatorData("metacensus.example", FlagUP)
+	a, err := Assert(instKey, challenge, authData, ClientData{Type: TypeCountersign})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inst := &v1.Signature{KeyId: instKeyID, Time: when, Assertion: a}
+
+	if err := VerifyCountersign(&instKey.PublicKey, userSig, interp, inst, InstitutionPolicy()); err != nil {
+		t.Fatalf("countersignature did not verify: %v", err)
+	}
+
+	// It nests: altering the participant signature invalidates the
+	// countersignature, without touching the countersignature itself.
+	userSig.Time = timestamppb.New(time.Unix(1, 0).UTC())
+	if err := VerifyCountersign(&instKey.PublicKey, userSig, interp, inst, InstitutionPolicy()); err == nil {
+		t.Error("the countersignature survived an altered user signature")
 	}
 }
 
@@ -275,39 +327,56 @@ func TestPublicKeyRoundTripAndThumbprint(t *testing.T) {
 	}
 }
 
-// The key offered must be the one keyId names, or a participant could enrol a
-// public key that is not theirs.
-func TestPublicKeyOfBindsKeyIdToTheKeyOffered(t *testing.T) {
+// The key offered at sign-up must be the one key_id names, or a participant
+// could enrol a public key that is not theirs.
+func TestEnrolledKeyBindsKeyIdToTheKeyOffered(t *testing.T) {
 	priv := key(t)
-	sig := attrs(t, priv)
-
-	if _, err := PublicKeyOf(sig); err == nil {
-		t.Error("a signature with no inline key resolved")
+	keyID, err := KeyID(&priv.PublicKey)
+	if err != nil {
+		t.Fatal(err)
 	}
-
 	encoded, err := EncodePublicKey(&priv.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig.PublicKey = encoded
-	if _, err := PublicKeyOf(sig); err != nil {
-		t.Fatal(err)
-	}
 
-	sig.KeyId = "someone-elses-thumbprint"
-	if _, err := PublicKeyOf(sig); err == nil {
+	if _, err := EnrolledKey("", keyID); err == nil {
+		t.Error("sign-up with no enrolling key resolved")
+	}
+	if _, err := EnrolledKey(encoded, keyID); err != nil {
+		t.Fatalf("the enrolling key did not resolve: %v", err)
+	}
+	if _, err := EnrolledKey(encoded, "someone-elses-thumbprint"); err == nil {
 		t.Error("a key that does not thumbprint to keyId was accepted")
 	}
 }
 
-// Es384 names P-384; another curve is a signature this package won't make.
+// The scheme is ES256; a key on another curve is a signature this package won't
+// make.
 func TestCurveIsHeld(t *testing.T) {
-	wrong, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	wrong, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig := attrs(t, key(t))
-	if err := Sign(wrong, &v1.Topic{}, sig); err == nil {
-		t.Error("a P-256 key signed an Es384 signature")
+	if _, err := Assert(wrong, make([]byte, 32), AuthenticatorData("localhost", FlagUP), ClientData{Type: TypeGet}); err == nil {
+		t.Error("a P-384 key produced an ES256 assertion")
+	}
+}
+
+// --- the digest input ------------------------------------------------------
+
+// Pins the shape of the participant signing input: the four bound fields, and
+// the interpretation and time rendered as the contract's JSON.
+func TestUserSigningInputIsTheDocumentBothLanguagesBuild(t *testing.T) {
+	content := &v1.Topic{Name: "n", Description: "d"}
+	interp := Interpretation(content)
+	in, err := UserSigningInput(content, interp, "KID", when)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(in)
+	want := `{"content":{"description":"d","name":"n"},"interpretation":{"contentType":"metacensus.v1.Topic","spec":"` + Spec + `"},"keyId":"KID","time":"2023-11-14T22:13:20Z"}`
+	if got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
 	}
 }

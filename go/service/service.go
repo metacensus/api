@@ -19,8 +19,11 @@
 //
 // It never verifies a signature — that happens inside the store boundary (see
 // go/store). It fails fast only on checks that are O(1), state-independent, and
-// re-enforced authoritatively below: that a caller is present, and that the
-// signature's signer (and a vote's user_id) equals the session caller.
+// re-enforced authoritatively below: that a caller is present, and that a vote's
+// user_id equals the session caller. Binding the author to the caller — the key
+// the author signature's key_id resolves to must be the caller's — needs the key
+// history, so it is the store's, below the seam; no record carries a signer id
+// or a verification key for the edge to shortcut with.
 package service
 
 import (
@@ -31,7 +34,6 @@ import (
 	"time"
 
 	"github.com/metacensus/api/go/auth"
-	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"github.com/metacensus/api/go/server"
 	"github.com/metacensus/api/go/store"
 	"golang.org/x/crypto/bcrypt"
@@ -180,14 +182,6 @@ func (h *Handlers) caller(ctx context.Context) (string, *server.Error) {
 		return "", unauthenticated("authentication required")
 	}
 	return id, nil
-}
-
-// requireSigner rejects a signature whose signer is not the session caller.
-func requireSigner(callerID string, sig *v1.UserSignature) *server.Error {
-	if sig.GetSignerId() != callerID {
-		return unauthenticated("the signature's signer is not the session caller")
-	}
-	return nil
 }
 
 // mapErr turns a store error into a client response. The store's Kind chooses

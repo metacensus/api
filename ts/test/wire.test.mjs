@@ -30,7 +30,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { Client, ApiError } from "../dist/src/client.js";
-import { verify, decodePublicKey } from "../dist/signing.js";
+import { verifyUser, participantPolicy, decodePublicKey } from "../dist/signing.js";
 
 const routegen = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "routegen");
 
@@ -39,6 +39,8 @@ let workdir;
 let client;
 /** The wireserver's public key, read off its stdout: it mints one per run. */
 let serverPublicKey;
+/** The origin the wireserver's assertions carry, also read off stdout. */
+let serverOrigin;
 /** Every URL the client fetched, for the path-encoding assertion. */
 const fetched = [];
 
@@ -75,6 +77,7 @@ before(async () => {
       if (m) {
         clearTimeout(timer);
         serverPublicKey = out.match(/^signing-key (\S+)$/m)?.[1];
+        serverOrigin = out.match(/^origin (\S+)$/m)?.[1];
         resolve(m[1]);
       }
     });
@@ -117,14 +120,17 @@ test("protojson's document is the shape ts-proto declares", async () => {
   // own claim is inside the signature, and they differ here on purpose.
   assert.equal(typeof topic.recorded, "string");
   assert.equal(topic.recorded, "2023-11-14T22:13:20Z");
-  assert.equal(topic.userSignature.signingTime, "2023-11-14T22:13:19Z");
+  assert.equal(topic.userSignature.time, "2023-11-14T22:13:19Z");
+
+  // The interpretation is a record property, sealed by the signature: the
+  // scheme version and the content's full proto name.
+  assert.equal(topic.interpretation.contentType, "metacensus.v1.Topic");
 
   // EmitDefaultValues against useOptionals=messages: a default-valued scalar is
   // present, an absent message field absent rather than null. The canonical form
   // a signature covers is built from exactly these keys.
   assert.equal(topic.content.description, "");
   assert.ok(Object.hasOwn(topic.content, "name"));
-  assert.equal(topic.userSignature.publicKey, "");
 
   const list = await client.listTopicsSigned({});
   assert.ok(Array.isArray(list));
@@ -134,10 +140,14 @@ test("protojson's document is the shape ts-proto declares", async () => {
 test("a signature Go made verifies in TypeScript", async () => {
   const topic = await client.getTopicSigned({ topicId: "t1" });
   const pub = await decodePublicKey(serverPublicKey);
+  const policy = participantPolicy(serverOrigin);
 
-  assert.ok(await verify(pub, topic.content, topic.userSignature));
+  // The whole WebAuthn assertion round-trips: Go builds a DER signature over
+  // authenticatorData ‖ SHA-256(clientDataJSON), TypeScript recomputes the
+  // challenge, checks the binding and policy, and verifies the DER signature.
+  assert.ok(await verifyUser(pub, topic.content, topic.interpretation, topic.userSignature, policy));
   assert.ok(
-    !(await verify(pub, { ...topic.content, name: "something else" }, topic.userSignature)),
+    !(await verifyUser(pub, { ...topic.content, name: "something else" }, topic.interpretation, topic.userSignature, policy)),
     "an altered content verified",
   );
 });

@@ -234,7 +234,7 @@ func TestDescribeSignedPairing(t *testing.T) {
 	}{
 		{
 			name:  "signature without content",
-			field: messageField(SignatureField, 1, "."+testPkg.Proto+".UserSignature"),
+			field: messageField(SignatureField, 1, "."+testPkg.Proto+".Signature"),
 			wants: "a signature over nothing attests to nothing",
 		},
 		{

@@ -5,7 +5,7 @@
 // source: metacensus/v1/auth.proto
 
 /* eslint-disable */
-import type { User, UserSignature } from "./common.js";
+import type { Interpretation, Signature, User } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -19,8 +19,9 @@ export interface LoginRequest {
 /**
  * Creates an account and enrolls the signing key every later write is
  * signed with: trust on first use — nobody vouches for the key, the service
- * binds whatever it's handed, and the signature proves possession of the
- * matching private key at enrollment.
+ * binds whatever it's handed, and the assertion proves possession of the
+ * matching private key at enrollment. This is the one write whose key is not
+ * resolved from persistence: no account, and so no key history, exists yet.
  */
 export interface SignUpRequest {
   content?:
@@ -31,11 +32,24 @@ export interface SignUpRequest {
    * signed, stored document.
    */
   password: string;
+  /** How the enrolling assertion is to be read; re-stamped onto the UserSigned. */
+  interpretation?:
+    | Interpretation
+    | undefined;
   /**
-   * Over `content`, made with the key being enrolled. `signer_id` is empty
-   * (no id exists yet) and `public_key` carries the key inline.
+   * The public half of the key being enrolled: base64url SPKI DER. Carried
+   * here, on the one enrollment write, rather than on every Signature — a
+   * usually-empty key field on every record is a footgun (forge content, key
+   * and signature and it "verifies"). The store checks `user_signature.key_id`
+   * thumbprints this key before binding it. For a passkey this is the public
+   * key the navigator.credentials.create() ceremony yielded.
    */
-  userSignature?: UserSignature | undefined;
+  publicKey: string;
+  /**
+   * Over `content`, made with the key being enrolled; verified at sign-up
+   * against `public_key` (bound by key_id), not against a resolved key.
+   */
+  userSignature?: Signature | undefined;
 }
 
 export interface Session {

@@ -14,9 +14,11 @@ import (
 // go/signing and ts/src/signing.ts.
 
 // signatureType is the one message a signature may be; routegen names it too
-// (model.SignatureType) and the two have to agree.
+// (model.SignatureType) and the two have to agree. Both layers use it — the
+// participant's user_signature and the institution's countersignature are the
+// same shape.
 const (
-	signatureType  = "metacensus.v1.UserSignature"
+	signatureType  = "metacensus.v1.Signature"
 	contentField   = "content"
 	signatureField = "userSignature"
 )
@@ -111,8 +113,8 @@ func TestNoWideNumbersCrossJCS(t *testing.T) {
 // A `*Content` message may hold no singular message field: protojson omits an
 // absent one rather than defaulting it, which would be a digest ambiguity a
 // signer and verifier could disagree about. Repeated/map fields are exempt
-// (EmitDefaultValues always gives `[]`/`{}`). UserSignature.signingTime is the
-// one such field allowed, made required instead to remove the ambiguity.
+// (EmitDefaultValues always gives `[]`/`{}`). Signature.time is the one such
+// field the digest depends on, made required instead to remove the ambiguity.
 func TestContentHasNoSingularMessageFields(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		if !strings.HasSuffix(string(md.Name()), "Content") {
@@ -148,7 +150,7 @@ func TestSignedRecordsReserveTheNextField(t *testing.T) {
 			if fd.Number() > highest {
 				highest = fd.Number()
 			}
-			if fd.Message() != nil && fd.Message().FullName() == "metacensus.v1.UserSignature" {
+			if fd.Message() != nil && fd.Message().FullName() == "metacensus.v1.Signature" {
 				signed = true
 			}
 		}

@@ -12,7 +12,7 @@ const DefaultMaxBodyBytes int64 = 1 << 20
 // implementer's.
 //
 // There is no hook here that sees a raw request body: a signature is
-// verified over the decoded message, not the octets (see UserSignature).
+// verified over the decoded message, not the octets (see Signature).
 type Runtime struct {
 	// Prefix is the path every route hangs off; "" means already mounted
 	// there. Use Prefix or PublicPrefix for the origin root —

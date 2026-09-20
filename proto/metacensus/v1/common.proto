@@ -31,74 +31,79 @@ message HealthcheckResponse {
   string status = 1;
 }
 
-// One participant's signature over one content message. Not verified at the
-// API edge — see README.md, "The signing chain".
-message UserSignature {
-  // Closed vocabulary: an unrecognized value fails to decode rather than
-  // reaching a verifier. See README.md, "The signing chain", before adding one.
-  enum Alg {
-    Unspecified = 0;
+// How to read a stored record: which signing scheme produced it and which
+// message its `content` holds. A stored record is append-only — it can be
+// neither re-signed nor allowed to assume the schema around it stays put — so
+// it self-describes how to verify it rather than deriving that from the current
+// envelope. Two independent axes of one concern, so one object; it is a
+// record-level property, identical for both signatures, sealed by both digests.
+// See README.md, "The signing chain".
+message Interpretation {
+  // The signing scheme as one atom: canonicalization, digest, curve and
+  // encoding together. Changing any of them changes this string, and a verifier
+  // that does not recognize it refuses rather than guesses.
+  string spec = 1;
 
-    // JOSE fixed-width r||s, never DER.
-    Es384 = 1;
-  }
-
-  // Empty only on the sign-up that enrolls the key; public_key carries it
-  // inline there instead.
-  string signer_id = 1;
-
-  // base64url SHA-256 of public_key's SPKI DER.
-  string key_id = 2;
-
-  Alg alg = 3;
-
-  // base64url SPKI DER; set only on the sign-up that enrolls the key.
-  string public_key = 4;
-
-  // The signer's claimed time, not the server's — see `recorded` on signed
-  // records for what the pair does and does not bound.
-  google.protobuf.Timestamp signing_time = 5;
-
-  // Exactly how this signature is computed and checked; changing the
-  // canonicalization, digest, or encoding changes this string.
-  string spec = 6;
-
-  // Full proto name of the message `content` holds, e.g.
-  // "metacensus.v1.Prop". Stops a signature over one type being
-  // replayed as another.
-  string content_type = 7;
-
-  // Excluded from its own digest by being emptied, not dropped.
-  string value = 8;
+  // Full proto name of the message `content` holds, e.g. "metacensus.v1.Prop".
+  // Read from the record, never inferred from the surrounding envelope: the
+  // envelope's schema may drift, the sealed name does not. Stops a signature
+  // over one type being replayed as another.
+  string content_type = 2;
 }
 
-// An institution's countersignature over a UserSignature.value — it endorses
-// the author (enrolled and in good standing when the record was written), not
-// the content. Server-minted and outside the user's signature, so it rides on
-// the stored envelope and never inside signed content. Computing and checking
-// it is the store's, below the persistence seam; this contract only carries
-// the shape so a later runtime needs no wire break. See README.md.
-message InstitutionalSignature {
-  // The institution that countersigned.
-  string signer_id = 1;
+// One signature in the chain, in one format for every layer. The participant
+// signs with a passkey (WebAuthn); the institution countersigns headless
+// (server/HSM). Both are the same object — a WebAuthn-shaped assertion whose
+// challenge is the record's digest — so there is one decoder and one crypto
+// primitive (ECDSA P-256 / ES256) the whole chain down. The only honest
+// difference between the layers is the assertion's own metadata (`type`,
+// `origin`, the user-verified flag), which each layer's acceptance policy
+// checks; it is never a second code path. Not verified at the API edge — see
+// README.md, "The signing chain".
+message Signature {
+  // Selects the signer's enrolled key from persistence's key history; that
+  // enrolled key is the trust anchor. Deliberately not a key carried on the
+  // record: resolving against persistence is what stops a forged {content, key,
+  // signature} triple verifying against itself. The signer's id is not carried
+  // either — it is this key_id's resolved owner, persistence's to determine,
+  // never a client claim. The one exception is sign-up, where no key is
+  // enrolled yet; see auth.proto's SignUpRequest.
+  string key_id = 1;
 
-  // base64url SHA-256 of the institution key's SPKI DER, resolved against the
-  // institution's key history the way a user's key_id is.
-  string key_id = 2;
+  // This signer's own time: a participant's claim, an institution's
+  // observation. Inside the digest, so it cannot be re-dated after the fact.
+  // Record ordering still uses the record-level `recorded`, never this — see
+  // `recorded` on the signed records.
+  google.protobuf.Timestamp time = 2;
 
-  // Reuses UserSignature's closed algorithm vocabulary.
-  UserSignature.Alg alg = 3;
+  // The WebAuthn assertion. Stored verbatim; the digest it commits to is
+  // recomputed from the record's own fields at verify time, never
+  // reverse-engineered from what is stored.
+  Assertion assertion = 3;
 
-  // The server's observation of when it countersigned; the institution makes
-  // no separately-claimed time.
-  google.protobuf.Timestamp recorded = 4;
+  // What navigator.credentials.get() returns for a passkey, and what a headless
+  // signer emits in the identical shape. WebAuthn does not sign arbitrary bytes:
+  // it signs authenticator_data ‖ SHA-256(client_data_json), with the content
+  // digest carried inside client_data_json.challenge.
+  message Assertion {
+    // base64url of authenticatorData: the rpId hash, and the UP/UV/BE/BS flags
+    // a verifier reads presence, user-verification and credential custody
+    // (synced vs device-bound) from. Signed over directly.
+    string authenticator_data = 1;
 
-  // Versions the countersignature scheme, independently of UserSignature.spec.
-  string spec = 5;
+    // base64url of the UTF-8 clientDataJSON. Its `challenge` is this record's
+    // digest (base64url); its `type` and, for a passkey, `origin` are the
+    // honest per-layer metadata the acceptance policy checks. A headless signer
+    // uses an honest institutional `type` and no origin, and never forges a
+    // passkey's metadata — the flags and type are the custody signal a verifier
+    // reads.
+    string client_data_json = 2;
 
-  // base64url r||s over the countersigned UserSignature.value. Emptied from
-  // its own digest by the same rule as UserSignature.value.
-  string value = 6;
+    // base64url of the ECDSA signature over authenticator_data ‖
+    // SHA-256(client_data_json). DER (ASN.1 SEQUENCE), as WebAuthn emits — not
+    // the fixed-width r‖s the prior scheme carried.
+    string signature = 3;
+  }
 }
 
 // The part of a user record its owner signs. Lives here, not user.proto,
