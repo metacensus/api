@@ -37,8 +37,8 @@ message UserSigned {
 
   UserSignature user_signature = 4;
 
-  // The institution's countersignature over `user_signature.value` — it
-  // endorses the author, not the data.
+  // The institution's countersignature over `user_signature.value`; see the
+  // InstitutionalSignature type.
   InstitutionalSignature institutional_signature = 5;
 
   // Held for the next signature layer. `reserved` (not just a comment) is what

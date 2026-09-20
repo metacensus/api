@@ -36,8 +36,8 @@ type UserSigned struct {
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
 	Content       *User                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	// The institution's countersignature over `user_signature.value` — it
-	// endorses the author, not the data.
+	// The institution's countersignature over `user_signature.value`; see the
+	// InstitutionalSignature type.
 	InstitutionalSignature *InstitutionalSignature `protobuf:"bytes,5,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache

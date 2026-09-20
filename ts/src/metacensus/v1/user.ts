@@ -28,8 +28,8 @@ export interface UserSigned {
     | UserSignature
     | undefined;
   /**
-   * The institution's countersignature over `user_signature.value` — it
-   * endorses the author, not the data.
+   * The institution's countersignature over `user_signature.value`; see the
+   * InstitutionalSignature type.
    */
   institutionalSignature?: InstitutionalSignature | undefined;
 }
