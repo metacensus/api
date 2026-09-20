@@ -49,8 +49,7 @@ type Package struct {
 	GoConst string
 	TSConst string
 
-	// TSClient is the generated client class for this surface: the one
-	// batteries-included client a consumer of that surface uses.
+	// TSClient is the generated client class for this surface.
 	TSClient string
 
 	// Summary is the one-line description the generated prose uses.

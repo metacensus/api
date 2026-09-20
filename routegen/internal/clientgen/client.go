@@ -1,12 +1,7 @@
 // Package clientgen renders ts/src/client.ts: one batteries-included client
-// per surface, one or two typed methods per rpc, over fetch.
-//
-// The client owns its HTTP: it holds the session token across login/logout and
-// signs writes with a caller-injected signer. Reads return flat views
-// ({id, recorded, ...content}); a signed-envelope read also gets a getXSigned
-// method returning the raw envelope, for a caller verifying authorship. The
-// shared ApiError is one declaration so `instanceof` does not depend on the
-// import path.
+// per surface, one or two typed methods per rpc, over fetch. The shared
+// ApiError is one declaration so `instanceof` does not depend on the import
+// path. See README.md, "The generated client".
 package clientgen
 
 import (
@@ -125,9 +120,10 @@ func listElem(md protoreflect.MessageDescriptor) (protoreflect.MessageDescriptor
 	return md, false
 }
 
-// envelopeContent returns the content message of a {content, userSignature}
-// envelope, and whether it also carries a server-minted id (Vote does not).
-func envelopeContent(md protoreflect.MessageDescriptor) (protoreflect.MessageDescriptor, bool, bool) {
+// envelopeContent reports whether md is a {content, userSignature} envelope,
+// returning the content message and whether it also carries a server-minted id
+// (Vote does not).
+func envelopeContent(md protoreflect.MessageDescriptor) (content protoreflect.MessageDescriptor, hasID, ok bool) {
 	c := md.Fields().ByName(model.ContentField)
 	s := md.Fields().ByName(model.SignatureField)
 	if c == nil || s == nil || c.Kind() != protoreflect.MessageKind {
@@ -167,7 +163,7 @@ type clientMethod struct {
 }
 
 // surface is one client class: the routes it serves, and the machinery those
-// routes imply. HasSigner and HasToken gate the signer and token fields.
+// routes imply.
 type surface struct {
 	Class     string
 	Options   string
