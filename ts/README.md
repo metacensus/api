@@ -6,7 +6,7 @@ response under `/metacensus/api/v1` and `/metacensus/public`, generated from the
 
 What ships is the generated interfaces, the route manifest, `protobufPackage`, a
 batteries-included client per surface, and the signing chain. How dependencies
-are weighed is in the repository README, under "Dependencies".
+are weighed is in the repository's AGENTS.md, under "Dependencies".
 
 ```bash
 npm install @metacensus/api

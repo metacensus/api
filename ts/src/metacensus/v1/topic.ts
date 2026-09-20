@@ -5,7 +5,7 @@
 // source: metacensus/v1/topic.proto
 
 /* eslint-disable */
-import type { UserSignature } from "./common.js";
+import type { InstitutionalSignature, UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -21,7 +21,14 @@ export interface TopicSigned {
    */
   recorded?: string | undefined;
   content?: Topic | undefined;
-  userSignature?: UserSignature | undefined;
+  userSignature?:
+    | UserSignature
+    | undefined;
+  /**
+   * The institution's countersignature over user_signature.value; see
+   * UserSigned.
+   */
+  institutionalSignature?: InstitutionalSignature | undefined;
 }
 
 /**

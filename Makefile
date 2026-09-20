@@ -32,7 +32,7 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 # Latest release tag; empty (no releases yet) makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
 
-# The public surface; see README.md, "Versioning the public surface".
+# The public surface; see AGENTS.md, "Compatibility and versioning".
 PUBLIC_PROTO_DIR        := $(PROTO)/metacensus/public
 # The same directory as buf sees it, i.e. relative to the module root.
 PUBLIC_PACKAGE_PATH     := metacensus/public
