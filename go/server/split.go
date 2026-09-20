@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/metacensus/api/go/server/routes"
 )
@@ -19,36 +18,22 @@ import (
 //			rt, authImpl{})
 //	})
 //
-// rpcs are "Service.Rpc" names from routes.Routes; a name not in the
-// manifest panics at construction rather than mounting a route on the wrong
+// rpcs are "Service.Rpc" names resolved through routes.Lookup; a name not in
+// the manifest panics at construction rather than mounting a route on the wrong
 // side of an auth boundary.
 func Except(mux, alt Mux, rt *Runtime, rpcs ...string) Mux {
 	if len(rpcs) == 0 {
 		panic("server: Except needs at least one rpc; without one it is just mux")
 	}
-	byName := map[string]routes.Route{}
-	for _, r := range routes.Routes {
-		byName[r.Service+"."+r.RPC] = r
-	}
-
 	moved := map[string]bool{}
 	for _, name := range rpcs {
-		r, ok := byName[name]
+		r, ok := routes.Lookup(name)
 		if !ok {
-			panic(fmt.Sprintf("server: Except: %q is not an rpc in the route manifest (%s)",
-				name, strings.Join(rpcNames(), ", ")))
+			panic(fmt.Sprintf("server: Except: %q is not an rpc in the route manifest", name))
 		}
 		moved[r.Method+" "+rt.Prefix+r.Path] = true
 	}
 	return exceptMux{mux: mux, alt: alt, moved: moved}
-}
-
-func rpcNames() []string {
-	out := make([]string, 0, len(routes.Routes))
-	for _, r := range routes.Routes {
-		out = append(out, r.Service+"."+r.RPC)
-	}
-	return out
 }
 
 type exceptMux struct {

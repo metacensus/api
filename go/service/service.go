@@ -33,6 +33,7 @@ import (
 	"github.com/metacensus/api/go/auth"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/store"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -170,9 +171,13 @@ func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 // scoped to the refresh route, so the browser sends it only there and not on
 // every API call.
 func (h *Handlers) cookieConfig(rt *server.Runtime) auth.CookieConfig {
+	refresh, ok := routes.Lookup("AuthRoutes.Refresh")
+	if !ok {
+		panic("service: AuthRoutes.Refresh is missing from the route manifest")
+	}
 	return auth.CookieConfig{
 		Name:     h.cookieName,
-		Path:     rt.Prefix + "/refresh",
+		Path:     rt.Prefix + refresh.Path,
 		MaxAge:   auth.DefaultRefreshTTL,
 		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteStrictMode,
