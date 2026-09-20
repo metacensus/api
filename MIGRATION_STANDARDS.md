@@ -1,10 +1,157 @@
-# Standards for migrating requests into this contract
+# Epic: Establish system-wide request standards and consolidate project requests
+
+## Summary
+
+Establish one enforceable standard for API requests across the system, then bring
+requests currently defined in other projects into this contract. The result is a
+single source of truth for request schemas, routes, generated clients, and server
+bindings rather than project-specific definitions that can drift.
+
+This Epic is complete only when:
+
+1. the standard is agreed, documented, and mechanically enforced;
+2. every existing request in every participating project has been inventoried;
+3. each inventoried request has an explicit disposition; and
+4. all requests selected for consolidation have been reshaped and merged through
+   tracked GitHub sub-issues.
+
+Here, **request** means an externally reachable API operation and its complete
+contract: HTTP method and path, path/query/body fields, request and response
+messages, identity rules, and compatibility expectations.
+
+## Why this work is needed
+
+Requests have evolved in multiple projects. Copying their current shapes into this
+repository would preserve inconsistencies and leave multiple authoritative
+definitions in place. The migration therefore has two equally important outcomes:
+
+- define the system-wide target standard; and
+- consolidate requests from other projects into that standard, changing their
+  shape where necessary instead of treating the old implementation as canonical.
+
+## Goals
+
+- Publish one target standard for authenticated and public requests.
+- Make protobuf the source of truth for request and response types.
+- Generate route manifests, Go types, server bindings, and TypeScript clients from
+  that source.
+- Discover all requests still owned or duplicated by other projects.
+- Decide whether each request will be merged, replaced by an existing request,
+  retired, or explicitly deferred.
+- Move requests selected for consolidation into this contract without carrying
+  incompatible legacy shapes forward.
+- Add automated checks for rules that should not depend on reviewer memory.
+- Give consuming projects an explicit adoption and legacy-removal path.
+
+## Non-goals
+
+- Finalize the new signing or authentication design.
+- Preserve legacy request shapes when coordinated consumers can migrate.
+- Introduce speculative schemas that no known consumer requires.
+- Type error bodies unless an implementation exposes a stable machine-readable
+  discriminator not already represented by HTTP status.
+
+## Workstreams and required GitHub sub-issues
+
+### A. Ratify and enforce the request standard
+
+Create focused sub-issues for any standard below that is not yet mechanically
+enforced. Each issue must identify the rule, enforcement point, fixtures or tests,
+and any deliberate exceptions.
+
+### B. Inventory requests in every source project
+
+Create one inventory sub-issue per source project. The issue must:
+
+- name the source project and an accountable owner;
+- list every externally reachable request;
+- identify all callers and deployed compatibility constraints;
+- link the current handler, request/response types, and tests;
+- record whether an equivalent contract already exists here; and
+- assign one disposition to every request: **merge**, **replace**, **retire**, or
+  **defer with rationale and owner**.
+
+An inventory issue is not complete while any reachable request has no disposition.
+
+### C. Merge request families into this contract
+
+Create separate implementation sub-issues for cohesive request families or
+resources discovered by the inventories. Several migration issues per source
+project are expected. Do not create one oversized “migrate project” issue when
+request families can be reviewed and released independently.
+
+Every merge sub-issue must include:
+
+- source project, source route, and known callers;
+- current method/path and target method/path;
+- current request/response shape and target proto messages;
+- differences from the target standard below;
+- ID and ownership semantics, including parent/actor relationships;
+- authenticated or public surface and its compatibility policy;
+- rollout order for contract, service, and callers;
+- data migration or translation requirements, if any;
+- legacy code and duplicate schema to remove;
+- tests and generated artifacts that prove conformance; and
+- blockers involving signing or auth, isolated behind the seams in Section 2.
+
+A merge issue is complete only when the contract is generated and tested, known
+callers use it, and the prior authoritative definition is removed or has a
+separately owned removal issue with a deadline.
+
+### D. Adopt the contract in consuming projects
+
+Create adoption sub-issues where a consumer cannot move in the same change as the
+contract. Each must identify the version adopted, rollout ordering, compatibility
+window, verification needed, and the date or condition for deleting the legacy
+path.
+
+### E. Close migration gaps and remove duplication
+
+Track compatibility shims, old routes, hand-written request types, and duplicate
+schemas explicitly. A shim is temporary migration work, not a second standard; it
+must have an owner and removal condition.
+
+## Epic acceptance criteria
+
+- [ ] The standards in Sections 1–3 are reviewed and accepted as the system-wide
+      target.
+- [ ] CI enforces every rule identified as mechanically enforceable, or a linked
+      issue records why enforcement is deferred.
+- [ ] Every participating project has a completed request inventory sub-issue.
+- [ ] Every inventoried request is marked merge, replace, retire, or defer.
+- [ ] Every merge disposition has one or more linked implementation sub-issues.
+- [ ] Every migrated request is represented in protobuf and generated into the
+      route manifest, Go surface, server binding, and TypeScript client as
+      applicable.
+- [ ] Every migrated request conforms to route, ID, envelope, naming, and
+      compatibility standards, with deliberate exceptions documented and tested.
+- [ ] Known consumers have migrated or have linked, owned adoption issues with
+      explicit compatibility windows.
+- [ ] Superseded routes and duplicate request definitions are removed, or their
+      time-bounded removal issues are linked.
+- [ ] The final inventory contains no request with an unknown owner or unresolved
+      disposition.
+
+## Suggested sub-issue naming
+
+- `Inventory <project> requests and assign migration dispositions`
+- `Merge <resource/request family> requests from <project>`
+- `Adopt generated <resource> contract in <consumer>`
+- `Remove legacy <resource> request definitions from <project>`
+- `Enforce <request standard> in contract tests`
+
+## Target request standard
 
 Derived from the requests already migrated into `metacensus.v1` and
 `metacensus.public.v1` (auth, topic, prop/vote, user, partner) — not aspirational,
 only what's actually established and, where noted, mechanically enforced. Use this
 to reshape an un-migrated request before it lands here; don't carry its old shape
-over on the assumption it was already fine.
+over on the assumption it was already fine. "Un-migrated" covers requests still
+living in other projects and any route already in this repository that predates
+these standards settling. Either way, the target shape in
+[Section 1](#1-current-standards) is the same, and
+[Section 4](#4-migration-backlog-and-issue-decomposition) defines how the work is
+split into GitHub sub-issues.
 
 Signing and auth are excluded on purpose — both are being redesigned, and pinning
 today's mechanics here would just have to be undone. [Section 2](#2-signing--auth-kept-flexible)
@@ -179,9 +326,99 @@ preserving structurally, independent of whatever mechanism lands:
   wrong shape early. Apply the same discipline to migrated endpoints: don't invent
   structure a second consumer hasn't yet demanded.
 
-## Applying this to the migration
+## 4. Migration backlog and issue decomposition
 
-Any un-migrated request that currently uses PUT/DELETE, verb-suffixed paths,
-numeric ids, ad hoc per-endpoint error shapes, or an id embedded only in the path
-needs reshaping to match the above — that reshaping is the actual migration work,
-independent of whatever the new signing mechanism ends up being.
+The Epic is the roll-up, not the route-level backlog. Record source-project
+inventories and implementation work as linked GitHub sub-issues so ownership,
+dependencies, rollout, and completion remain visible.
+
+As of this writing every route in
+[`go/server/routes/manifest.go`](go/server/routes/manifest.go) conforms to
+Section 1: it is generated from `.proto` and mechanically checked. The migration
+backlog begins with routes discovered in other projects and with any future route
+in this repository that predates or bypasses these standards.
+
+Use these issue boundaries:
+
+- **One inventory issue per source project.** This establishes completeness and
+  assigns a disposition to every request.
+- **One merge issue per cohesive resource or request family.** Include all routes
+  that must change together to preserve useful behavior.
+- **One adoption issue per independently deployed consumer when needed.**
+- **One removal issue per legacy surface when removal cannot be part of adoption.**
+- **One enforcement issue per cross-cutting rule**, rather than repeating the
+  same test work in every route migration.
+
+Do not use a sub-issue merely as a checklist item. It must have an owner, testable
+acceptance criteria, dependencies, and enough current/target detail to review the
+contract change.
+
+### Merge sub-issue template
+
+**Title:** `Merge <resource/request family> requests from <project>`
+
+**Current state**
+
+- Source project and owner:
+- Current routes and handlers:
+- Current request/response definitions:
+- Known callers:
+- Deployment and compatibility constraints:
+
+**Target contract**
+
+- Authenticated or public surface:
+- Target RPCs and method/path pairs:
+- Target proto messages:
+- ID and ownership model:
+- Standards changed or newly enforced:
+
+**Migration plan**
+
+- Contract and generation changes:
+- Service implementation changes:
+- Caller adoption order:
+- Data translation or migration:
+- Compatibility shim, owner, and removal condition:
+- Legacy routes/types/files to delete:
+- Signing/auth blocker or preserved seam:
+
+**Acceptance criteria**
+
+- [ ] Protobuf defines the complete request and response contract.
+- [ ] Generated route manifest, Go code, server binding, and TypeScript client are
+      current.
+- [ ] Contract and compatibility tests pass.
+- [ ] All known callers have adopted the target contract or have linked adoption
+      issues.
+- [ ] Duplicate definitions and legacy routes are removed or have a linked,
+      owned, time-bounded removal issue.
+
+### Common focused migration issues
+
+- `Reshape <METHOD> <old-path> as <METHOD> <new-path>`
+  - Remove verb path segments and align the RPC name and HTTP method with
+    [Section 1a](#1a-route-path--http-method).
+- `Replace <resource> numeric ID with a minted opaque string ID`
+  - Mint via `service.NewID`; apply the meaning-versus-address classification in
+    [Section 1b](#1b-ids--existing-and-new).
+- `Model <resource> request family in protobuf`
+  - Apply the naming and envelope rules in
+    [Section 1c](#1c-body--object-structure-typing), then generate all supported
+    language and routing surfaces.
+- `Remove duplicate <resource> request contract from <project>`
+  - Delete the former source of truth after consumers adopt the generated
+    contract.
+
+## 5. Applying the standard during consolidation
+
+Any request using PUT/DELETE, verb-suffixed paths, numeric IDs, ad hoc
+per-endpoint error shapes, hand-written JSON contracts, or a meaning-bearing ID
+embedded only in the path must be reshaped as part of its merge issue. That
+reshaping is migration work, not optional cleanup, and is independent of the
+future signing mechanism.
+
+When two projects expose overlapping requests, the inventory must identify the
+overlap and the merge issue must select one target contract. Do not preserve both
+definitions under different names unless a documented compatibility constraint
+requires a temporary shim with an owner and removal condition.
