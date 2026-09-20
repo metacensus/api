@@ -49,7 +49,8 @@ type Package struct {
 	GoConst string
 	TSConst string
 
-	// TSClient is the generated client class for this surface.
+	// TSClient is the generated client class for this surface: the one
+	// batteries-included client a consumer of that surface uses.
 	TSClient string
 
 	// Summary is the one-line description the generated prose uses.
@@ -65,7 +66,7 @@ var Packages = []Package{
 		GoAlias:  "v1",
 		GoConst:  "Prefix",
 		TSConst:  "apiPrefix",
-		TSClient: "ClientSigned",
+		TSClient: "Client",
 		Summary:  "the authenticated API",
 	},
 	{

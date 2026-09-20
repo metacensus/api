@@ -16,18 +16,16 @@ export * from "./src/route-manifest.js";
 export { protobufPackage } from "./src/metacensus/v1/common.js";
 
 // Named, not `export *`: src/client.ts has one class per surface, and this
-// entry point wants only the authenticated one — plus its sugar (`Client`, the
-// `…View` types, `Signer`). See ts/README.md, "The sugar Client".
+// entry point wants only the authenticated one. `Client` is batteries-included;
+// the `…View` types are its flat reads and `Signer` its write seam. See
+// ts/README.md, "The generated client".
 export {
-  ClientSigned,
   Client,
   ApiError,
+  type ClientOptions,
   type Signer,
   type TopicView,
   type PropView,
   type VoteView,
   type UserView,
-  type ClientRequest,
-  type ClientResponse,
-  type Transport,
 } from "./src/client.js";

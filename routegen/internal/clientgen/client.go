@@ -1,12 +1,12 @@
-// Package clientgen renders ts/src/client.ts: one class per surface, one
-// typed method per rpc, over a caller-supplied transport. The shared envelope
-// (Transport, ApiError) is one declaration — two ApiError classes would make
-// `instanceof` depend on the import path.
+// Package clientgen renders ts/src/client.ts: one batteries-included client
+// per surface, one or two typed methods per rpc, over fetch.
 //
-// It also renders the sugar layer beneath the raw classes: a Client that wraps
-// ClientSigned and returns flat views ({id, recorded, ...content}) rather than
-// the signed envelopes. Reads flatten the response; writes take flat content
-// plus a session signer and assemble the envelope.
+// The client owns its HTTP: it holds the session token across login/logout and
+// signs writes with a caller-injected signer. Reads return flat views
+// ({id, recorded, ...content}); a signed-envelope read also gets a getXSigned
+// method returning the raw envelope, for a caller verifying authorship. The
+// shared ApiError is one declaration so `instanceof` does not depend on the
+// import path.
 package clientgen
 
 import (
@@ -26,44 +26,18 @@ import (
 //go:embed client.ts.tmpl
 var tmplSrc string
 
-// funcs is what client.ts.tmpl may call beyond the builtins.
 var funcs = template.FuncMap{
-	"lowerFirst":   lowerFirst,
-	"pathTemplate": pathTemplate,
-	"join":         func(sep string, items []string) string { return strings.Join(items, sep) },
+	"lowerFirst": lowerFirst,
+	"join":       func(sep string, items []string) string { return strings.Join(items, sep) },
 }
 
 var tmpl = template.Must(template.New("client.ts.tmpl").Funcs(funcs).Parse(tmplSrc))
-
-// field is enough of a request field's descriptor to choose an encoding.
-type field struct {
-	JSONName string
-	Kind     protoreflect.Kind
-	List     bool
-	Map      bool
-	Message  protoreflect.FullName // set when Kind is MessageKind
-}
 
 // tsRef names a ts-proto type and the generated file that declares it.
 // ts-proto names nested declarations Parent_Child.
 type tsRef struct {
 	Name string
 	File string // e.g. "./metacensus/v1/topic.js"
-}
-
-type clientRoute struct {
-	model.Route
-	PathFields  []field
-	QueryFields []field
-	In, Out     tsRef
-}
-
-func fieldOf(fd protoreflect.FieldDescriptor) field {
-	f := field{JSONName: fd.JSONName(), Kind: fd.Kind(), List: fd.IsList(), Map: fd.IsMap()}
-	if fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind {
-		f.Message = fd.Message().FullName()
-	}
-	return f
 }
 
 func refOf(md protoreflect.MessageDescriptor) tsRef {
@@ -74,41 +48,13 @@ func refOf(md protoreflect.MessageDescriptor) tsRef {
 		}
 		parts = append([]string{string(d.Name())}, parts...)
 	}
-	path := md.ParentFile().Path()
-	path = "./" + strings.TrimSuffix(path, ".proto") + ".js"
+	path := "./" + strings.TrimSuffix(md.ParentFile().Path(), ".proto") + ".js"
 	return tsRef{Name: strings.Join(parts, "_"), File: path}
-}
-
-func describeClient(r model.Route) (clientRoute, error) {
-	md := r.Descriptor
-	req := md.Input()
-	cr := clientRoute{Route: r, In: refOf(req), Out: refOf(md.Output())}
-
-	byJSON := map[string]protoreflect.FieldDescriptor{}
-	for i := 0; i < req.Fields().Len(); i++ {
-		fd := req.Fields().Get(i)
-		byJSON[fd.JSONName()] = fd
-	}
-
-	for _, p := range r.Params {
-		cr.PathFields = append(cr.PathFields, fieldOf(byJSON[p]))
-	}
-	for _, q := range r.Query {
-		cr.QueryFields = append(cr.QueryFields, fieldOf(byJSON[q]))
-	}
-	// Both directions: request and response trees must each be bytes-free.
-	for _, tree := range []protoreflect.MessageDescriptor{req, md.Output()} {
-		if err := rejectBytes(tree, map[protoreflect.FullName]bool{}); err != nil {
-			return cr, fmt.Errorf("%s: %w", md.Name(), err)
-		}
-	}
-	return cr, nil
 }
 
 // rejectBytes refuses a message tree with a bytes field: ts-proto types bytes
 // as Uint8Array, which JSON.stringify/parse cannot round-trip as protojson's
-// base64. The Go side handles bytes natively, so this check belongs here and
-// not in model.Walk.
+// base64.
 func rejectBytes(md protoreflect.MessageDescriptor, seen map[protoreflect.FullName]bool) error {
 	if seen[md.FullName()] {
 		return nil
@@ -137,9 +83,14 @@ func lowerFirst(s string) string {
 	return string(r)
 }
 
-// pathTemplate turns "/topic/{topicId}/prop" into a TS template literal that
-// percent-encodes each parameter.
-func pathTemplate(path string, src string) string {
+// pathExpr renders a route's path as a TypeScript expression: a template
+// literal percent-encoding each parameter when the route has any, else the
+// quoted literal. src prefixes each parameter read — "req." when the request
+// object is read directly, "" when the parameters were destructured out first.
+func pathExpr(path string, params []string, src string) string {
+	if len(params) == 0 {
+		return fmt.Sprintf("%q", path)
+	}
 	var b strings.Builder
 	b.WriteString("`")
 	for len(path) > 0 {
@@ -148,7 +99,6 @@ func pathTemplate(path string, src string) string {
 			b.WriteString(path)
 			break
 		}
-		// From open, matching model.rewriteParams.
 		shut := strings.IndexByte(path[open:], '}')
 		if shut < 0 {
 			b.WriteString(path)
@@ -161,92 +111,6 @@ func pathTemplate(path string, src string) string {
 	}
 	b.WriteString("`")
 	return b.String()
-}
-
-// methodView is clientRoute plus what the template can't work out for itself:
-// ExtraLines per field, and Src, the prefix path fields are read off — ""
-// once destructured out of req, "req." otherwise.
-type methodView struct {
-	clientRoute
-	ExtraLines []string
-	Src        string
-	BodyExpr   string
-}
-
-// A "*" body is everything the path did not bind; destructuring is how the
-// path fields leave it.
-func newMethodView(cr clientRoute) methodView {
-	mv := methodView{clientRoute: cr, Src: "req.", BodyExpr: "undefined"}
-	if cr.Body == "*" {
-		if len(cr.PathFields) > 0 {
-			var names []string
-			for _, f := range cr.PathFields {
-				names = append(names, f.JSONName)
-			}
-			mv.ExtraLines = append(mv.ExtraLines, fmt.Sprintf("    const { %s, ...body } = req;", strings.Join(names, ", ")))
-			mv.Src = ""
-		} else {
-			mv.ExtraLines = append(mv.ExtraLines, "    const body = req;")
-		}
-		mv.BodyExpr = "JSON.stringify(body)"
-	}
-	if len(cr.QueryFields) > 0 {
-		mv.ExtraLines = append(mv.ExtraLines, "    const q: (readonly [string, string])[] = [];")
-		for _, f := range cr.QueryFields {
-			name := f.JSONName
-			// Guards are for a caller who is not TypeScript: an absent
-			// field would otherwise send the literal "undefined".
-			if f.List {
-				mv.ExtraLines = append(mv.ExtraLines, fmt.Sprintf("    for (const v of req.%s ?? []) q.push([%q, String(v)]);", name, name))
-			} else {
-				mv.ExtraLines = append(mv.ExtraLines, fmt.Sprintf("    if (req.%s !== undefined && req.%s !== null) q.push([%q, String(req.%s)]);", name, name, name, name))
-			}
-		}
-	}
-	return mv
-}
-
-// fileImport is one generated file and the type names pulled from it, sorted
-// so re-running the generator is stable.
-type fileImport struct {
-	File  string
-	Names []string
-}
-
-// sugarClass is one sugar client; HasWrites gates the signer machinery.
-type sugarClass struct {
-	Name      string // e.g. "Client"
-	TSClient  string // the raw class it wraps, e.g. "ClientSigned"
-	TSConst   string // the surface's prefix constant, e.g. "apiPrefix"
-	HasWrites bool
-}
-
-// viewType is a flat view alias and its flatten helper, emitted once per
-// content type however many routes return it.
-type viewType struct {
-	View     string // "TopicView"
-	Content  string // "Topic"
-	Envelope string // "TopicSigned"
-	HasId    bool
-	Flatten  string // "flattenTopic", "" when the record is already flat
-}
-
-// sugarMethod is one method of a sugar client: a read that flattens an
-// envelope (or returns an already-flat record), a list that does the same
-// per item, or a signed write that wraps flat content before sending it.
-type sugarMethod struct {
-	Name     string // lowerFirst(RPC)
-	Service  string
-	RPC      string
-	HTTP     string // GET/POST, for the doc comment
-	Path     string
-	Req      string // request type name
-	List     bool   // response is {items: T[]}
-	Write    bool   // signed write: take flat content, assemble the envelope
-	Envelope bool   // element is a *Signed needing a flatten() call
-	View     string // element view type: "TopicView", or "Member" when flat
-	Flatten  string // "flattenTopic", "" when not an envelope
-	CType    string // contentType string a write signs under
 }
 
 // listElem returns the element type of an {items: T[]} list envelope and true,
@@ -272,120 +136,200 @@ func envelopeContent(md protoreflect.MessageDescriptor) (protoreflect.MessageDes
 	return c.Message(), md.Fields().ByName("id") != nil, true
 }
 
-// describeSugar classifies one route's response for the sugar layer. include
-// is false for a plain response (no record to flatten), which drops the route.
-// When the element is an envelope it also returns the content ref, so the view
-// alias's `& Topic` half can be imported.
-func describeSugar(cr clientRoute) (sm sugarMethod, vt viewType, content tsRef, include bool) {
-	elem, list := listElem(cr.Descriptor.Output())
-	sm = sugarMethod{
-		Name:    lowerFirst(cr.RPC),
-		Service: cr.Service,
-		RPC:     cr.RPC,
-		HTTP:    cr.Method,
-		Path:    cr.Path,
-		Req:     cr.In.Name,
-		List:    list,
-	}
-
-	if cmd, hasID, ok := envelopeContent(elem); ok {
-		cRef := refOf(cmd)
-		sm.Envelope = true
-		sm.View = cRef.Name + "View"
-		sm.Flatten = "flatten" + cRef.Name
-		vt = viewType{View: sm.View, Content: cRef.Name, Envelope: refOf(elem).Name, HasId: hasID, Flatten: sm.Flatten}
-		if cr.Signed {
-			// contentType the write signs under: the request's content field.
-			sm.Write = true
-			sm.CType = string(cr.Descriptor.Input().Fields().ByName(model.ContentField).Message().FullName())
-		}
-		return sm, vt, cRef, true
-	}
-
-	// Member: a flat record, no envelope — returned as-is.
-	if elem.Fields().ByName("id") != nil && elem.Fields().ByName(model.ContentField) == nil {
-		sm.View = refOf(elem).Name
-		return sm, viewType{}, tsRef{}, true
-	}
-
-	return sugarMethod{}, viewType{}, tsRef{}, false
+// viewType is a flat view alias and its flatten helper, emitted once per
+// content type however many methods return it.
+type viewType struct {
+	View     string // "TopicView"
+	Content  string // "Topic"
+	Envelope string // "TopicSigned"
+	HasId    bool
+	Flatten  string // "flattenTopic"
 }
 
-// sugarSurface is one surface's sugar rendering, computed once so its imports
-// can be merged before the import block and its body emitted after the raw
-// classes.
-type sugarSurface struct {
-	class   sugarClass
-	methods []sugarMethod
-	views   []viewType
-	refs    []tsRef // extra type imports the sugar needs
+// clientMethod is one method a client class emits. Kind selects the template
+// that renders it; the other fields carry what that template needs.
+type clientMethod struct {
+	Name     string // "getTopic", "getTopicSigned", "createTopic", ...
+	Service  string
+	RPC      string
+	HTTP     string
+	Path     string
+	Params   []string // path parameters, for a write's destructuring
+	Req      string   // request type, or Omit<Req, "userSignature"> for a write
+	Return   string
+	Kind     string // raw|list|flatten|flattenList|post|login|logout|write|signup
+	Envelope string // envelope type, for flatten and raw single
+	List     string // list type, for flattenList and list
+	Flatten  string // "flattenTopic"
+	CType    string // contentType a write signs under
+	PathExpr string // the rendered path expression
+	BodyArg  string // the body argument for a raw method
 }
 
-// describeSugarSurface builds the sugar for one surface, or ok=false when the
-// surface has no sugar. A surface gets a sugar client only when its raw class
-// name ends in "Signed" (the authenticated surface): the sugar's whole job is
-// unwrapping signed records, and the name it takes is that suffix dropped —
-// ClientSigned becomes Client, the name index.ts reserves. A surface with no
-// record route (the public one) yields nothing even so.
-func describeSugarSurface(pkg model.Package, methods []methodView) (sugarSurface, bool) {
-	name := strings.TrimSuffix(pkg.TSClient, "Signed")
-	if name == pkg.TSClient {
-		return sugarSurface{}, false
-	}
+// surface is one client class: the routes it serves, and the machinery those
+// routes imply. HasSigner and HasToken gate the signer and token fields.
+type surface struct {
+	Class     string
+	Options   string
+	TSConst   string
+	Summary   string
+	HasSigner bool
+	HasToken  bool
+	Methods   []clientMethod
+}
 
-	s := sugarSurface{class: sugarClass{Name: name, TSClient: pkg.TSClient, TSConst: pkg.TSConst}}
-	seen := map[string]bool{}
-	var sigRef tsRef
-	for _, m := range methods {
-		if m.Pkg.Proto != pkg.Proto {
+// describeSurface classifies one package's routes into the methods its client
+// class emits, accumulating the view types and type imports the whole file
+// needs. It returns ok=false for a surface with no routes.
+func describeSurface(pkg model.Package, routes []model.Route, views *[]viewType, seen map[string]bool, refs *[]tsRef) (surface, bool, error) {
+	s := surface{Class: pkg.TSClient, Options: pkg.TSClient + "Options", TSConst: pkg.TSConst, Summary: pkg.Summary}
+	addView := func(vt viewType) {
+		if !seen[vt.View] {
+			seen[vt.View] = true
+			*views = append(*views, vt)
+		}
+	}
+	for _, r := range routes {
+		if r.Pkg.Proto != pkg.Proto {
 			continue
 		}
-		sm, vt, content, ok := describeSugar(m.clientRoute)
-		if !ok {
-			continue
+		if len(r.Query) > 0 {
+			return surface{}, false, fmt.Errorf("%s.%s: query parameters are not supported by the batteries-included client; add support when a route needs one", r.Service, r.RPC)
 		}
-		s.methods = append(s.methods, sm)
-		if sm.Envelope {
-			s.refs = append(s.refs, content)
-			if !seen[vt.View] {
-				seen[vt.View] = true
-				s.views = append(s.views, vt)
+		for _, tree := range []protoreflect.MessageDescriptor{r.Descriptor.Input(), r.Descriptor.Output()} {
+			if err := rejectBytes(tree, map[protoreflect.FullName]bool{}); err != nil {
+				return surface{}, false, fmt.Errorf("%s.%s: %w", r.Service, r.RPC, err)
 			}
 		}
-		if sm.Write {
-			s.class.HasWrites = true
-			sigRef = refOf(m.Descriptor.Input().Fields().ByName(model.SignatureField).Message())
-		}
+		s.Methods = append(s.Methods, classify(r, addView, refs)...)
 	}
-	if len(s.methods) == 0 {
-		return sugarSurface{}, false
+	if len(s.Methods) == 0 {
+		return surface{}, false, nil
 	}
-	if s.class.HasWrites {
-		s.refs = append(s.refs, sigRef) // UserSignature, for the Signer type
+	for _, m := range s.Methods {
+		s.HasSigner = s.HasSigner || m.Kind == "write" || m.Kind == "signup"
+		s.HasToken = s.HasToken || m.Kind == "login" || m.Kind == "signup" || m.Kind == "logout"
 	}
-	sort.Slice(s.views, func(i, j int) bool { return s.views[i].View < s.views[j].View })
-	return s, true
+	return s, true, nil
 }
 
-// Render writes ts/src/client.ts: a raw class per surface and the sugar Client
-// beneath, each with one typed method per rpc, over a caller-supplied Transport.
+// classify turns one route into the one or two methods its client emits. A
+// signed-envelope read yields two: the flat getX and the raw getXSigned.
+func classify(r model.Route, addView func(viewType), refs *[]tsRef) []clientMethod {
+	in := refOf(r.Descriptor.Input())
+	out := refOf(r.Descriptor.Output())
+	elem, isList := listElem(r.Descriptor.Output())
+	elemRef := refOf(elem)
+	*refs = append(*refs, in, out, elemRef)
+
+	base := clientMethod{
+		Name: lowerFirst(r.RPC), Service: r.Service, RPC: r.RPC,
+		HTTP: r.Method, Path: r.Path, Params: r.Params, Req: in.Name,
+	}
+	respHasToken := r.Descriptor.Output().Fields().ByName("token") != nil
+
+	if r.Signed {
+		reqContent := r.Descriptor.Input().Fields().ByName(model.ContentField).Message()
+		*refs = append(*refs, refOf(r.Descriptor.Input().Fields().ByName(model.SignatureField).Message()))
+		m := base
+		m.Req = "Omit<" + in.Name + `, "userSignature">`
+		m.CType = string(reqContent.FullName())
+		m.PathExpr = pathExpr(r.Path, r.Params, "")
+		if respHasToken { // sign-up: enrols the key and logs in
+			m.Kind, m.Return = "signup", out.Name
+			return []clientMethod{m}
+		}
+		content, hasID, _ := envelopeContent(elem)
+		cRef := refOf(content)
+		*refs = append(*refs, cRef)
+		addView(viewType{View: cRef.Name + "View", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
+		m.Kind, m.Return, m.Envelope, m.Flatten = "write", cRef.Name+"View", elemRef.Name, "flatten"+cRef.Name
+		return []clientMethod{m}
+	}
+
+	base.PathExpr = pathExpr(r.Path, r.Params, "req.")
+
+	if respHasToken { // login
+		m := base
+		m.Kind, m.Return = "login", out.Name
+		return []clientMethod{m}
+	}
+	if r.RPC == "Logout" { // the one route whose success drops the token
+		m := base
+		m.Kind, m.Return = "logout", out.Name
+		return []clientMethod{m}
+	}
+
+	if content, hasID, ok := envelopeContent(elem); ok {
+		cRef := refOf(content)
+		*refs = append(*refs, cRef)
+		addView(viewType{View: cRef.Name + "View", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
+
+		flat := base
+		flat.Envelope, flat.List, flat.Flatten = elemRef.Name, out.Name, "flatten"+cRef.Name
+		signed := base
+		signed.Name, signed.Envelope, signed.List = base.Name+"Signed", elemRef.Name, out.Name
+		if isList {
+			flat.Kind, flat.Return = "flattenList", cRef.Name+"View[]"
+			signed.Kind, signed.Return = "list", elemRef.Name+"[]"
+		} else {
+			flat.Kind, flat.Return = "flatten", cRef.Name+"View"
+			signed.Kind, signed.Return, signed.BodyArg = "raw", elemRef.Name, "undefined"
+		}
+		return []clientMethod{flat, signed}
+	}
+
+	// An already-flat record (Member): returned as-is.
+	if elem.Fields().ByName("id") != nil && elem.Fields().ByName(model.ContentField) == nil {
+		m := base
+		m.List = out.Name
+		if isList {
+			m.Kind, m.Return = "list", elemRef.Name+"[]"
+		} else {
+			m.Kind, m.Return, m.BodyArg = "raw", elemRef.Name, "undefined"
+		}
+		return []clientMethod{m}
+	}
+
+	// A plain response: a body-carrying POST (the public submission) or a bare
+	// GET (the healthcheck).
+	m := base
+	m.Return = out.Name
+	if r.Body == "*" {
+		m.Kind = "post"
+	} else {
+		m.Kind, m.BodyArg = "raw", "undefined"
+	}
+	return []clientMethod{m}
+}
+
+// fileImport is one generated file and the type names pulled from it, sorted so
+// re-running the generator is stable.
+type fileImport struct {
+	File  string
+	Names []string
+}
+
+// Render writes ts/src/client.ts: one batteries-included client class per
+// surface, the view types and flatten helpers its reads share, and the one
+// ApiError both throw.
 func Render(routes []model.Route) ([]byte, error) {
-	methods := make([]methodView, 0, len(routes))
-	for _, r := range routes {
-		cr, err := describeClient(r)
+	var (
+		surfaces []surface
+		views    []viewType
+		refs     []tsRef
+	)
+	seen := map[string]bool{}
+	for _, pkg := range model.Packages {
+		s, ok, err := describeSurface(pkg, routes, &views, seen, &refs)
 		if err != nil {
 			return nil, err
 		}
-		methods = append(methods, newMethodView(cr))
-	}
-
-	// Up front, so their extra type imports can join the import block below.
-	var sugars []sugarSurface
-	for _, pkg := range withRoutes(methods) {
-		if s, ok := describeSugarSurface(pkg, methods); ok {
-			sugars = append(sugars, s)
+		if ok {
+			surfaces = append(surfaces, s)
 		}
 	}
+	sort.Slice(views, func(i, j int) bool { return views[i].View < views[j].View })
 
 	var b bytes.Buffer
 	if err := execute(&b, "header", nil); err != nil {
@@ -394,20 +338,11 @@ func Render(routes []model.Route) ([]byte, error) {
 
 	// Type-only imports, grouped by generated file.
 	byFile := map[string]map[string]bool{}
-	addRef := func(ref tsRef) {
+	for _, ref := range refs {
 		if byFile[ref.File] == nil {
 			byFile[ref.File] = map[string]bool{}
 		}
 		byFile[ref.File][ref.Name] = true
-	}
-	for _, m := range methods {
-		addRef(m.In)
-		addRef(m.Out)
-	}
-	for _, s := range sugars {
-		for _, ref := range s.refs {
-			addRef(ref)
-		}
 	}
 	var files []string
 	for f := range byFile {
@@ -425,80 +360,55 @@ func Render(routes []model.Route) ([]byte, error) {
 		}
 	}
 
-	// The prefixes come from route-manifest.ts, their one home. A value import,
-	// not a re-emitted literal; client.ts is re-exported by name (not `export
-	// *`), so an imported binding it doesn't re-export can't collide there.
+	// The prefix constants come from route-manifest.ts, their one home.
 	var consts []string
-	for _, pkg := range withRoutes(methods) {
-		consts = append(consts, pkg.TSConst)
+	for _, s := range surfaces {
+		consts = append(consts, s.TSConst)
 	}
 	sort.Strings(consts)
 	if err := execute(&b, "valueImport", fileImport{File: "./route-manifest.js", Names: consts}); err != nil {
 		return nil, err
 	}
-	// param and query are emitted only where a route needs them, to avoid
-	// dead code in a package that ships almost nothing.
-	var needsParam, needsQuery bool
-	for _, m := range methods {
-		needsParam = needsParam || len(m.PathFields) > 0 || len(m.QueryFields) > 0
-		needsQuery = needsQuery || len(m.QueryFields) > 0
-	}
-	if needsParam {
-		if err := execute(&b, "param", nil); err != nil {
-			return nil, err
-		}
-	}
-	if needsQuery {
-		if err := execute(&b, "query", nil); err != nil {
-			return nil, err
-		}
-	}
 
-	if err := execute(&b, "staticBody", nil); err != nil {
+	if err := execute(&b, "apiError", nil); err != nil {
 		return nil, err
 	}
 
-	// Iterating the table rather than the methods keeps class order stable.
-	for _, pkg := range withRoutes(methods) {
-		if err := execute(&b, "classOpen", pkg); err != nil {
-			return nil, err
-		}
-		for _, m := range methods {
-			if m.Pkg.Proto != pkg.Proto {
-				continue
-			}
-			if err := tmpl.ExecuteTemplate(&b, "route", m); err != nil {
-				return nil, fmt.Errorf("client.ts.tmpl: route %s.%s: %w", m.Service, m.RPC, err)
-			}
-		}
-		if err := execute(&b, "classClose", nil); err != nil {
+	hasSigner := false
+	for _, s := range surfaces {
+		hasSigner = hasSigner || s.HasSigner
+	}
+	if hasSigner {
+		if err := execute(&b, "signer", nil); err != nil {
 			return nil, err
 		}
 	}
 
-	// Last: it wraps the raw classes above, so it reads best after them.
-	for _, s := range sugars {
-		if s.class.HasWrites {
-			if err := execute(&b, "signer", nil); err != nil {
-				return nil, err
-			}
-		}
-		for _, vt := range s.views {
-			if err := execute(&b, "viewType", vt); err != nil {
-				return nil, err
-			}
-		}
-		for _, vt := range s.views {
-			if err := execute(&b, "flatten", vt); err != nil {
-				return nil, err
-			}
-		}
-		if err := execute(&b, "sugarOpen", s.class); err != nil {
+	if err := execute(&b, "requestHelper", nil); err != nil {
+		return nil, err
+	}
+
+	for _, vt := range views {
+		if err := execute(&b, "viewType", vt); err != nil {
 			return nil, err
 		}
-		for _, m := range s.methods {
-			if err := tmpl.ExecuteTemplate(&b, "sugarMethod", m); err != nil {
-				return nil, fmt.Errorf("client.ts.tmpl: sugar %s.%s: %w", m.Service, m.RPC, err)
+	}
+	if len(views) > 0 {
+		b.WriteString("\n")
+	}
+	for _, vt := range views {
+		if err := execute(&b, "flatten", vt); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, s := range surfaces {
+		if err := execute(&b, "classOpen", s); err != nil {
+			return nil, err
+		}
+		for _, m := range s.Methods {
+			if err := tmpl.ExecuteTemplate(&b, "m_"+m.Kind, m); err != nil {
+				return nil, fmt.Errorf("client.ts.tmpl: %s.%s (%s): %w", m.Service, m.RPC, m.Kind, err)
 			}
 		}
 		if err := execute(&b, "classClose", nil); err != nil {
@@ -506,21 +416,6 @@ func Render(routes []model.Route) ([]byte, error) {
 		}
 	}
 	return b.Bytes(), nil
-}
-
-// withRoutes is model.Packages narrowed to the surfaces these routes actually
-// cover, in table order.
-func withRoutes(methods []methodView) []model.Package {
-	var out []model.Package
-	for _, pkg := range model.Packages {
-		for _, m := range methods {
-			if m.Pkg.Proto == pkg.Proto {
-				out = append(out, pkg)
-				break
-			}
-		}
-	}
-	return out
 }
 
 // execute runs one named block, naming the template and the block on failure.

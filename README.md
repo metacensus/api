@@ -177,18 +177,23 @@ err := signing.Verify(pub, record.Content, record.UserSignature)
 ```
 
 ```ts
-import { SPEC, sign, keyId, encodePublicKey } from "@metacensus/api/signing";
+import { SPEC, sign, keyId } from "@metacensus/api/signing";
 
-const signature = {
-  signerId, keyId: await keyId(publicKey), alg: "Es384", publicKey: "",
-  signingTime: new Date().toISOString(),
-  spec: SPEC, contentType: "metacensus.v1.Topic", value: "",
+// A Signer: the client supplies content and the exact contentType; you hold
+// the key. `new Client({ baseUrl, signer })` calls it for each write.
+const signer = async (content, contentType) => {
+  const signature = {
+    signerId, keyId: await keyId(publicKey), alg: "Es384", publicKey: "",
+    signingTime: new Date().toISOString(),
+    spec: SPEC, contentType, value: "",
+  };
+  signature.value = await sign(privateKey, content, signature);
+  return signature;
 };
-signature.value = await sign(privateKey, content, signature);
-await api.createTopic({ content, userSignature: signature });
+await new Client({ baseUrl, signer }).createTopic({ content: { name, description: "" } });
 ```
 
-**`ts/test/wire.test.mjs` is the gate on all of this.** It pins the protojson / ts-proto pairing the digest now depends on: a drift in `proto/buf.gen.yaml` or `go/wire.go` is no longer just a readability problem but a signature that verifies only on the machine that made it — `useOptionals=messages` included. The file has each language verify what the other signed, in both directions, including a document that's been through protojson's decoder and encoder on the way.
+**The pairing the digest depends on is pinned by two suites.** `ts/test/signing.test.mjs` unit-tests the TypeScript half — RFC 8785 canonicalization and a sign→verify round trip — since the digest has one implementation per language. `ts/test/wire.test.mjs` pins that protojson (Go) and ts-proto emit the same document: a drift in `proto/buf.gen.yaml`'s five options or `go/wire.go`'s `EmitDefaultValues` is no longer just a readability problem but a signature that verifies only on the machine that made it. What is *not* yet checked is the two languages' signing in conjunction — TypeScript signs, Go verifies, and back — over the write path; that is an integration concern, deferred to a suite over a mock persistence layer ([#31](https://github.com/metacensus/api/issues/31)).
 
 ## Layout
 
@@ -429,46 +434,34 @@ Sharing one `Runtime` between them would mount one surface's routes under the ot
 
 ## The generated client
 
-The same walk writes `ts/src/client.ts`: one class per surface — `ClientSigned` for the authenticated API, `PublicClient` for the public one — each with one method per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). `ClientSigned` returns the `…Signed` envelopes (`getTopic` → `TopicSigned`). Each method builds the path from the request's path fields (percent-encoded per segment), the query string from its query fields, serialises the body exactly once, and hands `{method, path, body?}` to a caller-supplied `Transport`. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there's no runtime schema to validate against; a non-2xx throws `ApiError`, carrying the status, the path requested and the raw response text unparsed. Parse that text defensively: a 404 or 405 comes from the router before any handler runs, so it's often not JSON at all.
+The same walk writes `ts/src/client.ts`: one **batteries-included** client per surface — `Client` for the authenticated API, `PublicClient` for the public one — each with one or two methods per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). Unlike the raw types, the client owns its HTTP: constructed with `{ baseUrl, fetch?, signer?, token?, prefix? }`, it builds the path from the request's path fields (percent-encoded per segment), calls `fetch`, and holds the session token across `login`/`logout`, adding `Authorization` itself. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there's no runtime schema to validate against; a non-2xx throws `ApiError`, carrying the status, the URL and the raw response text unparsed. Parse that text defensively: a 404 or 405 comes from the router before any handler runs, so it's often not JSON at all.
 
-**The `Transport` is where the caller's own concerns live**, deliberately: auth headers, and status policy beyond "2xx parses, the rest throws" (the SPA's 401-clears-the-token-and-redirects behavior, or retries). The client doesn't call `fetch` itself and carries no cache of its own.
+**Reads return a flat view; writes take flat content and sign it.** `getTopic` returns a `TopicView` (`{id, recorded, ...content}`), not the `{content, userSignature}` envelope; a signed-envelope read also gets a `getTopicSigned` twin returning the raw `TopicSigned`, for a caller verifying authorship. A write (`createTopic`, `createProp`, `setVote`, `signUp`) takes the flat content and assembles the envelope through the injected `Signer` — the client supplies the exact `contentType`, the caller's closure holds the key. Signing is not the client's to get right beyond naming the type: the digest is the `signing` module's, made before the request goes out — see "The signing chain" above.
 
-It is not where signing happens. A participant's signature is part of the request *message*, built and signed before the client is called — see "The signing chain" above. The transport used to be where an `X-Signature` header was computed over `req.body`, which is why the client still serialises the body exactly once and hands over the string, but nothing in the contract depends on that any more.
+**Customization is a wrapped `fetch`.** Auth headers beyond the bearer token, a 401 policy, retries, instrumentation: inject a `fetch` that wraps the global. The client keeps no cache of its own.
 
 A caller writes:
 
 ```ts
-import { ClientSigned, ApiError, type Transport } from "@metacensus/api";
+import { Client, ApiError, type Signer } from "@metacensus/api";
 
-const transport: Transport = async ({ method, path, body }) => {
-  const headers = new Headers({ "Content-Type": "application/json" });
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const r = await fetch(baseUrl + path, { method, headers, body });
-  return { status: r.status, body: await r.text() };
-};
-
-const api = new ClientSigned(transport);
-const topic = await api.getTopic({ topicId });
-const created = await api.createTopic({ name, description: "" });
+const client = new Client({ baseUrl, signer });
+await client.login({ email, password });          // token stored internally
+const topic = await client.getTopic({ topicId }); // TopicView
+const created = await client.createTopic({ content: { name, description: "" } });
+const signed = await client.getTopicSigned({ topicId }); // TopicSigned, to verify
 ```
 
 A `bytes` field anywhere in a request **or** response tree is refused at generation time: ts-proto types it `Uint8Array`, which `JSON.stringify` renders as `{"0":1,"1":2}` rather than the base64 protojson expects. There is no such field in the contract today.
 
-`useOptionals=messages` makes every scalar required, pairing with `EmitDefaultValues` on the Go side: `api.createTopic({ name })` doesn't type-check, `{ name, description: "" }` does.
+`useOptionals=messages` makes every scalar required, pairing with `EmitDefaultValues` on the Go side: `client.createTopic({ content: { name } })` doesn't type-check, `{ content: { name, description: "" } }` does.
 
-The public surface's client comes from `@metacensus/api/public` and takes a transport of its own — it sends no credentials, and the `Authorization` header above has no counterpart:
+The public surface's client comes from `@metacensus/api/public` and takes no signer or token — it sends no credentials:
 
 ```ts
 import { PublicClient, PartnerSubmission_Interest } from "@metacensus/api/public";
 
-const pub = new PublicClient(async ({ method, path, body }) => {
-  const r = await fetch(origin + path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body,
-  });
-  return { status: r.status, body: await r.text() };
-});
+const pub = new PublicClient({ baseUrl });
 
 await pub.submitPartnerInterest({
   name,
@@ -496,7 +489,7 @@ Route identity is the **full** path, prefix included: a public `/partner` and an
 
 `check-entry-points.mjs` guards the npm package, run by `npm run check`. It asserts what `package.json` publishes, what the entry points export and what the tsconfigs compile are the same set. `index.ts` and `public.ts` list their exports by hand, and both tsconfigs list the entry points by hand, so without it a new `.proto` file generates a module no consumer can import, and a new subpath export emits no `dist/` file at all — the same shape of hole as a proto package missing from `contractPackages`. Both entry points share `src/client.ts`, which holds a class per surface: `ApiError` has to be one class, or catching it would depend on which entry point the catch block imported from.
 
-`npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`) exercises the clients — every method the manifest declares, on the client for that route's surface, compared against the route it says it is — and `wire.test.mjs`, which builds `routegen/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have. It gates signature validity as well as readability, for the reason given under "The digest" above.
+`npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`) exercises the clients — `client.test.mjs` drives `Client` against a fake `fetch` (the flat/`getXSigned` reads, the write path and its signer, the token lifecycle); `manifest-agreement.test.mjs` checks every method the manifest declares sends the route it says it is; `signing.test.mjs` unit-tests the signing module; and `wire.test.mjs` builds `routegen/wireserver` and drives `Client`'s reads against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have.
 
 ## Open questions
 
@@ -507,4 +500,4 @@ Written down, not tracked — the four `ui` issues that held this work were clos
 - **Key rotation.** `userSignature.keyId` exists from the first release so a second key is a lookup rather than a reshaping, but no route enrols one and nothing says what happens to records signed by a key that's been retired. Sign-up is the only enrolment today.
 - **Should the client be an entry point of its own?** `@metacensus/api` and `@metacensus/api/public` split by *surface*; neither splits the client away from the types, so a consumer that only wants `Topic` still resolves `src/client.ts`. `sideEffects: false` lets a bundler drop it, which is why this isn't urgent, but a `@metacensus/api/client` export would make it unconditional — `@metacensus/api/signing` has since made the same split for the same reason. Adding one is now gated rather than remembered: `check-entry-points.mjs` fails an entry point missing from either tsconfig. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Should the generated client emit a query parameter holding its zero value?** No route declares a query field, so both answers are untested against a real caller, and `EmitDefaultValues` on the response side argues one way while URL length argues the other. Refs [#4](https://github.com/metacensus/api/issues/4).
-- **Cross-language wire agreement is checked for the shapes the contract has, not for the ones it could grow.** `ts/test/wire.test.mjs` drives the generated client against the generated server over real HTTP and pins the `protojson` / ts-proto pairing: an escaped path segment, a `Timestamp` as an RFC 3339 string, an enum as its value name, `EmitDefaultValues` against `useOptionals=messages`, the error envelope, and an unknown field refused. This was [metacensus/ui#49](https://github.com/metacensus/ui/issues/49). What it doesn't cover is a shape nobody has written yet — a 64-bit integer (`forceLong=string`), a map, a `oneof` — so the pairing in `proto/buf.gen.yaml` is still five options that have to agree with `go/wire.go` and are only checked where a route exercises them.
+- **Cross-language wire agreement is checked for the read shapes the contract has, not for the ones it could grow, and not yet through the write path.** `ts/test/wire.test.mjs` drives `Client`'s reads against the generated server over real HTTP and pins the `protojson` / ts-proto pairing: an escaped path segment, a `Timestamp` as an RFC 3339 string, `EmitDefaultValues` against `useOptionals=messages`, the error envelope, and a signature Go made verifying in TypeScript. This was [metacensus/ui#49](https://github.com/metacensus/ui/issues/49). What it doesn't cover is a shape nobody has written yet — a 64-bit integer (`forceLong=string`), a map, a `oneof` — nor the signing chain in conjunction across the write path, which waits on the integration suite ([#31](https://github.com/metacensus/api/issues/31)). So the pairing in `proto/buf.gen.yaml` is still five options that have to agree with `go/wire.go` and are only checked where a read exercises them.
