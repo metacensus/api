@@ -17,7 +17,7 @@ import { Client, ApiError, type Signer } from "@metacensus/api";
 
 const client = new Client({ baseUrl: "https://api.example.com", signer });
 await client.login({ email, password });          // token stored internally
-const topic = await client.getTopic({ topicId }); // TopicView: { id, recorded, name, description }
+const topic = await client.getTopic({ topicId }); // TopicRecord: { id, recorded, name, description }
 ```
 
 `Client` is batteries-included: it owns its `fetch`, holds the session token
@@ -36,22 +36,22 @@ handler). Every scalar is required, which is what makes Go's `EmitDefaultValues`
 and these types describe the same document: `client.createTopic({ content: { name } })`
 does not type-check, `{ content: { name, description: "" } }` does.
 
-## Reads: flat view or signed envelope
+## Reads: flat record or signed envelope
 
-A read returns the **flat** view — the domain object with the server's `id` and
-`recorded` folded in, and the `{content, userSignature}` envelope gone:
+A read returns the **flat record** — the domain object with the server's `id`
+and `recorded` folded in, and the `{content, userSignature}` envelope gone:
 
 ```ts
 const topic = await client.getTopic({ topicId }); // { id, recorded, name, description }
 topic.name; // not topic.content.name
 ```
 
-The envelope isn't uniform, so the view isn't either:
+The envelope isn't uniform, so the record isn't either:
 
 | Response shape | `getX` / `listX` returns |
 | --- | --- |
-| id-bearing envelope (topic, prop, user) | `TopicView` — `{ id, recorded, ...content }` — / `TopicView[]` |
-| a vote — envelope with **no `id`** | `VoteView` (no `id`) / `VoteView[]` |
+| id-bearing envelope (topic, prop, user) | `TopicRecord` — `{ id, recorded, ...content }` — / `TopicRecord[]` |
+| a vote — envelope with **no `id`** | `VoteRecord` (no `id`) / `VoteRecord[]` |
 | a member — already flat | `Member`, unchanged / `Member[]` |
 
 When you need the signature itself — verifying authorship, comparing `recorded`
@@ -91,7 +91,7 @@ const signer: Signer = async (content, contentType) => {
 
 const client = new Client({ baseUrl, signer });
 const created = await client.createTopic({ content: { name: "A review", description: "" } });
-// TopicView, flattened like a read
+// TopicRecord, flattened like a read
 ```
 
 The client supplies `content` and the exact `contentType` (the one thing

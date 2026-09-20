@@ -51,24 +51,24 @@ async function request<T>(
   return (text === "" ? {} : JSON.parse(text)) as T;
 }
 
-export type PropView = { id: string; recorded?: string } & Prop;
-export type TopicView = { id: string; recorded?: string } & Topic;
-export type UserView = { id: string; recorded?: string } & User;
-export type VoteView = { recorded?: string } & Vote;
+export type PropRecord = Pick<PropSigned, "id" | "recorded"> & Prop;
+export type TopicRecord = Pick<TopicSigned, "id" | "recorded"> & Topic;
+export type UserRecord = Pick<UserSigned, "id" | "recorded"> & User;
+export type VoteRecord = Pick<VoteSigned, "recorded"> & Vote;
 
-function flattenProp(r: PropSigned): PropView {
+function flattenProp(r: PropSigned): PropRecord {
   return { id: r.id, recorded: r.recorded, ...(r.content as Prop) };
 }
 
-function flattenTopic(r: TopicSigned): TopicView {
+function flattenTopic(r: TopicSigned): TopicRecord {
   return { id: r.id, recorded: r.recorded, ...(r.content as Topic) };
 }
 
-function flattenUser(r: UserSigned): UserView {
+function flattenUser(r: UserSigned): UserRecord {
   return { id: r.id, recorded: r.recorded, ...(r.content as User) };
 }
 
-function flattenVote(r: VoteSigned): VoteView {
+function flattenVote(r: VoteSigned): VoteRecord {
   return { recorded: r.recorded, ...(r.content as Vote) };
 }
 
@@ -140,7 +140,7 @@ export class Client {
   }
 
   // PropRoutes.ListProps: GET /topic/{topicId}/prop
-  listProps(req: PropListRequest): Promise<PropView[]> {
+  listProps(req: PropListRequest): Promise<PropRecord[]> {
     return this.#request<PropList>("GET", `/topic/${param(req.topicId)}/prop`, undefined).then((r) => r.items.map(flattenProp));
   }
 
@@ -150,7 +150,7 @@ export class Client {
   }
 
   // PropRoutes.GetProp: GET /topic/{topicId}/prop/{propId}
-  getProp(req: PropGetRequest): Promise<PropView> {
+  getProp(req: PropGetRequest): Promise<PropRecord> {
     return this.#request<PropSigned>("GET", `/topic/${param(req.topicId)}/prop/${param(req.propId)}`, undefined).then(flattenProp);
   }
 
@@ -160,14 +160,14 @@ export class Client {
   }
 
   // PropRoutes.CreateProp: POST /topic/{topicId}/prop
-  async createProp(req: Omit<PropCreateRequest, "userSignature">): Promise<PropView> {
+  async createProp(req: Omit<PropCreateRequest, "userSignature">): Promise<PropRecord> {
     const { topicId, ...rest } = req;
     const userSignature = await this.#sign(rest.content, "metacensus.v1.Prop");
     return flattenProp(await this.#request<PropSigned>("POST", `/topic/${param(topicId)}/prop`, JSON.stringify({ ...rest, userSignature })));
   }
 
   // PropRoutes.ListVotes: GET /topic/{topicId}/prop/{propId}/vote
-  listVotes(req: VoteListRequest): Promise<VoteView[]> {
+  listVotes(req: VoteListRequest): Promise<VoteRecord[]> {
     return this.#request<VoteList>("GET", `/topic/${param(req.topicId)}/prop/${param(req.propId)}/vote`, undefined).then((r) => r.items.map(flattenVote));
   }
 
@@ -177,14 +177,14 @@ export class Client {
   }
 
   // PropRoutes.SetVote: POST /topic/{topicId}/prop/{propId}/vote
-  async setVote(req: Omit<VoteSetRequest, "userSignature">): Promise<VoteView> {
+  async setVote(req: Omit<VoteSetRequest, "userSignature">): Promise<VoteRecord> {
     const { topicId, propId, ...rest } = req;
     const userSignature = await this.#sign(rest.content, "metacensus.v1.Vote");
     return flattenVote(await this.#request<VoteSigned>("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify({ ...rest, userSignature })));
   }
 
   // TopicRoutes.ListTopics: GET /topic
-  listTopics(req: TopicListRequest): Promise<TopicView[]> {
+  listTopics(req: TopicListRequest): Promise<TopicRecord[]> {
     return this.#request<TopicList>("GET", "/topic", undefined).then((r) => r.items.map(flattenTopic));
   }
 
@@ -194,7 +194,7 @@ export class Client {
   }
 
   // TopicRoutes.GetTopic: GET /topic/{topicId}
-  getTopic(req: TopicGetRequest): Promise<TopicView> {
+  getTopic(req: TopicGetRequest): Promise<TopicRecord> {
     return this.#request<TopicSigned>("GET", `/topic/${param(req.topicId)}`, undefined).then(flattenTopic);
   }
 
@@ -204,7 +204,7 @@ export class Client {
   }
 
   // TopicRoutes.CreateTopic: POST /topic
-  async createTopic(req: Omit<TopicCreateRequest, "userSignature">): Promise<TopicView> {
+  async createTopic(req: Omit<TopicCreateRequest, "userSignature">): Promise<TopicRecord> {
     const userSignature = await this.#sign(req.content, "metacensus.v1.Topic");
     return flattenTopic(await this.#request<TopicSigned>("POST", "/topic", JSON.stringify({ ...req, userSignature })));
   }
@@ -220,7 +220,7 @@ export class Client {
   }
 
   // UserRoutes.ListUsers: GET /user
-  listUsers(req: UserListRequest): Promise<UserView[]> {
+  listUsers(req: UserListRequest): Promise<UserRecord[]> {
     return this.#request<UserList>("GET", "/user", undefined).then((r) => r.items.map(flattenUser));
   }
 
@@ -230,7 +230,7 @@ export class Client {
   }
 
   // UserRoutes.GetUser: GET /user/{userId}
-  getUser(req: UserGetRequest): Promise<UserView> {
+  getUser(req: UserGetRequest): Promise<UserRecord> {
     return this.#request<UserSigned>("GET", `/user/${param(req.userId)}`, undefined).then(flattenUser);
   }
 
@@ -240,7 +240,7 @@ export class Client {
   }
 
   // UserRoutes.GetSelf: GET /self
-  getSelf(req: SelfGetRequest): Promise<UserView> {
+  getSelf(req: SelfGetRequest): Promise<UserRecord> {
     return this.#request<UserSigned>("GET", "/self", undefined).then(flattenUser);
   }
 

@@ -132,10 +132,10 @@ func envelopeContent(md protoreflect.MessageDescriptor) (content protoreflect.Me
 	return c.Message(), md.Fields().ByName("id") != nil, true
 }
 
-// viewType is a flat view alias and its flatten helper, emitted once per
+// recordType is a flat record alias and its flatten helper, emitted once per
 // content type however many methods return it.
-type viewType struct {
-	View     string // "TopicView"
+type recordType struct {
+	Name     string // "TopicRecord"
 	Content  string // "Topic"
 	Envelope string // "TopicSigned"
 	HasId    bool
@@ -175,14 +175,14 @@ type surface struct {
 }
 
 // describeSurface classifies one package's routes into the methods its client
-// class emits, accumulating the view types and type imports the whole file
+// class emits, accumulating the record types and type imports the whole file
 // needs. It returns ok=false for a surface with no routes.
-func describeSurface(pkg model.Package, routes []model.Route, views *[]viewType, seen map[string]bool, refs *[]tsRef) (surface, bool, error) {
+func describeSurface(pkg model.Package, routes []model.Route, records *[]recordType, seen map[string]bool, refs *[]tsRef) (surface, bool, error) {
 	s := surface{Class: pkg.TSClient, Options: pkg.TSClient + "Options", TSConst: pkg.TSConst, Summary: pkg.Summary}
-	addView := func(vt viewType) {
-		if !seen[vt.View] {
-			seen[vt.View] = true
-			*views = append(*views, vt)
+	addRecord := func(rt recordType) {
+		if !seen[rt.Name] {
+			seen[rt.Name] = true
+			*records = append(*records, rt)
 		}
 	}
 	for _, r := range routes {
@@ -197,7 +197,7 @@ func describeSurface(pkg model.Package, routes []model.Route, views *[]viewType,
 				return surface{}, false, fmt.Errorf("%s.%s: %w", r.Service, r.RPC, err)
 			}
 		}
-		s.Methods = append(s.Methods, classify(r, addView, refs)...)
+		s.Methods = append(s.Methods, classify(r, addRecord, refs)...)
 	}
 	if len(s.Methods) == 0 {
 		return surface{}, false, nil
@@ -211,7 +211,7 @@ func describeSurface(pkg model.Package, routes []model.Route, views *[]viewType,
 
 // classify turns one route into the one or two methods its client emits. A
 // signed-envelope read yields two: the flat getX and the raw getXSigned.
-func classify(r model.Route, addView func(viewType), refs *[]tsRef) []clientMethod {
+func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []clientMethod {
 	in := refOf(r.Descriptor.Input())
 	out := refOf(r.Descriptor.Output())
 	elem, isList := listElem(r.Descriptor.Output())
@@ -238,8 +238,8 @@ func classify(r model.Route, addView func(viewType), refs *[]tsRef) []clientMeth
 		content, hasID, _ := envelopeContent(elem)
 		cRef := refOf(content)
 		*refs = append(*refs, cRef)
-		addView(viewType{View: cRef.Name + "View", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
-		m.Kind, m.Return, m.Envelope, m.Flatten = "write", cRef.Name+"View", elemRef.Name, "flatten"+cRef.Name
+		addRecord(recordType{Name: cRef.Name + "Record", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
+		m.Kind, m.Return, m.Envelope, m.Flatten = "write", cRef.Name+"Record", elemRef.Name, "flatten"+cRef.Name
 		return []clientMethod{m}
 	}
 
@@ -259,17 +259,17 @@ func classify(r model.Route, addView func(viewType), refs *[]tsRef) []clientMeth
 	if content, hasID, ok := envelopeContent(elem); ok {
 		cRef := refOf(content)
 		*refs = append(*refs, cRef)
-		addView(viewType{View: cRef.Name + "View", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
+		addRecord(recordType{Name: cRef.Name + "Record", Content: cRef.Name, Envelope: elemRef.Name, HasId: hasID, Flatten: "flatten" + cRef.Name})
 
 		flat := base
 		flat.Envelope, flat.List, flat.Flatten = elemRef.Name, out.Name, "flatten"+cRef.Name
 		signed := base
 		signed.Name, signed.List = base.Name+"Signed", out.Name
 		if isList {
-			flat.Kind, flat.Return = "flattenList", cRef.Name+"View[]"
+			flat.Kind, flat.Return = "flattenList", cRef.Name+"Record[]"
 			signed.Kind, signed.Return = "list", elemRef.Name+"[]"
 		} else {
-			flat.Kind, flat.Return = "flatten", cRef.Name+"View"
+			flat.Kind, flat.Return = "flatten", cRef.Name+"Record"
 			signed.Kind, signed.Return, signed.BodyArg = "raw", elemRef.Name, "undefined"
 		}
 		return []clientMethod{flat, signed}
@@ -312,12 +312,12 @@ type fileImport struct {
 func Render(routes []model.Route) ([]byte, error) {
 	var (
 		surfaces []surface
-		views    []viewType
+		records  []recordType
 		refs     []tsRef
 	)
 	seen := map[string]bool{}
 	for _, pkg := range model.Packages {
-		s, ok, err := describeSurface(pkg, routes, &views, seen, &refs)
+		s, ok, err := describeSurface(pkg, routes, &records, seen, &refs)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +325,7 @@ func Render(routes []model.Route) ([]byte, error) {
 			surfaces = append(surfaces, s)
 		}
 	}
-	sort.Slice(views, func(i, j int) bool { return views[i].View < views[j].View })
+	sort.Slice(records, func(i, j int) bool { return records[i].Name < records[j].Name })
 
 	var b bytes.Buffer
 	if err := execute(&b, "header", nil); err != nil {
@@ -384,16 +384,16 @@ func Render(routes []model.Route) ([]byte, error) {
 		return nil, err
 	}
 
-	for _, vt := range views {
-		if err := execute(&b, "viewType", vt); err != nil {
+	for _, rt := range records {
+		if err := execute(&b, "recordType", rt); err != nil {
 			return nil, err
 		}
 	}
-	if len(views) > 0 {
+	if len(records) > 0 {
 		b.WriteString("\n")
 	}
-	for _, vt := range views {
-		if err := execute(&b, "flatten", vt); err != nil {
+	for _, rt := range records {
+		if err := execute(&b, "flatten", rt); err != nil {
 			return nil, err
 		}
 	}

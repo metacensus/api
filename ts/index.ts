@@ -17,15 +17,15 @@ export { protobufPackage } from "./src/metacensus/v1/common.js";
 
 // Named, not `export *`: src/client.ts has one class per surface, and this
 // entry point wants only the authenticated one. `Client` is batteries-included;
-// the `…View` types are its flat reads and `Signer` its write seam. See
+// the `…Record` types are its flat reads and `Signer` its write seam. See
 // ts/README.md, "The generated client".
 export {
   Client,
   ApiError,
   type ClientOptions,
   type Signer,
-  type TopicView,
-  type PropView,
-  type VoteView,
-  type UserView,
+  type TopicRecord,
+  type PropRecord,
+  type VoteRecord,
+  type UserRecord,
 } from "./src/client.js";

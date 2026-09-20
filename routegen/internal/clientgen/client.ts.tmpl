@@ -52,9 +52,9 @@ async function request<T>(
 }
 
 {{end}}
-{{define "viewType"}}export type {{.View}} = { {{if .HasId}}id: string; {{end}}recorded?: string } & {{.Content}};
+{{define "recordType"}}export type {{.Name}} = Pick<{{.Envelope}}, {{if .HasId}}"id" | {{end}}"recorded"> & {{.Content}};
 {{end}}
-{{define "flatten"}}function {{.Flatten}}(r: {{.Envelope}}): {{.View}} {
+{{define "flatten"}}function {{.Flatten}}(r: {{.Envelope}}): {{.Name}} {
   return { {{if .HasId}}id: r.id, {{end}}recorded: r.recorded, ...(r.content as {{.Content}}) };
 }
 
