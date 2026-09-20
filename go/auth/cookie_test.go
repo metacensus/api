@@ -12,7 +12,7 @@ import (
 func testCookieConfig() CookieConfig {
 	return CookieConfig{
 		Name:     "mc_refresh",
-		Path:     "/metacensus/api/v1/refresh",
+		Path:     "/metacensus/api/v1",
 		MaxAge:   24 * time.Hour,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
@@ -50,7 +50,7 @@ func TestAdapterMovesTokenToCookie(t *testing.T) {
 	if !c.HttpOnly || !c.Secure {
 		t.Errorf("cookie flags: HttpOnly=%v Secure=%v, want both true", c.HttpOnly, c.Secure)
 	}
-	if c.SameSite != http.SameSiteStrictMode || c.Path != "/metacensus/api/v1/refresh" {
+	if c.SameSite != http.SameSiteStrictMode || c.Path != "/metacensus/api/v1" {
 		t.Errorf("cookie scope: SameSite=%v Path=%q", c.SameSite, c.Path)
 	}
 	if c.MaxAge != int(24*time.Hour/time.Second) {
@@ -81,7 +81,7 @@ func TestAdapterReadsCookieInbound(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	}))
 
-	req := httptest.NewRequest("POST", "/metacensus/api/v1/refresh", nil)
+	req := httptest.NewRequest("POST", "/metacensus/api/v1", nil)
 	req.AddCookie(&http.Cookie{Name: "mc_refresh", Value: "from-cookie"})
 	h.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -115,7 +115,7 @@ func TestAdapterLeavesErrorsAlone(t *testing.T) {
 	body := `{"error":"authentication required","code":"unauthenticated"}`
 	h := CookieAdapter(testCookieConfig())(handlerWriting(http.StatusUnauthorized, body))
 
-	req := httptest.NewRequest("POST", "/metacensus/api/v1/refresh", nil)
+	req := httptest.NewRequest("POST", "/metacensus/api/v1", nil)
 	req.AddCookie(&http.Cookie{Name: "mc_refresh", Value: "stale"})
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

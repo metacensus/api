@@ -37,6 +37,18 @@ func send(t *testing.T, mux http.Handler, method, path, token string, cookie *ht
 	return rec
 }
 
+// cookiePathMatches reports whether a browser would attach a cookie scoped to
+// cookiePath to a request for reqPath, per RFC 6265 §5.1.4.
+func cookiePathMatches(cookiePath, reqPath string) bool {
+	if cookiePath == reqPath {
+		return true
+	}
+	if !strings.HasPrefix(reqPath, cookiePath) {
+		return false
+	}
+	return strings.HasSuffix(cookiePath, "/") || reqPath[len(cookiePath)] == '/'
+}
+
 // refreshCookie returns the mc_refresh cookie a response set, or nil.
 func refreshCookie(rec *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range rec.Result().Cookies() {
@@ -76,8 +88,16 @@ func TestAuthTokenLifecycle(t *testing.T) {
 	if cookie == nil || cookie.Value == "" {
 		t.Fatal("sign-up set no refresh cookie")
 	}
-	if !cookie.HttpOnly || cookie.Path != routes.Prefix+"/refresh" {
-		t.Errorf("refresh cookie: HttpOnly=%v Path=%q", cookie.HttpOnly, cookie.Path)
+	// The cookie must be scoped so a browser attaches it to both routes that
+	// consume it — /refresh and /logout — not to /refresh alone, which by RFC
+	// 6265 path-matching would leave logout unable to revoke the lineage.
+	if !cookie.HttpOnly {
+		t.Errorf("refresh cookie is not HttpOnly")
+	}
+	for _, path := range []string{"/refresh", "/logout"} {
+		if !cookiePathMatches(cookie.Path, routes.Prefix+path) {
+			t.Errorf("refresh cookie Path=%q is not sent to %q", cookie.Path, routes.Prefix+path)
+		}
 	}
 
 	// The access token authenticates a protected route.

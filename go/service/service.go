@@ -169,12 +169,19 @@ func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 }
 
 // cookieConfig is the refresh-cookie policy the adapter enforces. The cookie is
-// scoped to the refresh route, so the browser sends it only there and not on
-// every API call.
+// scoped to the API prefix — both routes that consume it, /refresh and /logout,
+// hang off that prefix as siblings, and an RFC 6265 path only matches a request
+// under it, so a cookie pinned to /refresh alone would never reach /logout and
+// browser logout could not revoke the lineage. Only the auth routes are wrapped
+// by the adapter, so the cookie riding the other prefixed routes is inert there.
 func (h *Handlers) cookieConfig(rt *server.Runtime) auth.CookieConfig {
+	path := rt.Prefix
+	if path == "" {
+		path = "/"
+	}
 	return auth.CookieConfig{
 		Name:     h.cookieName,
-		Path:     rt.Prefix + "/refresh",
+		Path:     path,
 		MaxAge:   auth.DefaultRefreshTTL,
 		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteStrictMode,

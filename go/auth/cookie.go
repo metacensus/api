@@ -13,9 +13,10 @@ import (
 type CookieConfig struct {
 	// Name is the cookie name, e.g. "mc_refresh".
 	Name string
-	// Path scopes the cookie so the browser sends it only to the refresh (and
-	// logout) route, not on every API call — set it to the refresh route's full
-	// path.
+	// Path scopes which requests the browser attaches the cookie to. Both routes
+	// that read it, refresh and logout, must fall under it (an RFC 6265 path only
+	// matches requests at or below it), so set it to the shared API prefix rather
+	// than one route's full path.
 	Path string
 	// MaxAge is how long the cookie persists; match it to the refresh-token TTL.
 	MaxAge time.Duration

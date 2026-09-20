@@ -78,7 +78,7 @@ async function request<T>(
 {{end}}{{if .HasToken}}  readonly token?: string;
 {{end}}  readonly prefix?: string;
 {{if .HasToken}}  // Passed to every fetch. Set "include" in a browser so the `HttpOnly` refresh
-  // cookie rides the `/refresh` (and logout) call; omit it server-side.
+  // cookie rides the `refresh()` and `logout()` calls; omit it server-side.
   readonly credentials?: RequestCredentials;
 {{end}}}
 

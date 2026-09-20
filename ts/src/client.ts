@@ -91,7 +91,7 @@ export interface ClientOptions {
   readonly token?: string;
   readonly prefix?: string;
   // Passed to every fetch. Set "include" in a browser so the `HttpOnly` refresh
-  // cookie rides the `/refresh` (and logout) call; omit it server-side.
+  // cookie rides the `refresh()` and `logout()` calls; omit it server-side.
   readonly credentials?: RequestCredentials;
 }
 
