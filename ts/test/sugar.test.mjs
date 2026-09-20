@@ -1,9 +1,5 @@
-// The sugar Client is generated from the same descriptor walk as ClientSigned,
-// so what it flattens has to match the four response shapes the envelope comes
-// in — and the write path has to assemble an envelope the signing chain would
-// accept. These drive the generated Client against a fake transport and check
-// both: the unwrapping per entity shape, and that writes sign the right content
-// under the right contentType.
+// The sugar Client is generated, so its flattening has to match the four
+// response shapes, and its writes assemble an envelope the signing chain accepts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "../dist/src/client.js";
@@ -39,10 +35,9 @@ test("an id-bearing envelope (Topic) flattens to {id, recorded, ...content}", as
     name: "Nutrition",
     description: "d",
   });
-  // The envelope overhead is gone, not merely hidden.
   assert.equal("userSignature" in topic, false);
   assert.equal("content" in topic, false);
-  // A read needs no signer, and the path is the raw client's.
+  // A read needs no signer.
   assert.equal(calls[0].method, "GET");
   assert.equal(calls[0].path, "/metacensus/api/v1/topic/t1");
 });
@@ -120,12 +115,10 @@ test("createTopic signs the content under its contentType and returns the flat v
   // The sugar named the contentType, not the caller — the footgun sign/verify
   // leave to the caller.
   assert.deepEqual(signedWith, { content: { name: "N", description: "" }, contentType: "metacensus.v1.Topic" });
-  // What went out is the full envelope the raw client expects.
   const sent = JSON.parse(calls[0].body);
   assert.deepEqual(sent.content, { name: "N", description: "" });
   assert.deepEqual(sent.userSignature, { signerId: "u1", value: "SIG" });
   assert.equal(calls[0].path, "/metacensus/api/v1/topic");
-  // And the reply is flattened like a read.
   assert.deepEqual(view, { id: "t9", recorded: "2023-01-04T00:00:00Z", name: "N", description: "" });
 });
 
@@ -185,9 +178,8 @@ test("a write with no signer throws, naming the fix", async () => {
 
 // The sugar covers every authenticated record route and only those: a read or
 // signed write whose response is an envelope, a list of envelopes, or an
-// already-flat record. The four plain-response routes stay on ClientSigned.
-// This is the one place that set is restated, so a new record route that the
-// generator failed to sugar (or a plain one it wrongly did) fails here.
+// already-flat record. A new record route the generator failed to sugar (or a
+// plain one it wrongly did) fails here.
 test("Client sugars every record route and excludes the plain ones", () => {
   const plain = new Set(["login", "signUp", "logout", "healthcheck"]);
   const authRoutes = routes.filter((r) => r.prefix === apiPrefix);

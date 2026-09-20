@@ -85,12 +85,8 @@ export class {{.TSClient}} {
 {{define "classClose"}}}
 
 {{end}}
-{{define "signer"}}// A Signer turns content and its contentType into a UserSignature. It is
-// identical per session — the signing key does not change between calls — so
-// the sugar client takes it as a constructor argument, not a per-call one. The
-// sugar supplies the content and the exact contentType (which sign and verify
-// leave to the caller); the caller's closure signs it with its own key. See
-// ts/README.md, "The sugar Client".
+{{define "signer"}}// A caller's closure that signs content under the contentType the sugar names;
+// the key stays in the closure. See ts/README.md, "The sugar Client".
 export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
 
 {{end}}
@@ -101,17 +97,11 @@ export type Signer = (content: unknown, contentType: string) => Promise<UserSign
 }
 
 {{end}}
-{{define "sugarOpen"}}// {{.Name}} is syntactic sugar over {{.TSClient}}: reads return the flat domain
-// object — {id, recorded, ...content} — rather than the {content, userSignature}
-// envelope, and writes take flat content plus a session signer and assemble the
-// envelope, so a caller never hand-builds one. It wraps {{.TSClient}} rather than
-// replacing it: sign-up, login and logout stay there. See ts/README.md.
+{{define "sugarOpen"}}// {{.Name}} is flat-view sugar over {{.TSClient}}. What it flattens, what it
+// signs, and what stays on {{.TSClient}}: see ts/README.md, "The sugar Client".
 export class {{.Name}} {
   private readonly api: {{.TSClient}};
 
-  // The signer is a session-wide object, not a per-call argument — the key it
-  // signs with does not change between calls. Omit it for a read-only client;
-  // a write without one throws.
   constructor(
     transport: Transport,
 {{if .HasWrites}}    private readonly signer?: Signer,

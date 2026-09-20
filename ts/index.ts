@@ -16,12 +16,8 @@ export * from "./src/route-manifest.js";
 export { protobufPackage } from "./src/metacensus/v1/common.js";
 
 // Named, not `export *`: src/client.ts has one class per surface, and this
-// entry point wants only the authenticated one — plus its sugar.
-//
-// `ClientSigned` returns the `…Signed` envelopes; `Client` is the sugar over
-// it, returning flat views ({id, recorded, ...content}) and taking a session
-// signer for writes. The `…View` types are those flat shapes; `Signer` is the
-// write seam. See ts/README.md, "The sugar Client".
+// entry point wants only the authenticated one — plus its sugar (`Client`, the
+// `…View` types, `Signer`). See ts/README.md, "The sugar Client".
 export {
   ClientSigned,
   Client,

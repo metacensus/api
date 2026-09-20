@@ -186,12 +186,8 @@ export class PublicClient {
   }
 }
 
-// A Signer turns content and its contentType into a UserSignature. It is
-// identical per session — the signing key does not change between calls — so
-// the sugar client takes it as a constructor argument, not a per-call one. The
-// sugar supplies the content and the exact contentType (which sign and verify
-// leave to the caller); the caller's closure signs it with its own key. See
-// ts/README.md, "The sugar Client".
+// A caller's closure that signs content under the contentType the sugar names;
+// the key stays in the closure. See ts/README.md, "The sugar Client".
 export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
 
 export type PropView = { id: string; recorded?: string } & Prop;
@@ -214,17 +210,11 @@ function flattenVote(r: VoteSigned): VoteView {
   return { recorded: r.recorded, ...(r.content as Vote) };
 }
 
-// Client is syntactic sugar over ClientSigned: reads return the flat domain
-// object — {id, recorded, ...content} — rather than the {content, userSignature}
-// envelope, and writes take flat content plus a session signer and assemble the
-// envelope, so a caller never hand-builds one. It wraps ClientSigned rather than
-// replacing it: sign-up, login and logout stay there. See ts/README.md.
+// Client is flat-view sugar over ClientSigned. What it flattens, what it
+// signs, and what stays on ClientSigned: see ts/README.md, "The sugar Client".
 export class Client {
   private readonly api: ClientSigned;
 
-  // The signer is a session-wide object, not a per-call argument — the key it
-  // signs with does not change between calls. Omit it for a read-only client;
-  // a write without one throws.
   constructor(
     transport: Transport,
     private readonly signer?: Signer,
