@@ -8,7 +8,7 @@
 // transport with what the manifest says the route is.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Client, PublicClient } from "../dist/src/client.js";
+import { ClientSigned, PublicClient } from "../dist/src/client.js";
 import { routes, apiPrefix, publicPrefix } from "../dist/src/route-manifest.js";
 
 // One client class per surface, keyed by the prefix its routes hang off. This
@@ -16,7 +16,7 @@ import { routes, apiPrefix, publicPrefix } from "../dist/src/route-manifest.js";
 // runtime: routegen emits the classes and the prefixes from one table, and
 // this is the assertion that the table was read the same way twice.
 const surfaces = [
-  { prefix: apiPrefix, name: "Client", ctor: Client },
+  { prefix: apiPrefix, name: "ClientSigned", ctor: ClientSigned },
   { prefix: publicPrefix, name: "PublicClient", ctor: PublicClient },
 ];
 

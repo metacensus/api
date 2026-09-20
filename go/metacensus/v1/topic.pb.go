@@ -26,22 +26,90 @@ const (
 )
 
 // A systematic review in progress, as a signed record.
-type Topic struct {
+type TopicSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Minted by the server, outside the signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Server's observation; see UserSignature.signing_time for the author's
 	// claim.
 	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *TopicContent          `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *Topic                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopicSigned) Reset() {
+	*x = TopicSigned{}
+	mi := &file_metacensus_v1_topic_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopicSigned) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopicSigned) ProtoMessage() {}
+
+func (x *TopicSigned) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_topic_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopicSigned.ProtoReflect.Descriptor instead.
+func (*TopicSigned) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *TopicSigned) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TopicSigned) GetRecorded() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Recorded
+	}
+	return nil
+}
+
+func (x *TopicSigned) GetContent() *Topic {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *TopicSigned) GetUserSignature() *UserSignature {
+	if x != nil {
+		return x.UserSignature
+	}
+	return nil
+}
+
+// What a topic's author signs; carries no id — the server mints the
+// topic's key.
+type Topic struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Topic) Reset() {
 	*x = Topic{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[0]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -53,7 +121,7 @@ func (x *Topic) String() string {
 func (*Topic) ProtoMessage() {}
 
 func (x *Topic) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[0]
+	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -66,85 +134,17 @@ func (x *Topic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Topic.ProtoReflect.Descriptor instead.
 func (*Topic) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Topic) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Topic) GetRecorded() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Recorded
-	}
-	return nil
-}
-
-func (x *Topic) GetContent() *TopicContent {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *Topic) GetUserSignature() *UserSignature {
-	if x != nil {
-		return x.UserSignature
-	}
-	return nil
-}
-
-// What a topic's author signs; carries no id — the server mints the
-// topic's key.
-type TopicContent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TopicContent) Reset() {
-	*x = TopicContent{}
-	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TopicContent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TopicContent) ProtoMessage() {}
-
-func (x *TopicContent) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_topic_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TopicContent.ProtoReflect.Descriptor instead.
-func (*TopicContent) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TopicContent) GetName() string {
+func (x *Topic) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *TopicContent) GetDescription() string {
+func (x *Topic) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
@@ -189,7 +189,7 @@ func (*TopicListRequest) Descriptor() ([]byte, []int) {
 
 type TopicList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Topic               `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items         []*TopicSigned         `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -224,7 +224,7 @@ func (*TopicList) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *TopicList) GetItems() []*Topic {
+func (x *TopicList) GetItems() []*TopicSigned {
 	if x != nil {
 		return x.Items
 	}
@@ -277,7 +277,7 @@ func (x *TopicGetRequest) GetTopicId() string {
 
 type TopicCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Content       *TopicContent          `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Content       *Topic                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	UserSignature *UserSignature         `protobuf:"bytes,2,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -313,7 +313,7 @@ func (*TopicCreateRequest) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_topic_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *TopicCreateRequest) GetContent() *TopicContent {
+func (x *TopicCreateRequest) GetContent() *Topic {
 	if x != nil {
 		return x.Content
 	}
@@ -526,22 +526,22 @@ var File_metacensus_v1_topic_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\n" +
-	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xd1\x01\n" +
-	"\x05Topic\x12\x0e\n" +
+	"\x19metacensus/v1/topic.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xd0\x01\n" +
+	"\vTopicSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
-	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x125\n" +
-	"\acontent\x18\x03 \x01(\v2\x1b.metacensus.v1.TopicContentR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"D\n" +
-	"\fTopicContent\x12\x12\n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12.\n" +
+	"\acontent\x18\x03 \x01(\v2\x14.metacensus.v1.TopicR\acontent\x12C\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignatureJ\x04\b\x05\x10\x06\"=\n" +
+	"\x05Topic\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x12\n" +
-	"\x10TopicListRequest\"7\n" +
-	"\tTopicList\x12*\n" +
-	"\x05items\x18\x01 \x03(\v2\x14.metacensus.v1.TopicR\x05items\",\n" +
+	"\x10TopicListRequest\"=\n" +
+	"\tTopicList\x120\n" +
+	"\x05items\x18\x01 \x03(\v2\x1a.metacensus.v1.TopicSignedR\x05items\",\n" +
 	"\x0fTopicGetRequest\x12\x19\n" +
-	"\btopic_id\x18\x01 \x01(\tR\atopicId\"\x90\x01\n" +
-	"\x12TopicCreateRequest\x125\n" +
-	"\acontent\x18\x01 \x01(\v2\x1b.metacensus.v1.TopicContentR\acontent\x12C\n" +
+	"\btopic_id\x18\x01 \x01(\tR\atopicId\"\x89\x01\n" +
+	"\x12TopicCreateRequest\x12.\n" +
+	"\acontent\x18\x01 \x01(\v2\x14.metacensus.v1.TopicR\acontent\x12C\n" +
 	"\x0euser_signature\x18\x02 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"L\n" +
 	"\x06Member\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
@@ -553,12 +553,12 @@ const file_metacensus_v1_topic_proto_rawDesc = "" +
 	"\x05items\x18\x01 \x03(\v2\x15.metacensus.v1.MemberR\x05items\"F\n" +
 	"\x10MemberGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId2\xfd\x03\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId2\x89\x04\n" +
 	"\vTopicRoutes\x12W\n" +
 	"\n" +
-	"ListTopics\x12\x1f.metacensus.v1.TopicListRequest\x1a\x18.metacensus.v1.TopicList\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/topic\x12[\n" +
-	"\bGetTopic\x12\x1e.metacensus.v1.TopicGetRequest\x1a\x14.metacensus.v1.Topic\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/topic/{topic_id}\x12Y\n" +
-	"\vCreateTopic\x12!.metacensus.v1.TopicCreateRequest\x1a\x14.metacensus.v1.Topic\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12l\n" +
+	"ListTopics\x12\x1f.metacensus.v1.TopicListRequest\x1a\x18.metacensus.v1.TopicList\"\x0e\x82\xd3\xe4\x93\x02\b\x12\x06/topic\x12a\n" +
+	"\bGetTopic\x12\x1e.metacensus.v1.TopicGetRequest\x1a\x1a.metacensus.v1.TopicSigned\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/topic/{topic_id}\x12_\n" +
+	"\vCreateTopic\x12!.metacensus.v1.TopicCreateRequest\x1a\x1a.metacensus.v1.TopicSigned\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/topic\x12l\n" +
 	"\vListMembers\x12 .metacensus.v1.MemberListRequest\x1a\x19.metacensus.v1.MemberList\" \x82\xd3\xe4\x93\x02\x1a\x12\x18/topic/{topic_id}/member\x12o\n" +
 	"\tGetMember\x12\x1f.metacensus.v1.MemberGetRequest\x1a\x15.metacensus.v1.Member\"*\x82\xd3\xe4\x93\x02$\x12\"/topic/{topic_id}/member/{user_id}B9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
@@ -576,8 +576,8 @@ func file_metacensus_v1_topic_proto_rawDescGZIP() []byte {
 
 var file_metacensus_v1_topic_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_metacensus_v1_topic_proto_goTypes = []any{
-	(*Topic)(nil),                 // 0: metacensus.v1.Topic
-	(*TopicContent)(nil),          // 1: metacensus.v1.TopicContent
+	(*TopicSigned)(nil),           // 0: metacensus.v1.TopicSigned
+	(*Topic)(nil),                 // 1: metacensus.v1.Topic
 	(*TopicListRequest)(nil),      // 2: metacensus.v1.TopicListRequest
 	(*TopicList)(nil),             // 3: metacensus.v1.TopicList
 	(*TopicGetRequest)(nil),       // 4: metacensus.v1.TopicGetRequest
@@ -590,11 +590,11 @@ var file_metacensus_v1_topic_proto_goTypes = []any{
 	(*UserSignature)(nil),         // 11: metacensus.v1.UserSignature
 }
 var file_metacensus_v1_topic_proto_depIdxs = []int32{
-	10, // 0: metacensus.v1.Topic.recorded:type_name -> google.protobuf.Timestamp
-	1,  // 1: metacensus.v1.Topic.content:type_name -> metacensus.v1.TopicContent
-	11, // 2: metacensus.v1.Topic.user_signature:type_name -> metacensus.v1.UserSignature
-	0,  // 3: metacensus.v1.TopicList.items:type_name -> metacensus.v1.Topic
-	1,  // 4: metacensus.v1.TopicCreateRequest.content:type_name -> metacensus.v1.TopicContent
+	10, // 0: metacensus.v1.TopicSigned.recorded:type_name -> google.protobuf.Timestamp
+	1,  // 1: metacensus.v1.TopicSigned.content:type_name -> metacensus.v1.Topic
+	11, // 2: metacensus.v1.TopicSigned.user_signature:type_name -> metacensus.v1.UserSignature
+	0,  // 3: metacensus.v1.TopicList.items:type_name -> metacensus.v1.TopicSigned
+	1,  // 4: metacensus.v1.TopicCreateRequest.content:type_name -> metacensus.v1.Topic
 	11, // 5: metacensus.v1.TopicCreateRequest.user_signature:type_name -> metacensus.v1.UserSignature
 	10, // 6: metacensus.v1.Member.joined:type_name -> google.protobuf.Timestamp
 	6,  // 7: metacensus.v1.MemberList.items:type_name -> metacensus.v1.Member
@@ -604,8 +604,8 @@ var file_metacensus_v1_topic_proto_depIdxs = []int32{
 	7,  // 11: metacensus.v1.TopicRoutes.ListMembers:input_type -> metacensus.v1.MemberListRequest
 	9,  // 12: metacensus.v1.TopicRoutes.GetMember:input_type -> metacensus.v1.MemberGetRequest
 	3,  // 13: metacensus.v1.TopicRoutes.ListTopics:output_type -> metacensus.v1.TopicList
-	0,  // 14: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.Topic
-	0,  // 15: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.Topic
+	0,  // 14: metacensus.v1.TopicRoutes.GetTopic:output_type -> metacensus.v1.TopicSigned
+	0,  // 15: metacensus.v1.TopicRoutes.CreateTopic:output_type -> metacensus.v1.TopicSigned
 	8,  // 16: metacensus.v1.TopicRoutes.ListMembers:output_type -> metacensus.v1.MemberList
 	6,  // 17: metacensus.v1.TopicRoutes.GetMember:output_type -> metacensus.v1.Member
 	13, // [13:18] is the sub-list for method output_type

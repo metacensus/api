@@ -29,9 +29,9 @@ type topics struct {
 	gotID string
 }
 
-func (t *topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.Topic, error) {
+func (t *topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.TopicSigned, error) {
 	t.gotID = req.TopicId
-	return &v1.Topic{Id: req.TopicId, Content: &v1.TopicContent{Name: "t"}}, nil
+	return &v1.TopicSigned{Id: req.TopicId, Content: &v1.Topic{Name: "t"}}, nil
 }
 
 func get(h http.Handler, path string) *httptest.ResponseRecorder {

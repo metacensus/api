@@ -106,7 +106,7 @@ func key(t *testing.T) *ecdsa.PrivateKey {
 	return k
 }
 
-// attrs is a valid TopicContent signature so each test below varies one thing.
+// attrs is a valid Topic signature so each test below varies one thing.
 func attrs(t *testing.T, priv *ecdsa.PrivateKey) *v1.UserSignature {
 	t.Helper()
 	id, err := KeyID(&priv.PublicKey)
@@ -119,13 +119,13 @@ func attrs(t *testing.T, priv *ecdsa.PrivateKey) *v1.UserSignature {
 		Alg:         v1.UserSignature_Es384,
 		SigningTime: timestamppb.New(time.Unix(1700000000, 0).UTC()),
 		Spec:        Spec,
-		ContentType: "metacensus.v1.TopicContent",
+		ContentType: "metacensus.v1.Topic",
 	}
 }
 
 func TestSignVerifyRoundTrip(t *testing.T) {
 	priv := key(t)
-	content := &v1.TopicContent{Name: "n", Description: "d"}
+	content := &v1.Topic{Name: "n", Description: "d"}
 	sig := attrs(t, priv)
 
 	if err := Sign(priv, content, sig); err != nil {
@@ -143,7 +143,7 @@ func TestSignVerifyRoundTrip(t *testing.T) {
 // including one that leaves the document the same length.
 func TestVerifyRejectsAlteredContent(t *testing.T) {
 	priv := key(t)
-	content := &v1.TopicContent{Name: "n", Description: "d"}
+	content := &v1.Topic{Name: "n", Description: "d"}
 	sig := attrs(t, priv)
 	if err := Sign(priv, content, sig); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestVerifyRejectsAlteredContent(t *testing.T) {
 // fact — a signature can't be re-attributed or re-dated.
 func TestVerifyRejectsAlteredAttributes(t *testing.T) {
 	priv := key(t)
-	content := &v1.TopicContent{Name: "n", Description: "d"}
+	content := &v1.Topic{Name: "n", Description: "d"}
 
 	for _, tc := range []struct {
 		name  string
@@ -187,14 +187,14 @@ func TestVerifyRejectsAlteredAttributes(t *testing.T) {
 func TestVerifyRejectsSubstitutedContentType(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
-	if err := Sign(priv, &v1.TopicContent{Name: "n", Description: "d"}, sig); err != nil {
+	if err := Sign(priv, &v1.Topic{Name: "n", Description: "d"}, sig); err != nil {
 		t.Fatal(err)
 	}
 
-	// UserContent's first two fields are also two strings.
-	err := Verify(&priv.PublicKey, &v1.UserContent{Name: "n", Email: "d"}, sig)
+	// User's first two fields are also two strings.
+	err := Verify(&priv.PublicKey, &v1.User{Name: "n", Email: "d"}, sig)
 	if err == nil {
-		t.Fatal("a TopicContent signature verified over a UserContent")
+		t.Fatal("a Topic signature verified over a User")
 	}
 	if !strings.Contains(err.Error(), "contentType") {
 		t.Errorf("error %q does not name contentType", err)
@@ -205,7 +205,7 @@ func TestSignRefusesAnUnknownSpec(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
 	sig.Spec = "metacensus.sig/99"
-	if err := Sign(priv, &v1.TopicContent{}, sig); err == nil {
+	if err := Sign(priv, &v1.Topic{}, sig); err == nil {
 		t.Fatal("an unknown spec was signed")
 	}
 }
@@ -215,7 +215,7 @@ func TestDigestRefusesAnUnsetSigningTime(t *testing.T) {
 	priv := key(t)
 	sig := attrs(t, priv)
 	sig.SigningTime = nil
-	if _, err := Digest(&v1.TopicContent{}, sig); err == nil {
+	if _, err := Digest(&v1.Topic{}, sig); err == nil {
 		t.Fatal("a signature with no signing time was digested")
 	}
 }
@@ -227,7 +227,7 @@ func TestSigningInputIsTheDocumentBothLanguagesBuild(t *testing.T) {
 	sig := attrs(t, priv)
 	sig.Value = "this must not appear"
 
-	in, err := SigningInput(&v1.TopicContent{Name: "n", Description: "d"}, sig)
+	in, err := SigningInput(&v1.Topic{Name: "n", Description: "d"}, sig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestCurveIsHeld(t *testing.T) {
 		t.Fatal(err)
 	}
 	sig := attrs(t, key(t))
-	if err := Sign(wrong, &v1.TopicContent{}, sig); err == nil {
+	if err := Sign(wrong, &v1.Topic{}, sig); err == nil {
 		t.Error("a P-256 key signed an Es384 signature")
 	}
 }

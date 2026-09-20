@@ -55,7 +55,7 @@ export interface UserSignature {
   spec: string;
   /**
    * Full proto name of the message `content` holds, e.g.
-   * "metacensus.v1.PropContent". Stops a signature over one type being
+   * "metacensus.v1.Prop". Stops a signature over one type being
    * replayed as another.
    */
   contentType: string;
@@ -75,9 +75,9 @@ export enum UserSignature_Alg {
 
 /**
  * The part of a user record its owner signs. Lives here, not user.proto,
- * because auth.proto's SignUpRequest and user.proto's User both need it.
+ * because auth.proto's SignUpRequest and user.proto's UserSigned both need it.
  */
-export interface UserContent {
+export interface User {
   name: string;
   email: string;
   country: string;

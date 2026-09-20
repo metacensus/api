@@ -65,7 +65,7 @@ var Packages = []Package{
 		GoAlias:  "v1",
 		GoConst:  "Prefix",
 		TSConst:  "apiPrefix",
-		TSClient: "Client",
+		TSClient: "ClientSigned",
 		Summary:  "the authenticated API",
 	},
 	{

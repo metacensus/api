@@ -68,25 +68,25 @@ type topics struct {
 	server.UnimplementedTopicRoutes
 }
 
-func (topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.Topic, error) {
+func (topics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.TopicSigned, error) {
 	if req.TopicId == "missing" {
 		return nil, server.Errorf(http.StatusNotFound, "topic_not_found", "no topic %q", req.TopicId)
 	}
-	content := &v1.TopicContent{Name: "n", Description: ""}
-	return &v1.Topic{Id: req.TopicId, Recorded: recorded, Content: content, UserSignature: sign(content)}, nil
+	content := &v1.Topic{Name: "n", Description: ""}
+	return &v1.TopicSigned{Id: req.TopicId, Recorded: recorded, Content: content, UserSignature: sign(content)}, nil
 }
 
 func (topics) ListTopics(context.Context, *v1.TopicListRequest) (*v1.TopicList, error) {
-	content := &v1.TopicContent{Name: "n", Description: ""}
-	return &v1.TopicList{Items: []*v1.Topic{
+	content := &v1.Topic{Name: "n", Description: ""}
+	return &v1.TopicList{Items: []*v1.TopicSigned{
 		{Id: "t1", Recorded: recorded, Content: content, UserSignature: sign(content)},
 	}}, nil
 }
 
 // CreateTopic echoes the content and signature it was handed, unchanged: the
 // server wraps, it never modifies.
-func (topics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.Topic, error) {
-	return &v1.Topic{
+func (topics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.TopicSigned, error) {
+	return &v1.TopicSigned{
 		Id: "new", Recorded: recorded,
 		Content: req.Content, UserSignature: req.UserSignature,
 	}, nil
@@ -94,9 +94,9 @@ func (topics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.To
 
 type props struct{ server.UnimplementedPropRoutes }
 
-func (props) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.Prop, error) {
+func (props) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.PropSigned, error) {
 	// The minted id echoes the topic id the path bound.
-	return &v1.Prop{
+	return &v1.PropSigned{
 		Id: req.TopicId, Recorded: recorded,
 		Content: req.Content, UserSignature: req.UserSignature,
 	}, nil

@@ -142,13 +142,13 @@ type PropRoutes interface {
 	// GET /topic/{topicId}/prop
 	ListProps(context.Context, *v1.PropListRequest) (*v1.PropList, error)
 	// GET /topic/{topicId}/prop/{propId}
-	GetProp(context.Context, *v1.PropGetRequest) (*v1.Prop, error)
+	GetProp(context.Context, *v1.PropGetRequest) (*v1.PropSigned, error)
 	// POST /topic/{topicId}/prop
-	CreateProp(context.Context, *v1.PropCreateRequest) (*v1.Prop, error)
+	CreateProp(context.Context, *v1.PropCreateRequest) (*v1.PropSigned, error)
 	// GET /topic/{topicId}/prop/{propId}/vote
 	ListVotes(context.Context, *v1.VoteListRequest) (*v1.VoteList, error)
 	// POST /topic/{topicId}/prop/{propId}/vote
-	SetVote(context.Context, *v1.VoteSetRequest) (*v1.Vote, error)
+	SetVote(context.Context, *v1.VoteSetRequest) (*v1.VoteSigned, error)
 }
 
 // UnimplementedPropRoutes answers every PropRoutes route with 501. Embed it to
@@ -159,11 +159,11 @@ func (UnimplementedPropRoutes) ListProps(context.Context, *v1.PropListRequest) (
 	return nil, errNotImplemented("PropRoutes.ListProps")
 }
 
-func (UnimplementedPropRoutes) GetProp(context.Context, *v1.PropGetRequest) (*v1.Prop, error) {
+func (UnimplementedPropRoutes) GetProp(context.Context, *v1.PropGetRequest) (*v1.PropSigned, error) {
 	return nil, errNotImplemented("PropRoutes.GetProp")
 }
 
-func (UnimplementedPropRoutes) CreateProp(context.Context, *v1.PropCreateRequest) (*v1.Prop, error) {
+func (UnimplementedPropRoutes) CreateProp(context.Context, *v1.PropCreateRequest) (*v1.PropSigned, error) {
 	return nil, errNotImplemented("PropRoutes.CreateProp")
 }
 
@@ -171,7 +171,7 @@ func (UnimplementedPropRoutes) ListVotes(context.Context, *v1.VoteListRequest) (
 	return nil, errNotImplemented("PropRoutes.ListVotes")
 }
 
-func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1.Vote, error) {
+func (UnimplementedPropRoutes) SetVote(context.Context, *v1.VoteSetRequest) (*v1.VoteSigned, error) {
 	return nil, errNotImplemented("PropRoutes.SetVote")
 }
 
@@ -322,9 +322,9 @@ type TopicRoutes interface {
 	// GET /topic
 	ListTopics(context.Context, *v1.TopicListRequest) (*v1.TopicList, error)
 	// GET /topic/{topicId}
-	GetTopic(context.Context, *v1.TopicGetRequest) (*v1.Topic, error)
+	GetTopic(context.Context, *v1.TopicGetRequest) (*v1.TopicSigned, error)
 	// POST /topic
-	CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.Topic, error)
+	CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.TopicSigned, error)
 	// GET /topic/{topicId}/member
 	ListMembers(context.Context, *v1.MemberListRequest) (*v1.MemberList, error)
 	// GET /topic/{topicId}/member/{userId}
@@ -339,11 +339,11 @@ func (UnimplementedTopicRoutes) ListTopics(context.Context, *v1.TopicListRequest
 	return nil, errNotImplemented("TopicRoutes.ListTopics")
 }
 
-func (UnimplementedTopicRoutes) GetTopic(context.Context, *v1.TopicGetRequest) (*v1.Topic, error) {
+func (UnimplementedTopicRoutes) GetTopic(context.Context, *v1.TopicGetRequest) (*v1.TopicSigned, error) {
 	return nil, errNotImplemented("TopicRoutes.GetTopic")
 }
 
-func (UnimplementedTopicRoutes) CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.Topic, error) {
+func (UnimplementedTopicRoutes) CreateTopic(context.Context, *v1.TopicCreateRequest) (*v1.TopicSigned, error) {
 	return nil, errNotImplemented("TopicRoutes.CreateTopic")
 }
 
@@ -454,9 +454,9 @@ type UserRoutes interface {
 	// GET /user
 	ListUsers(context.Context, *v1.UserListRequest) (*v1.UserList, error)
 	// GET /user/{userId}
-	GetUser(context.Context, *v1.UserGetRequest) (*v1.User, error)
+	GetUser(context.Context, *v1.UserGetRequest) (*v1.UserSigned, error)
 	// GET /self
-	GetSelf(context.Context, *v1.SelfGetRequest) (*v1.User, error)
+	GetSelf(context.Context, *v1.SelfGetRequest) (*v1.UserSigned, error)
 }
 
 // UnimplementedUserRoutes answers every UserRoutes route with 501. Embed it to
@@ -467,11 +467,11 @@ func (UnimplementedUserRoutes) ListUsers(context.Context, *v1.UserListRequest) (
 	return nil, errNotImplemented("UserRoutes.ListUsers")
 }
 
-func (UnimplementedUserRoutes) GetUser(context.Context, *v1.UserGetRequest) (*v1.User, error) {
+func (UnimplementedUserRoutes) GetUser(context.Context, *v1.UserGetRequest) (*v1.UserSigned, error) {
 	return nil, errNotImplemented("UserRoutes.GetUser")
 }
 
-func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1.User, error) {
+func (UnimplementedUserRoutes) GetSelf(context.Context, *v1.SelfGetRequest) (*v1.UserSigned, error) {
 	return nil, errNotImplemented("UserRoutes.GetSelf")
 }
 

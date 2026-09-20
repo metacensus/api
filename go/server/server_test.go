@@ -24,19 +24,19 @@ type fakeTopics struct {
 	err       error
 }
 
-func (f *fakeTopics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.Topic, error) {
+func (f *fakeTopics) GetTopic(_ context.Context, req *v1.TopicGetRequest) (*v1.TopicSigned, error) {
 	f.gotGet = req
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &v1.Topic{Id: req.TopicId, Content: &v1.TopicContent{Name: "t"}}, nil
+	return &v1.TopicSigned{Id: req.TopicId, Content: &v1.Topic{Name: "t"}}, nil
 }
 
 // The server wraps and never modifies: the content it answers with is the
 // content it was handed, and the id beside it is the server's own.
-func (f *fakeTopics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.Topic, error) {
+func (f *fakeTopics) CreateTopic(_ context.Context, req *v1.TopicCreateRequest) (*v1.TopicSigned, error) {
 	f.gotCreate = req
-	return &v1.Topic{Id: "new", Content: req.Content, UserSignature: req.UserSignature}, nil
+	return &v1.TopicSigned{Id: "new", Content: req.Content, UserSignature: req.UserSignature}, nil
 }
 
 type fakeProps struct {
@@ -44,9 +44,9 @@ type fakeProps struct {
 	got *v1.PropCreateRequest
 }
 
-func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.Prop, error) {
+func (f *fakeProps) CreateProp(_ context.Context, req *v1.PropCreateRequest) (*v1.PropSigned, error) {
 	f.got = req
-	return &v1.Prop{Id: "p", Content: req.Content, UserSignature: req.UserSignature}, nil
+	return &v1.PropSigned{Id: "p", Content: req.Content, UserSignature: req.UserSignature}, nil
 }
 
 // signedBody wraps a content document in the envelope every write carries.
@@ -115,7 +115,7 @@ func TestGetBindsPathParam(t *testing.T) {
 	// EmitDefaultValues: the empty description inside content and the absent
 	// recorded and userSignature are the contract's presence rules, not
 	// encoding/json's.
-	var got v1.Topic
+	var got v1.TopicSigned
 	if err := contract.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestPathWinsOverBodyButNotSilently(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("agreeing body: status %d: %s", rec.Code, rec.Body.String())
 	}
-	if props.got.GetTopicId() != "t1" || props.got.GetContent().GetType() != v1.PropContent_Statement {
+	if props.got.GetTopicId() != "t1" || props.got.GetContent().GetType() != v1.Prop_Statement {
 		t.Errorf("bound %v", props.got)
 	}
 

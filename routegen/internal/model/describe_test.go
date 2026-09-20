@@ -107,10 +107,10 @@ func TestDescribeRejects(t *testing.T) {
 			wants: "not a singular string",
 		},
 		{
-			// VoteContent.citations is repeated PropCitation: a message-typed
+			// Vote.citations is repeated PropCitation: a message-typed
 			// field the query string cannot carry.
 			name: "message-typed query parameter",
-			rpc: rpc("MessageQuery", "VoteContent", "Topic", &annotations.HttpRule{
+			rpc: rpc("MessageQuery", "Vote", "TopicSigned", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Get{Get: "/x/{topic_id}"},
 			}),
 			wants: "only scalar query fields are supported",
@@ -171,10 +171,10 @@ func TestDescribeAccepts(t *testing.T) {
 			path: "/topic/{topicId}", params: []string{"topicId"},
 		},
 		{
-			// Both path ids are repeated inside VoteContent, so this is also
+			// Both path ids are repeated inside Vote, so this is also
 			// the signed case.
 			name: "two distinct parameters and a star body",
-			rpc: rpc("SetVote", "VoteSetRequest", "Vote", &annotations.HttpRule{
+			rpc: rpc("SetVote", "VoteSetRequest", "VoteSigned", &annotations.HttpRule{
 				Pattern: &annotations.HttpRule_Post{Post: "/topic/{topic_id}/prop/{prop_id}/vote"},
 				Body:    "*",
 			}),
@@ -239,7 +239,7 @@ func TestDescribeSignedPairing(t *testing.T) {
 		},
 		{
 			name:  "content without signature",
-			field: messageField(ContentField, 1, "."+testPkg.Proto+".TopicContent"),
+			field: messageField(ContentField, 1, "."+testPkg.Proto+".Topic"),
 			wants: "content nobody signed",
 		},
 	} {
