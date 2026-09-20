@@ -51,41 +51,54 @@ type client struct {
 
 func newClient(t *testing.T, mux http.Handler) *client {
 	t.Helper()
-	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
 	return &client{t: t, mux: mux, priv: priv}
 }
 
-// sign returns a UserSignature over content, filling the signed attributes and
-// the value. inlineKey embeds the public key (sign-up only), and signerID is
-// empty on sign-up and the caller's id afterward.
-func (c *client) sign(content proto.Message, signerID string, inlineKey bool) *v1.UserSignature {
+// testOrigin is the origin the test client's participant assertions carry.
+const testOrigin = "http://localhost"
+
+// keyID is the client's key thumbprint, what every Signature.key_id names.
+func (c *client) keyID() string {
 	c.t.Helper()
-	keyID, err := signing.KeyID(&c.priv.PublicKey)
+	id, err := signing.KeyID(&c.priv.PublicKey)
 	if err != nil {
 		c.t.Fatalf("keyID: %v", err)
 	}
-	sig := &v1.UserSignature{
-		SignerId:    signerID,
-		KeyId:       keyID,
-		Alg:         v1.UserSignature_Es384,
-		Spec:        signing.Spec,
-		ContentType: string(content.ProtoReflect().Descriptor().FullName()),
-		SigningTime: timestamppb.New(time.Unix(1_699_000_000, 0).UTC()),
+	return id
+}
+
+// publicKey is the client key as SignUpRequest.public_key carries it.
+func (c *client) publicKey() string {
+	c.t.Helper()
+	pub, err := signing.EncodePublicKey(&c.priv.PublicKey)
+	if err != nil {
+		c.t.Fatalf("encode key: %v", err)
 	}
-	if inlineKey {
-		pub, err := signing.EncodePublicKey(&c.priv.PublicKey)
-		if err != nil {
-			c.t.Fatalf("encode key: %v", err)
-		}
-		sig.PublicKey = pub
+	return pub
+}
+
+// sign produces the interpretation and a participant Signature over content,
+// standing in for a passkey: a user-verified assertion from testOrigin. The
+// key is software (a test can't drive a real authenticator), but the object is
+// the shape a passkey emits.
+func (c *client) sign(content proto.Message) (*v1.Interpretation, *v1.Signature) {
+	c.t.Helper()
+	interp := signing.Interpretation(content)
+	t := timestamppb.New(time.Unix(1_699_000_000, 0).UTC())
+	challenge, err := signing.UserChallenge(content, interp, c.keyID(), t)
+	if err != nil {
+		c.t.Fatalf("challenge: %v", err)
 	}
-	if err := signing.Sign(c.priv, content, sig); err != nil {
-		c.t.Fatalf("sign: %v", err)
+	authData := signing.AuthenticatorData("localhost", signing.FlagUP|signing.FlagUV)
+	assertion, err := signing.Assert(c.priv, challenge, authData, signing.ClientData{Type: signing.TypeGet, Origin: testOrigin})
+	if err != nil {
+		c.t.Fatalf("assert: %v", err)
 	}
-	return sig
+	return interp, &v1.Signature{KeyId: c.keyID(), Time: t, Assertion: assertion}
 }
 
 // do sends req to path and returns the recorder; body is marshalled with the
@@ -131,13 +144,17 @@ func TestJourney(t *testing.T) {
 	_, mux := newTestServer(t)
 	c := newClient(t, mux)
 
-	// Sign up. The signer_id is empty and the key travels inline.
+	// Sign up. The enrolling key travels on the request; the signature carries
+	// no signer id.
 	user := &v1.User{Name: "Ada", Email: "ada@example.com", Country: "GB"}
+	suInterp, suSig := c.sign(user)
 	var session v1.Session
 	decode(t, c.do("POST", "/signup", &v1.SignUpRequest{
-		Content:       user,
-		Password:      "correct horse battery staple",
-		UserSignature: c.sign(user, "", true),
+		Content:        user,
+		Password:       "correct horse battery staple",
+		Interpretation: suInterp,
+		PublicKey:      c.publicKey(),
+		UserSignature:  suSig,
 	}), &session)
 	if session.GetToken() == "" {
 		t.Fatal("sign-up returned no token")
@@ -155,12 +172,14 @@ func TestJourney(t *testing.T) {
 		t.Fatalf("self email = %q", self.GetContent().GetEmail())
 	}
 
-	// Create a topic, now signing as our id.
+	// Create a topic. The author is our enrolled key's owner, not a claim.
 	topic := &v1.Topic{Name: "Elections", Description: "voting reform"}
+	tInterp, tSig := c.sign(topic)
 	var topicRec v1.TopicSigned
 	decode(t, c.do("POST", "/topic", &v1.TopicCreateRequest{
-		Content:       topic,
-		UserSignature: c.sign(topic, id, false),
+		Content:        topic,
+		Interpretation: tInterp,
+		UserSignature:  tSig,
 	}), &topicRec)
 	topicID := topicRec.GetId()
 	if topicID == "" || topicRec.GetRecorded() == nil {
@@ -169,11 +188,13 @@ func TestJourney(t *testing.T) {
 
 	// Create a prop under the topic.
 	prop := &v1.Prop{TopicId: topicID, Description: "ranked choice"}
+	pInterp, pSig := c.sign(prop)
 	var propRec v1.PropSigned
 	decode(t, c.do("POST", "/topic/"+topicID+"/prop", &v1.PropCreateRequest{
-		TopicId:       topicID,
-		Content:       prop,
-		UserSignature: c.sign(prop, id, false),
+		TopicId:        topicID,
+		Content:        prop,
+		Interpretation: pInterp,
+		UserSignature:  pSig,
 	}), &propRec)
 	propID := propRec.GetId()
 	if propID == "" {
@@ -182,12 +203,14 @@ func TestJourney(t *testing.T) {
 
 	// Vote on the prop.
 	vote := &v1.Vote{TopicId: topicID, PropId: propID, UserId: id}
+	vInterp, vSig := c.sign(vote)
 	var voteRec v1.VoteSigned
 	decode(t, c.do("POST", "/topic/"+topicID+"/prop/"+propID+"/vote", &v1.VoteSetRequest{
-		TopicId:       topicID,
-		PropId:        propID,
-		Content:       vote,
-		UserSignature: c.sign(vote, id, false),
+		TopicId:        topicID,
+		PropId:         propID,
+		Content:        vote,
+		Interpretation: vInterp,
+		UserSignature:  vSig,
 	}), &voteRec)
 
 	// Read the vote back.
@@ -208,46 +231,50 @@ func TestMintingPreservesSignature(t *testing.T) {
 	c := newClient(t, mux)
 
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	suInterp, suSig := c.sign(user)
 	var session v1.Session
 	decode(t, c.do("POST", "/signup", &v1.SignUpRequest{
-		Content: user, Password: "pw", UserSignature: c.sign(user, "", true),
+		Content: user, Password: "pw", Interpretation: suInterp, PublicKey: c.publicKey(), UserSignature: suSig,
 	}), &session)
 	c.token = session.GetToken()
 	var self v1.UserSigned
 	decode(t, c.do("GET", "/self", nil), &self)
-	id := self.GetId()
 
 	topic := &v1.Topic{Name: "T"}
-	sig := c.sign(topic, id, false)
+	interp, sig := c.sign(topic)
 	var rec v1.TopicSigned
-	decode(t, c.do("POST", "/topic", &v1.TopicCreateRequest{Content: topic, UserSignature: sig}), &rec)
+	decode(t, c.do("POST", "/topic", &v1.TopicCreateRequest{Content: topic, Interpretation: interp, UserSignature: sig}), &rec)
 
 	if rec.GetId() == "" || rec.GetRecorded() == nil {
 		t.Fatal("server did not mint id/recorded")
 	}
 	stored := fake.topics[rec.GetId()]
-	if err := signing.Verify(&c.priv.PublicKey, stored.GetContent(), stored.GetUserSignature()); err != nil {
+	if err := signing.VerifyUser(&c.priv.PublicKey, stored.GetContent(), stored.GetInterpretation(), stored.GetUserSignature(), signing.ParticipantPolicy(testOrigin)); err != nil {
 		t.Fatalf("signature broke across assembly: %v", err)
 	}
 }
 
-// TestCreateTopicSignerMismatch is the fail-fast: a signature whose signer is
-// not the session caller is a 401 before the store is ever called.
-func TestCreateTopicSignerMismatch(t *testing.T) {
+// TestCreateTopicUnenrolledKey: authorship binds to the enrolled key, resolved
+// below the seam. A write signed with a key the caller never enrolled resolves
+// to no owner and is refused — the binding that a self-claimed signer id used to
+// carry, now anchored in persistence.
+func TestCreateTopicUnenrolledKey(t *testing.T) {
 	_, mux := newTestServer(t)
 	c := newClient(t, mux)
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	suInterp, suSig := c.sign(user)
 	var session v1.Session
 	decode(t, c.do("POST", "/signup", &v1.SignUpRequest{
-		Content: user, Password: "pw", UserSignature: c.sign(user, "", true),
+		Content: user, Password: "pw", Interpretation: suInterp, PublicKey: c.publicKey(), UserSignature: suSig,
 	}), &session)
 	c.token = session.GetToken()
 
+	// A second key, never enrolled, signing under the same session.
+	other := newClient(t, mux)
+	other.token = c.token
 	topic := &v1.Topic{Name: "T"}
-	// Sign as a different id than the session caller.
-	rec := c.do("POST", "/topic", &v1.TopicCreateRequest{
-		Content: topic, UserSignature: c.sign(topic, "someone-else", false),
-	})
+	interp, sig := other.sign(topic)
+	rec := c.do("POST", "/topic", &v1.TopicCreateRequest{Content: topic, Interpretation: interp, UserSignature: sig})
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401; body %s", rec.Code, rec.Body.String())
 	}
@@ -264,21 +291,24 @@ func TestUnauthenticatedWithoutToken(t *testing.T) {
 	}
 }
 
-// TestSignUpStructuralChecks rejects a missing inline key and a pre-set signer.
+// TestSignUpStructuralChecks rejects a missing enrolling key (the edge's O(1)
+// check) and a key_id that does not thumbprint the key offered (the store's
+// trust-on-first-use binding).
 func TestSignUpStructuralChecks(t *testing.T) {
 	_, mux := newTestServer(t)
 	c := newClient(t, mux)
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
 
-	// No inline public key.
-	noKey := c.sign(user, "", false)
-	if rec := c.do("POST", "/signup", &v1.SignUpRequest{Content: user, Password: "pw", UserSignature: noKey}); rec.Code != http.StatusBadRequest {
+	// No enrolling public key: rejected at the edge.
+	interp, sig := c.sign(user)
+	if rec := c.do("POST", "/signup", &v1.SignUpRequest{Content: user, Password: "pw", Interpretation: interp, UserSignature: sig}); rec.Code != http.StatusBadRequest {
 		t.Fatalf("missing key: status = %d, want 400", rec.Code)
 	}
-	// Signer id pre-set.
-	withSigner := c.sign(user, "not-empty", true)
-	if rec := c.do("POST", "/signup", &v1.SignUpRequest{Content: user, Password: "pw", UserSignature: withSigner}); rec.Code != http.StatusBadRequest {
-		t.Fatalf("preset signer: status = %d, want 400", rec.Code)
+	// key_id does not thumbprint public_key: refused by the store's binding.
+	interp2, sig2 := c.sign(user)
+	sig2.KeyId = "not-the-thumbprint"
+	if rec := c.do("POST", "/signup", &v1.SignUpRequest{Content: user, Password: "pw", Interpretation: interp2, PublicKey: c.publicKey(), UserSignature: sig2}); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("mismatched key_id: status = %d, want 422", rec.Code)
 	}
 }
 
@@ -288,9 +318,10 @@ func TestLoginUnknownAndWrongAreIdentical(t *testing.T) {
 	_, mux := newTestServer(t)
 	c := newClient(t, mux)
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	interp, sig := c.sign(user)
 	var session v1.Session
 	decode(t, c.do("POST", "/signup", &v1.SignUpRequest{
-		Content: user, Password: "right", UserSignature: c.sign(user, "", true),
+		Content: user, Password: "right", Interpretation: interp, PublicKey: c.publicKey(), UserSignature: sig,
 	}), &session)
 
 	unknown := c.do("POST", "/login", &v1.LoginRequest{Email: "nobody@example.com", Password: "x"})

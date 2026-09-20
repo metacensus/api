@@ -24,9 +24,20 @@ export class ApiError extends Error {
 }
 
 {{end}}
-{{define "signer"}}// A caller's closure that signs content under the contentType the client names;
-// the key stays in the closure. See ts/README.md, "Writes and the signer".
-export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
+{{define "signer"}}// What a signer returns: the record's Interpretation, the Signature over it,
+// and — on sign-up only — the enrolling public key. The client assembles these
+// into the request body; the caller only ever passes flat content.
+export interface SignResult {
+  interpretation: Interpretation;
+  signature: Signature;
+  publicKey?: string;
+}
+
+// A caller's closure that signs content under the contentType the client names;
+// the key stays in the closure. A passkey signer runs the WebAuthn ceremony and
+// returns its assertion; a headless signer builds the same shape directly. See
+// ts/README.md, "Writes and the signer".
+export type Signer = (content: unknown, contentType: string) => Promise<SignResult>;
 
 {{end}}
 {{define "requestHelper"}}function param(v: string | number | boolean): string {
@@ -98,7 +109,7 @@ export class {{.Class}} {
     return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, {{if .HasToken}}this.#token, this.#credentials{{else}}undefined{{end}});
   }
 {{if .HasSigner}}
-  #sign(content: unknown, contentType: string): Promise<UserSignature> {
+  #sign(content: unknown, contentType: string): Promise<SignResult> {
     if (this.#signer === undefined) {
       throw new Error("{{.Class}}: a write needs a signer; construct new {{.Class}}({ ..., signer })");
     }
@@ -155,17 +166,17 @@ export class {{.Class}} {
   // {{.Service}}.{{.RPC}}: {{.HTTP}} {{.Path}}
   async {{.Name}}(req: {{.Req}}): Promise<{{.Return}}> {
 {{if .Params}}    const { {{join ", " .Params}}, ...rest } = req;
-    const userSignature = await this.#sign(rest.content, {{printf "%q" .CType}});
-    return {{.Flatten}}(await this.#request<{{.Envelope}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...rest, userSignature })));
-{{else}}    const userSignature = await this.#sign(req.content, {{printf "%q" .CType}});
-    return {{.Flatten}}(await this.#request<{{.Envelope}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...req, userSignature })));
+    const { interpretation, signature } = await this.#sign(rest.content, {{printf "%q" .CType}});
+    return {{.Flatten}}(await this.#request<{{.Envelope}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...rest, interpretation, userSignature: signature })));
+{{else}}    const { interpretation, signature } = await this.#sign(req.content, {{printf "%q" .CType}});
+    return {{.Flatten}}(await this.#request<{{.Envelope}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...req, interpretation, userSignature: signature })));
 {{end}}  }
 {{end}}
 {{define "m_signup"}}
   // {{.Service}}.{{.RPC}}: {{.HTTP}} {{.Path}}
   async {{.Name}}(req: {{.Req}}): Promise<{{.Return}}> {
-    const userSignature = await this.#sign(req.content, {{printf "%q" .CType}});
-    const session = await this.#request<{{.Return}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...req, userSignature }));
+    const { interpretation, signature, publicKey } = await this.#sign(req.content, {{printf "%q" .CType}});
+    const session = await this.#request<{{.Return}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify({ ...req, interpretation, publicKey, userSignature: signature }));
     this.#token = session.token;
     return session;
   }

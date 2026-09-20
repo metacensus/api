@@ -5,7 +5,7 @@
 // source: metacensus/v1/prop.proto
 
 /* eslint-disable */
-import type { InstitutionalSignature, UserSignature } from "./common.js";
+import type { Interpretation, Signature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -13,26 +13,30 @@ export const protobufPackage = "metacensus.v1";
 
 /**
  * A motion a topic's members vote on, as a signed record. `author_id` and
- * `created` were removed: they're `user_signature.signer_id` and
- * `.signing_time` now.
+ * `created` were removed: the author is `user_signature.key_id`'s resolved
+ * owner, and the claimed time is `user_signature.time`.
  */
 export interface PropSigned {
-  /** Minted by the server, outside the signature. */
+  /** Minted by the server, outside every signature. */
   id: string;
-  /**
-   * Server's observation; see UserSignature.signing_time for the author's
-   * claim.
-   */
+  /** Server's observation; see Signature.time for the author's claim. */
   recorded?: string | undefined;
-  content?: Prop | undefined;
+  content?:
+    | Prop
+    | undefined;
+  /** How to read this record; sealed by both signatures below. */
+  interpretation?:
+    | Interpretation
+    | undefined;
+  /** The participant vouches for `content`. */
   userSignature?:
-    | UserSignature
+    | Signature
     | undefined;
   /**
-   * The institution's countersignature over user_signature.value; see
-   * UserSigned.
+   * The institution vouches for `user_signature` (it nests over it); see
+   * UserSigned and README.md, "The signing chain".
    */
-  institutionalSignature?: InstitutionalSignature | undefined;
+  institutionalSignature?: Signature | undefined;
 }
 
 /**
@@ -65,23 +69,27 @@ export enum Prop_Type {
 export interface VoteSigned {
   /**
    * Server's observation, and the only ordering a reader may use —
-   * `user_signature.signing_time` is the voter's own claim.
+   * `user_signature.time` is the voter's own claim.
    */
   recorded?: string | undefined;
-  content?: Vote | undefined;
-  userSignature?:
-    | UserSignature
+  content?:
+    | Vote
     | undefined;
-  /**
-   * The institution's countersignature over user_signature.value; see
-   * UserSigned. VoteSigned mints no id, so this is 4, not 5.
-   */
-  institutionalSignature?: InstitutionalSignature | undefined;
+  /** How to read this record; sealed by both signatures below. */
+  interpretation?:
+    | Interpretation
+    | undefined;
+  /** The participant vouches for `content`. */
+  userSignature?:
+    | Signature
+    | undefined;
+  /** The institution vouches for `user_signature`; see UserSigned. */
+  institutionalSignature?: Signature | undefined;
 }
 
 /**
- * What a voter signs. `user_id` duplicates `user_signature.signer_id` by
- * design; persistence owes refusing the two when they disagree (see
+ * What a voter signs. `user_id` duplicates the author `user_signature.key_id`
+ * resolves to; persistence owes refusing the two when they disagree (see
  * README.md, "Open questions").
  */
 export interface Vote {
@@ -124,13 +132,15 @@ export interface PropGetRequest {
 }
 
 /**
- * No author field — that's `user_signature.signer_id`. `topic_id` is bound
- * by the path and re-signed inside `content`; the two must agree.
+ * No author field — the author is `user_signature.key_id`'s resolved owner.
+ * `topic_id` is bound by the path and re-signed inside `content`; the two must
+ * agree. `interpretation` is the client's, re-stamped onto the stored record.
  */
 export interface PropCreateRequest {
   topicId: string;
   content?: Prop | undefined;
-  userSignature?: UserSignature | undefined;
+  interpretation?: Interpretation | undefined;
+  userSignature?: Signature | undefined;
 }
 
 export interface VoteListRequest {
@@ -151,5 +161,6 @@ export interface VoteSetRequest {
   topicId: string;
   propId: string;
   content?: Vote | undefined;
-  userSignature?: UserSignature | undefined;
+  interpretation?: Interpretation | undefined;
+  userSignature?: Signature | undefined;
 }

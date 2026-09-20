@@ -5,7 +5,7 @@
 
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Session, SignUpRequest } from "./metacensus/v1/auth.js";
-import type { HealthcheckRequest, HealthcheckResponse, User, UserSignature } from "./metacensus/v1/common.js";
+import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
@@ -25,9 +25,20 @@ export class ApiError extends Error {
   }
 }
 
+// What a signer returns: the record's Interpretation, the Signature over it,
+// and — on sign-up only — the enrolling public key. The client assembles these
+// into the request body; the caller only ever passes flat content.
+export interface SignResult {
+  interpretation: Interpretation;
+  signature: Signature;
+  publicKey?: string;
+}
+
 // A caller's closure that signs content under the contentType the client names;
-// the key stays in the closure. See ts/README.md, "Writes and the signer".
-export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
+// the key stays in the closure. A passkey signer runs the WebAuthn ceremony and
+// returns its assertion; a headless signer builds the same shape directly. See
+// ts/README.md, "Writes and the signer".
+export type Signer = (content: unknown, contentType: string) => Promise<SignResult>;
 
 function param(v: string | number | boolean): string {
   return encodeURIComponent(String(v));
@@ -111,7 +122,7 @@ export class Client {
     return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, this.#token, this.#credentials);
   }
 
-  #sign(content: unknown, contentType: string): Promise<UserSignature> {
+  #sign(content: unknown, contentType: string): Promise<SignResult> {
     if (this.#signer === undefined) {
       throw new Error("Client: a write needs a signer; construct new Client({ ..., signer })");
     }
@@ -126,9 +137,9 @@ export class Client {
   }
 
   // AuthRoutes.SignUp: POST /signup
-  async signUp(req: Omit<SignUpRequest, "userSignature">): Promise<Session> {
-    const userSignature = await this.#sign(req.content, "metacensus.v1.User");
-    const session = await this.#request<Session>("POST", "/signup", JSON.stringify({ ...req, userSignature }));
+  async signUp(req: Omit<SignUpRequest, "userSignature" | "interpretation" | "publicKey">): Promise<Session> {
+    const { interpretation, signature, publicKey } = await this.#sign(req.content, "metacensus.v1.User");
+    const session = await this.#request<Session>("POST", "/signup", JSON.stringify({ ...req, interpretation, publicKey, userSignature: signature }));
     this.#token = session.token;
     return session;
   }
@@ -173,10 +184,10 @@ export class Client {
   }
 
   // PropRoutes.CreateProp: POST /topic/{topicId}/prop
-  async createProp(req: Omit<PropCreateRequest, "userSignature">): Promise<PropRecord> {
+  async createProp(req: Omit<PropCreateRequest, "userSignature" | "interpretation" | "publicKey">): Promise<PropRecord> {
     const { topicId, ...rest } = req;
-    const userSignature = await this.#sign(rest.content, "metacensus.v1.Prop");
-    return flattenProp(await this.#request<PropSigned>("POST", `/topic/${param(topicId)}/prop`, JSON.stringify({ ...rest, userSignature })));
+    const { interpretation, signature } = await this.#sign(rest.content, "metacensus.v1.Prop");
+    return flattenProp(await this.#request<PropSigned>("POST", `/topic/${param(topicId)}/prop`, JSON.stringify({ ...rest, interpretation, userSignature: signature })));
   }
 
   // PropRoutes.ListVotes: GET /topic/{topicId}/prop/{propId}/vote
@@ -190,10 +201,10 @@ export class Client {
   }
 
   // PropRoutes.SetVote: POST /topic/{topicId}/prop/{propId}/vote
-  async setVote(req: Omit<VoteSetRequest, "userSignature">): Promise<VoteRecord> {
+  async setVote(req: Omit<VoteSetRequest, "userSignature" | "interpretation" | "publicKey">): Promise<VoteRecord> {
     const { topicId, propId, ...rest } = req;
-    const userSignature = await this.#sign(rest.content, "metacensus.v1.Vote");
-    return flattenVote(await this.#request<VoteSigned>("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify({ ...rest, userSignature })));
+    const { interpretation, signature } = await this.#sign(rest.content, "metacensus.v1.Vote");
+    return flattenVote(await this.#request<VoteSigned>("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify({ ...rest, interpretation, userSignature: signature })));
   }
 
   // TopicRoutes.ListTopics: GET /topic
@@ -217,9 +228,9 @@ export class Client {
   }
 
   // TopicRoutes.CreateTopic: POST /topic
-  async createTopic(req: Omit<TopicCreateRequest, "userSignature">): Promise<TopicRecord> {
-    const userSignature = await this.#sign(req.content, "metacensus.v1.Topic");
-    return flattenTopic(await this.#request<TopicSigned>("POST", "/topic", JSON.stringify({ ...req, userSignature })));
+  async createTopic(req: Omit<TopicCreateRequest, "userSignature" | "interpretation" | "publicKey">): Promise<TopicRecord> {
+    const { interpretation, signature } = await this.#sign(req.content, "metacensus.v1.Topic");
+    return flattenTopic(await this.#request<TopicSigned>("POST", "/topic", JSON.stringify({ ...req, interpretation, userSignature: signature })));
   }
 
   // TopicRoutes.ListMembers: GET /topic/{topicId}/member

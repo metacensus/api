@@ -4,39 +4,52 @@ import (
 	"context"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/signing"
 	"github.com/metacensus/api/go/store"
 )
 
 // fakeStore is an in-memory store.Store for the service tests. It enforces the
-// invariants the seam promises — uniqueness, parent existence, caller==signer —
-// but verifies signatures softly, as the Postgres backend does: a signature is
-// required to be present, not to stand. It is deliberately test-only; the
-// shipped backends are metacensus/demo and metacensus/infra.
+// invariants the seam promises — uniqueness, parent existence, and that the
+// author key resolves to the caller — but verifies signatures softly, as the
+// Postgres backend does: an assertion is required to be present, not to stand.
+// It is deliberately test-only; the shipped backends are metacensus/demo and
+// metacensus/infra.
 type fakeStore struct {
-	usersByID map[string]*v1.UserSigned
-	idByEmail map[string]string
-	hashByID  map[string]string
-	topics    map[string]*v1.TopicSigned
-	props     map[string]map[string]*v1.PropSigned            // topicID -> propID -> prop
-	votes     map[string]map[string]map[string]*v1.VoteSigned // topicID -> propID -> userID -> vote
+	usersByID    map[string]*v1.UserSigned
+	idByEmail    map[string]string
+	hashByID     map[string]string
+	ownerByKeyID map[string]string // the key history: key_id -> the user who enrolled it
+	topics       map[string]*v1.TopicSigned
+	props        map[string]map[string]*v1.PropSigned            // topicID -> propID -> prop
+	votes        map[string]map[string]map[string]*v1.VoteSigned // topicID -> propID -> userID -> vote
 }
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{
-		usersByID: map[string]*v1.UserSigned{},
-		idByEmail: map[string]string{},
-		hashByID:  map[string]string{},
-		topics:    map[string]*v1.TopicSigned{},
-		props:     map[string]map[string]*v1.PropSigned{},
-		votes:     map[string]map[string]map[string]*v1.VoteSigned{},
+		usersByID:    map[string]*v1.UserSigned{},
+		idByEmail:    map[string]string{},
+		hashByID:     map[string]string{},
+		ownerByKeyID: map[string]string{},
+		topics:       map[string]*v1.TopicSigned{},
+		props:        map[string]map[string]*v1.PropSigned{},
+		votes:        map[string]map[string]map[string]*v1.VoteSigned{},
 	}
 }
 
 var _ store.Store = (*fakeStore)(nil)
 
-func (s *fakeStore) EnrollUser(_ context.Context, record *v1.UserSigned, passwordHash string) error {
+// authored reports whether sig's key_id resolves to callerID — the key-history
+// binding that replaces a self-claimed signer id.
+func (s *fakeStore) authored(sig *v1.Signature, callerID string) bool {
+	owner, ok := s.ownerByKeyID[sig.GetKeyId()]
+	return ok && owner == callerID
+}
+
+func (s *fakeStore) EnrollUser(_ context.Context, record *v1.UserSigned, publicKey, passwordHash string) error {
 	sig := record.GetUserSignature()
-	if sig.GetSignerId() != "" || sig.GetPublicKey() == "" {
+	// Trust on first use: bind the enrolling key, but only if key_id thumbprints
+	// the key offered (a real store also checks the assertion stands).
+	if _, err := signing.EnrolledKey(publicKey, sig.GetKeyId()); err != nil {
 		return store.InvalidContent
 	}
 	if _, taken := s.idByEmail[record.GetContent().GetEmail()]; taken {
@@ -48,6 +61,7 @@ func (s *fakeStore) EnrollUser(_ context.Context, record *v1.UserSigned, passwor
 	s.usersByID[record.GetId()] = record
 	s.idByEmail[record.GetContent().GetEmail()] = record.GetId()
 	s.hashByID[record.GetId()] = passwordHash
+	s.ownerByKeyID[sig.GetKeyId()] = record.GetId()
 	return nil
 }
 
@@ -76,7 +90,7 @@ func (s *fakeStore) ListUsers(_ context.Context) ([]*v1.UserSigned, error) {
 }
 
 func (s *fakeStore) CreateTopic(_ context.Context, callerID string, record *v1.TopicSigned) error {
-	if record.GetUserSignature().GetSignerId() != callerID {
+	if !s.authored(record.GetUserSignature(), callerID) {
 		return store.Unauthenticated
 	}
 	if _, taken := s.topics[record.GetId()]; taken {
@@ -103,7 +117,7 @@ func (s *fakeStore) ListTopics(_ context.Context) ([]*v1.TopicSigned, error) {
 }
 
 func (s *fakeStore) CreateProp(_ context.Context, callerID string, record *v1.PropSigned) error {
-	if record.GetUserSignature().GetSignerId() != callerID {
+	if !s.authored(record.GetUserSignature(), callerID) {
 		return store.Unauthenticated
 	}
 	topicID := record.GetContent().GetTopicId()
@@ -138,7 +152,7 @@ func (s *fakeStore) ListProps(_ context.Context, topicID string) ([]*v1.PropSign
 
 func (s *fakeStore) SetVote(_ context.Context, callerID string, record *v1.VoteSigned) error {
 	c := record.GetContent()
-	if record.GetUserSignature().GetSignerId() != callerID || c.GetUserId() != callerID {
+	if !s.authored(record.GetUserSignature(), callerID) || c.GetUserId() != callerID {
 		return store.Unauthenticated
 	}
 	if _, ok := s.props[c.GetTopicId()][c.GetPropId()]; !ok {

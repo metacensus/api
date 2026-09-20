@@ -143,20 +143,22 @@ func (Vote_Position) EnumDescriptor() ([]byte, []int) {
 }
 
 // A motion a topic's members vote on, as a signed record. `author_id` and
-// `created` were removed: they're `user_signature.signer_id` and
-// `.signing_time` now.
+// `created` were removed: the author is `user_signature.key_id`'s resolved
+// owner, and the claimed time is `user_signature.time`.
 type PropSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Minted by the server, outside the signature.
+	// Minted by the server, outside every signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Server's observation; see UserSignature.signing_time for the author's
-	// claim.
-	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *Prop                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	// The institution's countersignature over user_signature.value; see
-	// UserSigned.
-	InstitutionalSignature *InstitutionalSignature `protobuf:"bytes,5,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
+	// Server's observation; see Signature.time for the author's claim.
+	Recorded *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content  *Prop                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	// How to read this record; sealed by both signatures below.
+	Interpretation *Interpretation `protobuf:"bytes,4,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	// The participant vouches for `content`.
+	UserSignature *Signature `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	// The institution vouches for `user_signature` (it nests over it); see
+	// UserSigned and README.md, "The signing chain".
+	InstitutionalSignature *Signature `protobuf:"bytes,6,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -212,14 +214,21 @@ func (x *PropSigned) GetContent() *Prop {
 	return nil
 }
 
-func (x *PropSigned) GetUserSignature() *UserSignature {
+func (x *PropSigned) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *PropSigned) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
 	return nil
 }
 
-func (x *PropSigned) GetInstitutionalSignature() *InstitutionalSignature {
+func (x *PropSigned) GetInstitutionalSignature() *Signature {
 	if x != nil {
 		return x.InstitutionalSignature
 	}
@@ -294,13 +303,15 @@ func (x *Prop) GetDescription() string {
 type VoteSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server's observation, and the only ordering a reader may use —
-	// `user_signature.signing_time` is the voter's own claim.
-	Recorded      *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *Vote                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	// The institution's countersignature over user_signature.value; see
-	// UserSigned. VoteSigned mints no id, so this is 4, not 5.
-	InstitutionalSignature *InstitutionalSignature `protobuf:"bytes,4,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
+	// `user_signature.time` is the voter's own claim.
+	Recorded *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content  *Vote                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	// How to read this record; sealed by both signatures below.
+	Interpretation *Interpretation `protobuf:"bytes,4,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	// The participant vouches for `content`.
+	UserSignature *Signature `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	// The institution vouches for `user_signature`; see UserSigned.
+	InstitutionalSignature *Signature `protobuf:"bytes,6,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -349,22 +360,29 @@ func (x *VoteSigned) GetContent() *Vote {
 	return nil
 }
 
-func (x *VoteSigned) GetUserSignature() *UserSignature {
+func (x *VoteSigned) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *VoteSigned) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
 	return nil
 }
 
-func (x *VoteSigned) GetInstitutionalSignature() *InstitutionalSignature {
+func (x *VoteSigned) GetInstitutionalSignature() *Signature {
 	if x != nil {
 		return x.InstitutionalSignature
 	}
 	return nil
 }
 
-// What a voter signs. `user_id` duplicates `user_signature.signer_id` by
-// design; persistence owes refusing the two when they disagree (see
+// What a voter signs. `user_id` duplicates the author `user_signature.key_id`
+// resolves to; persistence owes refusing the two when they disagree (see
 // README.md, "Open questions").
 type Vote struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
@@ -645,15 +663,17 @@ func (x *PropGetRequest) GetPropId() string {
 	return ""
 }
 
-// No author field — that's `user_signature.signer_id`. `topic_id` is bound
-// by the path and re-signed inside `content`; the two must agree.
+// No author field — the author is `user_signature.key_id`'s resolved owner.
+// `topic_id` is bound by the path and re-signed inside `content`; the two must
+// agree. `interpretation` is the client's, re-stamped onto the stored record.
 type PropCreateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	Content       *Prop                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TopicId        string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	Content        *Prop                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Interpretation *Interpretation        `protobuf:"bytes,3,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	UserSignature  *Signature             `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PropCreateRequest) Reset() {
@@ -700,7 +720,14 @@ func (x *PropCreateRequest) GetContent() *Prop {
 	return nil
 }
 
-func (x *PropCreateRequest) GetUserSignature() *UserSignature {
+func (x *PropCreateRequest) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *PropCreateRequest) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
@@ -807,13 +834,14 @@ func (x *VoteList) GetItems() []*VoteSigned {
 // Replaces the caller's previous vote rather than creating a new one; both
 // path ids are re-signed inside `content` (see PropCreateRequest).
 type VoteSetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TopicId       string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
-	PropId        string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
-	Content       *Vote                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	TopicId        string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
+	PropId         string                 `protobuf:"bytes,2,opt,name=prop_id,json=propId,proto3" json:"prop_id,omitempty"`
+	Content        *Vote                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	Interpretation *Interpretation        `protobuf:"bytes,4,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	UserSignature  *Signature             `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *VoteSetRequest) Reset() {
@@ -867,7 +895,14 @@ func (x *VoteSetRequest) GetContent() *Vote {
 	return nil
 }
 
-func (x *VoteSetRequest) GetUserSignature() *UserSignature {
+func (x *VoteSetRequest) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *VoteSetRequest) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
@@ -878,14 +913,15 @@ var File_metacensus_v1_prop_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xae\x02\n" +
+	"\x18metacensus/v1/prop.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xe4\x02\n" +
 	"\n" +
 	"PropSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
-	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\x12^\n" +
-	"\x17institutional_signature\x18\x05 \x01(\v2%.metacensus.v1.InstitutionalSignatureR\x16institutionalSignatureJ\x04\b\x06\x10\a\"\x99\x02\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x04 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\x12Q\n" +
+	"\x17institutional_signature\x18\x06 \x01(\v2\x18.metacensus.v1.SignatureR\x16institutionalSignatureJ\x04\b\a\x10\b\"\x99\x02\n" +
 	"\x04Prop\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12,\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x18.metacensus.v1.Prop.TypeR\x04type\x12 \n" +
@@ -898,13 +934,14 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\tUserAdmit\x10\x04\x12\x0f\n" +
 	"\vUserExpulse\x10\x05\x12\x1b\n" +
 	"\x17PaperExtractionComplete\x10\x06\x12\x1c\n" +
-	"\x18PaperIncludeMetaAnalysis\x10\a\"\x9e\x02\n" +
+	"\x18PaperIncludeMetaAnalysis\x10\a\"\xda\x02\n" +
 	"\n" +
 	"VoteSigned\x126\n" +
-	"\brecorded\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
-	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\x12^\n" +
-	"\x17institutional_signature\x18\x04 \x01(\v2%.metacensus.v1.InstitutionalSignatureR\x16institutionalSignatureJ\x04\b\x05\x10\x06\"\xaa\x02\n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x04 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\x12Q\n" +
+	"\x17institutional_signature\x18\x06 \x01(\v2\x18.metacensus.v1.SignatureR\x16institutionalSignatureJ\x04\b\x01\x10\x02J\x04\b\a\x10\b\"\xaa\x02\n" +
 	"\x04Vote\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12\x17\n" +
@@ -926,21 +963,23 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.PropSignedR\x05items\"D\n" +
 	"\x0ePropGetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
-	"\aprop_id\x18\x02 \x01(\tR\x06propId\"\xa2\x01\n" +
+	"\aprop_id\x18\x02 \x01(\tR\x06propId\"\xe5\x01\n" +
 	"\x11PropCreateRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12-\n" +
-	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"E\n" +
+	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.PropR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x03 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x04 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\"E\n" +
 	"\x0fVoteListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\";\n" +
 	"\bVoteList\x12/\n" +
-	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.VoteSignedR\x05items\"\xb8\x01\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.VoteSignedR\x05items\"\xfb\x01\n" +
 	"\x0eVoteSetRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12-\n" +
-	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature2\xbb\x04\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x04 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature2\xbb\x04\n" +
 	"\n" +
 	"PropRoutes\x12d\n" +
 	"\tListProps\x12\x1e.metacensus.v1.PropListRequest\x1a\x17.metacensus.v1.PropList\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/topic/{topic_id}/prop\x12m\n" +
@@ -965,57 +1004,61 @@ func file_metacensus_v1_prop_proto_rawDescGZIP() []byte {
 var file_metacensus_v1_prop_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_metacensus_v1_prop_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_metacensus_v1_prop_proto_goTypes = []any{
-	(Prop_Type)(0),                 // 0: metacensus.v1.Prop.Type
-	(Vote_Position)(0),             // 1: metacensus.v1.Vote.Position
-	(*PropSigned)(nil),             // 2: metacensus.v1.PropSigned
-	(*Prop)(nil),                   // 3: metacensus.v1.Prop
-	(*VoteSigned)(nil),             // 4: metacensus.v1.VoteSigned
-	(*Vote)(nil),                   // 5: metacensus.v1.Vote
-	(*PropCitation)(nil),           // 6: metacensus.v1.PropCitation
-	(*PropListRequest)(nil),        // 7: metacensus.v1.PropListRequest
-	(*PropList)(nil),               // 8: metacensus.v1.PropList
-	(*PropGetRequest)(nil),         // 9: metacensus.v1.PropGetRequest
-	(*PropCreateRequest)(nil),      // 10: metacensus.v1.PropCreateRequest
-	(*VoteListRequest)(nil),        // 11: metacensus.v1.VoteListRequest
-	(*VoteList)(nil),               // 12: metacensus.v1.VoteList
-	(*VoteSetRequest)(nil),         // 13: metacensus.v1.VoteSetRequest
-	(*timestamppb.Timestamp)(nil),  // 14: google.protobuf.Timestamp
-	(*UserSignature)(nil),          // 15: metacensus.v1.UserSignature
-	(*InstitutionalSignature)(nil), // 16: metacensus.v1.InstitutionalSignature
+	(Prop_Type)(0),                // 0: metacensus.v1.Prop.Type
+	(Vote_Position)(0),            // 1: metacensus.v1.Vote.Position
+	(*PropSigned)(nil),            // 2: metacensus.v1.PropSigned
+	(*Prop)(nil),                  // 3: metacensus.v1.Prop
+	(*VoteSigned)(nil),            // 4: metacensus.v1.VoteSigned
+	(*Vote)(nil),                  // 5: metacensus.v1.Vote
+	(*PropCitation)(nil),          // 6: metacensus.v1.PropCitation
+	(*PropListRequest)(nil),       // 7: metacensus.v1.PropListRequest
+	(*PropList)(nil),              // 8: metacensus.v1.PropList
+	(*PropGetRequest)(nil),        // 9: metacensus.v1.PropGetRequest
+	(*PropCreateRequest)(nil),     // 10: metacensus.v1.PropCreateRequest
+	(*VoteListRequest)(nil),       // 11: metacensus.v1.VoteListRequest
+	(*VoteList)(nil),              // 12: metacensus.v1.VoteList
+	(*VoteSetRequest)(nil),        // 13: metacensus.v1.VoteSetRequest
+	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
+	(*Interpretation)(nil),        // 15: metacensus.v1.Interpretation
+	(*Signature)(nil),             // 16: metacensus.v1.Signature
 }
 var file_metacensus_v1_prop_proto_depIdxs = []int32{
 	14, // 0: metacensus.v1.PropSigned.recorded:type_name -> google.protobuf.Timestamp
 	3,  // 1: metacensus.v1.PropSigned.content:type_name -> metacensus.v1.Prop
-	15, // 2: metacensus.v1.PropSigned.user_signature:type_name -> metacensus.v1.UserSignature
-	16, // 3: metacensus.v1.PropSigned.institutional_signature:type_name -> metacensus.v1.InstitutionalSignature
-	0,  // 4: metacensus.v1.Prop.type:type_name -> metacensus.v1.Prop.Type
-	14, // 5: metacensus.v1.VoteSigned.recorded:type_name -> google.protobuf.Timestamp
-	5,  // 6: metacensus.v1.VoteSigned.content:type_name -> metacensus.v1.Vote
-	15, // 7: metacensus.v1.VoteSigned.user_signature:type_name -> metacensus.v1.UserSignature
-	16, // 8: metacensus.v1.VoteSigned.institutional_signature:type_name -> metacensus.v1.InstitutionalSignature
-	1,  // 9: metacensus.v1.Vote.position:type_name -> metacensus.v1.Vote.Position
-	6,  // 10: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
-	2,  // 11: metacensus.v1.PropList.items:type_name -> metacensus.v1.PropSigned
-	3,  // 12: metacensus.v1.PropCreateRequest.content:type_name -> metacensus.v1.Prop
-	15, // 13: metacensus.v1.PropCreateRequest.user_signature:type_name -> metacensus.v1.UserSignature
-	4,  // 14: metacensus.v1.VoteList.items:type_name -> metacensus.v1.VoteSigned
-	5,  // 15: metacensus.v1.VoteSetRequest.content:type_name -> metacensus.v1.Vote
-	15, // 16: metacensus.v1.VoteSetRequest.user_signature:type_name -> metacensus.v1.UserSignature
-	7,  // 17: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.PropListRequest
-	9,  // 18: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.PropGetRequest
-	10, // 19: metacensus.v1.PropRoutes.CreateProp:input_type -> metacensus.v1.PropCreateRequest
-	11, // 20: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.VoteListRequest
-	13, // 21: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.VoteSetRequest
-	8,  // 22: metacensus.v1.PropRoutes.ListProps:output_type -> metacensus.v1.PropList
-	2,  // 23: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.PropSigned
-	2,  // 24: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.PropSigned
-	12, // 25: metacensus.v1.PropRoutes.ListVotes:output_type -> metacensus.v1.VoteList
-	4,  // 26: metacensus.v1.PropRoutes.SetVote:output_type -> metacensus.v1.VoteSigned
-	22, // [22:27] is the sub-list for method output_type
-	17, // [17:22] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	15, // 2: metacensus.v1.PropSigned.interpretation:type_name -> metacensus.v1.Interpretation
+	16, // 3: metacensus.v1.PropSigned.user_signature:type_name -> metacensus.v1.Signature
+	16, // 4: metacensus.v1.PropSigned.institutional_signature:type_name -> metacensus.v1.Signature
+	0,  // 5: metacensus.v1.Prop.type:type_name -> metacensus.v1.Prop.Type
+	14, // 6: metacensus.v1.VoteSigned.recorded:type_name -> google.protobuf.Timestamp
+	5,  // 7: metacensus.v1.VoteSigned.content:type_name -> metacensus.v1.Vote
+	15, // 8: metacensus.v1.VoteSigned.interpretation:type_name -> metacensus.v1.Interpretation
+	16, // 9: metacensus.v1.VoteSigned.user_signature:type_name -> metacensus.v1.Signature
+	16, // 10: metacensus.v1.VoteSigned.institutional_signature:type_name -> metacensus.v1.Signature
+	1,  // 11: metacensus.v1.Vote.position:type_name -> metacensus.v1.Vote.Position
+	6,  // 12: metacensus.v1.Vote.citations:type_name -> metacensus.v1.PropCitation
+	2,  // 13: metacensus.v1.PropList.items:type_name -> metacensus.v1.PropSigned
+	3,  // 14: metacensus.v1.PropCreateRequest.content:type_name -> metacensus.v1.Prop
+	15, // 15: metacensus.v1.PropCreateRequest.interpretation:type_name -> metacensus.v1.Interpretation
+	16, // 16: metacensus.v1.PropCreateRequest.user_signature:type_name -> metacensus.v1.Signature
+	4,  // 17: metacensus.v1.VoteList.items:type_name -> metacensus.v1.VoteSigned
+	5,  // 18: metacensus.v1.VoteSetRequest.content:type_name -> metacensus.v1.Vote
+	15, // 19: metacensus.v1.VoteSetRequest.interpretation:type_name -> metacensus.v1.Interpretation
+	16, // 20: metacensus.v1.VoteSetRequest.user_signature:type_name -> metacensus.v1.Signature
+	7,  // 21: metacensus.v1.PropRoutes.ListProps:input_type -> metacensus.v1.PropListRequest
+	9,  // 22: metacensus.v1.PropRoutes.GetProp:input_type -> metacensus.v1.PropGetRequest
+	10, // 23: metacensus.v1.PropRoutes.CreateProp:input_type -> metacensus.v1.PropCreateRequest
+	11, // 24: metacensus.v1.PropRoutes.ListVotes:input_type -> metacensus.v1.VoteListRequest
+	13, // 25: metacensus.v1.PropRoutes.SetVote:input_type -> metacensus.v1.VoteSetRequest
+	8,  // 26: metacensus.v1.PropRoutes.ListProps:output_type -> metacensus.v1.PropList
+	2,  // 27: metacensus.v1.PropRoutes.GetProp:output_type -> metacensus.v1.PropSigned
+	2,  // 28: metacensus.v1.PropRoutes.CreateProp:output_type -> metacensus.v1.PropSigned
+	12, // 29: metacensus.v1.PropRoutes.ListVotes:output_type -> metacensus.v1.VoteList
+	4,  // 30: metacensus.v1.PropRoutes.SetVote:output_type -> metacensus.v1.VoteSigned
+	26, // [26:31] is the sub-list for method output_type
+	21, // [21:26] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_prop_proto_init() }

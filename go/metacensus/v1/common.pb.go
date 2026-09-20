@@ -25,55 +25,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Closed vocabulary: an unrecognized value fails to decode rather than
-// reaching a verifier. See README.md, "The signing chain", before adding one.
-type UserSignature_Alg int32
-
-const (
-	UserSignature_Unspecified UserSignature_Alg = 0
-	// JOSE fixed-width r||s, never DER.
-	UserSignature_Es384 UserSignature_Alg = 1
-)
-
-// Enum value maps for UserSignature_Alg.
-var (
-	UserSignature_Alg_name = map[int32]string{
-		0: "Unspecified",
-		1: "Es384",
-	}
-	UserSignature_Alg_value = map[string]int32{
-		"Unspecified": 0,
-		"Es384":       1,
-	}
-)
-
-func (x UserSignature_Alg) Enum() *UserSignature_Alg {
-	p := new(UserSignature_Alg)
-	*p = x
-	return p
-}
-
-func (x UserSignature_Alg) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (UserSignature_Alg) Descriptor() protoreflect.EnumDescriptor {
-	return file_metacensus_v1_common_proto_enumTypes[0].Descriptor()
-}
-
-func (UserSignature_Alg) Type() protoreflect.EnumType {
-	return &file_metacensus_v1_common_proto_enumTypes[0]
-}
-
-func (x UserSignature_Alg) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use UserSignature_Alg.Descriptor instead.
-func (UserSignature_Alg) EnumDescriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3, 0}
-}
-
 // Pagination envelope for list responses; no route paginates yet.
 type ListMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -217,48 +168,42 @@ func (x *HealthcheckResponse) GetStatus() string {
 	return ""
 }
 
-// One participant's signature over one content message. Not verified at the
-// API edge — see README.md, "The signing chain".
-type UserSignature struct {
+// How to read a stored record: which signing scheme produced it and which
+// message its `content` holds. A stored record is append-only — it can be
+// neither re-signed nor allowed to assume the schema around it stays put — so
+// it self-describes how to verify it rather than deriving that from the current
+// envelope. Two independent axes of one concern, so one object; it is a
+// record-level property, identical for both signatures, sealed by both digests.
+// See README.md, "The signing chain".
+type Interpretation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Empty only on the sign-up that enrolls the key; public_key carries it
-	// inline there instead.
-	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
-	// base64url SHA-256 of public_key's SPKI DER.
-	KeyId string            `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	Alg   UserSignature_Alg `protobuf:"varint,3,opt,name=alg,proto3,enum=metacensus.v1.UserSignature_Alg" json:"alg,omitempty"`
-	// base64url SPKI DER; set only on the sign-up that enrolls the key.
-	PublicKey string `protobuf:"bytes,4,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
-	// The signer's claimed time, not the server's — see `recorded` on signed
-	// records for what the pair does and does not bound.
-	SigningTime *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=signing_time,json=signingTime,proto3" json:"signing_time,omitempty"`
-	// Exactly how this signature is computed and checked; changing the
-	// canonicalization, digest, or encoding changes this string.
-	Spec string `protobuf:"bytes,6,opt,name=spec,proto3" json:"spec,omitempty"`
-	// Full proto name of the message `content` holds, e.g.
-	// "metacensus.v1.Prop". Stops a signature over one type being
-	// replayed as another.
-	ContentType string `protobuf:"bytes,7,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	// Excluded from its own digest by being emptied, not dropped.
-	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
+	// The signing scheme as one atom: canonicalization, digest, curve and
+	// encoding together. Changing any of them changes this string, and a verifier
+	// that does not recognize it refuses rather than guesses.
+	Spec string `protobuf:"bytes,1,opt,name=spec,proto3" json:"spec,omitempty"`
+	// Full proto name of the message `content` holds, e.g. "metacensus.v1.Prop".
+	// Read from the record, never inferred from the surrounding envelope: the
+	// envelope's schema may drift, the sealed name does not. Stops a signature
+	// over one type being replayed as another.
+	ContentType   string `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserSignature) Reset() {
-	*x = UserSignature{}
+func (x *Interpretation) Reset() {
+	*x = Interpretation{}
 	mi := &file_metacensus_v1_common_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserSignature) String() string {
+func (x *Interpretation) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserSignature) ProtoMessage() {}
+func (*Interpretation) ProtoMessage() {}
 
-func (x *UserSignature) ProtoReflect() protoreflect.Message {
+func (x *Interpretation) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_common_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -270,108 +215,71 @@ func (x *UserSignature) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserSignature.ProtoReflect.Descriptor instead.
-func (*UserSignature) Descriptor() ([]byte, []int) {
+// Deprecated: Use Interpretation.ProtoReflect.Descriptor instead.
+func (*Interpretation) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *UserSignature) GetSignerId() string {
-	if x != nil {
-		return x.SignerId
-	}
-	return ""
-}
-
-func (x *UserSignature) GetKeyId() string {
-	if x != nil {
-		return x.KeyId
-	}
-	return ""
-}
-
-func (x *UserSignature) GetAlg() UserSignature_Alg {
-	if x != nil {
-		return x.Alg
-	}
-	return UserSignature_Unspecified
-}
-
-func (x *UserSignature) GetPublicKey() string {
-	if x != nil {
-		return x.PublicKey
-	}
-	return ""
-}
-
-func (x *UserSignature) GetSigningTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.SigningTime
-	}
-	return nil
-}
-
-func (x *UserSignature) GetSpec() string {
+func (x *Interpretation) GetSpec() string {
 	if x != nil {
 		return x.Spec
 	}
 	return ""
 }
 
-func (x *UserSignature) GetContentType() string {
+func (x *Interpretation) GetContentType() string {
 	if x != nil {
 		return x.ContentType
 	}
 	return ""
 }
 
-func (x *UserSignature) GetValue() string {
-	if x != nil {
-		return x.Value
-	}
-	return ""
-}
-
-// An institution's countersignature over a UserSignature.value — it endorses
-// the author (enrolled and in good standing when the record was written), not
-// the content. Server-minted and outside the user's signature, so it rides on
-// the stored envelope and never inside signed content. Computing and checking
-// it is the store's, below the persistence seam; this contract only carries
-// the shape so a later runtime needs no wire break. See README.md.
-type InstitutionalSignature struct {
+// One signature in the chain, in one format for every layer. The participant
+// signs with a passkey (WebAuthn); the institution countersigns headless
+// (server/HSM). Both are the same object — a WebAuthn-shaped assertion whose
+// challenge is the record's digest — so there is one decoder and one crypto
+// primitive (ECDSA P-256 / ES256) the whole chain down. The only honest
+// difference between the layers is the assertion's own metadata (`type`,
+// `origin`, the user-verified flag), which each layer's acceptance policy
+// checks; it is never a second code path. Not verified at the API edge — see
+// README.md, "The signing chain".
+type Signature struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The institution that countersigned.
-	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
-	// base64url SHA-256 of the institution key's SPKI DER, resolved against the
-	// institution's key history the way a user's key_id is.
-	KeyId string `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
-	// Reuses UserSignature's closed algorithm vocabulary.
-	Alg UserSignature_Alg `protobuf:"varint,3,opt,name=alg,proto3,enum=metacensus.v1.UserSignature_Alg" json:"alg,omitempty"`
-	// The server's observation of when it countersigned; the institution makes
-	// no separately-claimed time.
-	Recorded *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	// Versions the countersignature scheme, independently of UserSignature.spec.
-	Spec string `protobuf:"bytes,5,opt,name=spec,proto3" json:"spec,omitempty"`
-	// base64url r||s over the countersigned UserSignature.value. Emptied from
-	// its own digest by the same rule as UserSignature.value.
-	Value         string `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
+	// Selects the signer's enrolled key from persistence's key history; that
+	// enrolled key is the trust anchor. Deliberately not a key carried on the
+	// record: resolving against persistence is what stops a forged {content, key,
+	// signature} triple verifying against itself. The signer's id is not carried
+	// either — it is this key_id's resolved owner, persistence's to determine,
+	// never a client claim. The one exception is sign-up, where no key is
+	// enrolled yet; see auth.proto's SignUpRequest.
+	KeyId string `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	// This signer's own time: a participant's claim, an institution's
+	// observation. Inside the digest, so it cannot be re-dated after the fact.
+	// Record ordering still uses the record-level `recorded`, never this — see
+	// `recorded` on the signed records.
+	Time *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=time,proto3" json:"time,omitempty"`
+	// The WebAuthn assertion. Stored verbatim; the digest it commits to is
+	// recomputed from the record's own fields at verify time, never
+	// reverse-engineered from what is stored.
+	Assertion     *Signature_Assertion `protobuf:"bytes,3,opt,name=assertion,proto3" json:"assertion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *InstitutionalSignature) Reset() {
-	*x = InstitutionalSignature{}
+func (x *Signature) Reset() {
+	*x = Signature{}
 	mi := &file_metacensus_v1_common_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *InstitutionalSignature) String() string {
+func (x *Signature) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*InstitutionalSignature) ProtoMessage() {}
+func (*Signature) ProtoMessage() {}
 
-func (x *InstitutionalSignature) ProtoReflect() protoreflect.Message {
+func (x *Signature) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_common_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -383,51 +291,30 @@ func (x *InstitutionalSignature) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use InstitutionalSignature.ProtoReflect.Descriptor instead.
-func (*InstitutionalSignature) Descriptor() ([]byte, []int) {
+// Deprecated: Use Signature.ProtoReflect.Descriptor instead.
+func (*Signature) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *InstitutionalSignature) GetSignerId() string {
-	if x != nil {
-		return x.SignerId
-	}
-	return ""
-}
-
-func (x *InstitutionalSignature) GetKeyId() string {
+func (x *Signature) GetKeyId() string {
 	if x != nil {
 		return x.KeyId
 	}
 	return ""
 }
 
-func (x *InstitutionalSignature) GetAlg() UserSignature_Alg {
+func (x *Signature) GetTime() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Alg
-	}
-	return UserSignature_Unspecified
-}
-
-func (x *InstitutionalSignature) GetRecorded() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Recorded
+		return x.Time
 	}
 	return nil
 }
 
-func (x *InstitutionalSignature) GetSpec() string {
+func (x *Signature) GetAssertion() *Signature_Assertion {
 	if x != nil {
-		return x.Spec
+		return x.Assertion
 	}
-	return ""
-}
-
-func (x *InstitutionalSignature) GetValue() string {
-	if x != nil {
-		return x.Value
-	}
-	return ""
+	return nil
 }
 
 // The part of a user record its owner signs. Lives here, not user.proto,
@@ -492,6 +379,82 @@ func (x *User) GetCountry() string {
 	return ""
 }
 
+// What navigator.credentials.get() returns for a passkey, and what a headless
+// signer emits in the identical shape. WebAuthn does not sign arbitrary bytes:
+// it signs authenticator_data ‖ SHA-256(client_data_json), with the content
+// digest carried inside client_data_json.challenge.
+type Signature_Assertion struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// base64url of authenticatorData: the rpId hash, and the UP/UV/BE/BS flags
+	// a verifier reads presence, user-verification and credential custody
+	// (synced vs device-bound) from. Signed over directly.
+	AuthenticatorData string `protobuf:"bytes,1,opt,name=authenticator_data,json=authenticatorData,proto3" json:"authenticator_data,omitempty"`
+	// base64url of the UTF-8 clientDataJSON. Its `challenge` is this record's
+	// digest (base64url); its `type` and, for a passkey, `origin` are the
+	// honest per-layer metadata the acceptance policy checks. A headless signer
+	// uses an honest institutional `type` and no origin, and never forges a
+	// passkey's metadata — the flags and type are the custody signal a verifier
+	// reads.
+	ClientDataJson string `protobuf:"bytes,2,opt,name=client_data_json,json=clientDataJson,proto3" json:"client_data_json,omitempty"`
+	// base64url of the ECDSA signature over authenticator_data ‖
+	// SHA-256(client_data_json). DER (ASN.1 SEQUENCE), as WebAuthn emits — not
+	// the fixed-width r‖s the prior scheme carried.
+	Signature     string `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Signature_Assertion) Reset() {
+	*x = Signature_Assertion{}
+	mi := &file_metacensus_v1_common_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Signature_Assertion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Signature_Assertion) ProtoMessage() {}
+
+func (x *Signature_Assertion) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_common_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Signature_Assertion.ProtoReflect.Descriptor instead.
+func (*Signature_Assertion) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4, 0}
+}
+
+func (x *Signature_Assertion) GetAuthenticatorData() string {
+	if x != nil {
+		return x.AuthenticatorData
+	}
+	return ""
+}
+
+func (x *Signature_Assertion) GetClientDataJson() string {
+	if x != nil {
+		return x.ClientDataJson
+	}
+	return ""
+}
+
+func (x *Signature_Assertion) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
 var File_metacensus_v1_common_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_common_proto_rawDesc = "" +
@@ -503,27 +466,18 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x05total\x18\x03 \x01(\x05R\x05total\"\x14\n" +
 	"\x12HealthcheckRequest\"-\n" +
 	"\x13HealthcheckResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status\"\xc5\x02\n" +
-	"\rUserSignature\x12\x1b\n" +
-	"\tsigner_id\x18\x01 \x01(\tR\bsignerId\x12\x15\n" +
-	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x122\n" +
-	"\x03alg\x18\x03 \x01(\x0e2 .metacensus.v1.UserSignature.AlgR\x03alg\x12\x1d\n" +
-	"\n" +
-	"public_key\x18\x04 \x01(\tR\tpublicKey\x12=\n" +
-	"\fsigning_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vsigningTime\x12\x12\n" +
-	"\x04spec\x18\x06 \x01(\tR\x04spec\x12!\n" +
-	"\fcontent_type\x18\a \x01(\tR\vcontentType\x12\x14\n" +
-	"\x05value\x18\b \x01(\tR\x05value\"!\n" +
-	"\x03Alg\x12\x0f\n" +
-	"\vUnspecified\x10\x00\x12\t\n" +
-	"\x05Es384\x10\x01\"\xe2\x01\n" +
-	"\x16InstitutionalSignature\x12\x1b\n" +
-	"\tsigner_id\x18\x01 \x01(\tR\bsignerId\x12\x15\n" +
-	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x122\n" +
-	"\x03alg\x18\x03 \x01(\x0e2 .metacensus.v1.UserSignature.AlgR\x03alg\x126\n" +
-	"\brecorded\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12\x12\n" +
-	"\x04spec\x18\x05 \x01(\tR\x04spec\x12\x14\n" +
-	"\x05value\x18\x06 \x01(\tR\x05value\"J\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"G\n" +
+	"\x0eInterpretation\x12\x12\n" +
+	"\x04spec\x18\x01 \x01(\tR\x04spec\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\"\x99\x02\n" +
+	"\tSignature\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12.\n" +
+	"\x04time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12@\n" +
+	"\tassertion\x18\x03 \x01(\v2\".metacensus.v1.Signature.AssertionR\tassertion\x1a\x82\x01\n" +
+	"\tAssertion\x12-\n" +
+	"\x12authenticator_data\x18\x01 \x01(\tR\x11authenticatorData\x12(\n" +
+	"\x10client_data_json\x18\x02 \x01(\tR\x0eclientDataJson\x12\x1c\n" +
+	"\tsignature\x18\x03 \x01(\tR\tsignature\"J\n" +
 	"\x04User\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x18\n" +
@@ -543,30 +497,27 @@ func file_metacensus_v1_common_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_common_proto_rawDescData
 }
 
-var file_metacensus_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_metacensus_v1_common_proto_goTypes = []any{
-	(UserSignature_Alg)(0),         // 0: metacensus.v1.UserSignature.Alg
-	(*ListMetadata)(nil),           // 1: metacensus.v1.ListMetadata
-	(*HealthcheckRequest)(nil),     // 2: metacensus.v1.HealthcheckRequest
-	(*HealthcheckResponse)(nil),    // 3: metacensus.v1.HealthcheckResponse
-	(*UserSignature)(nil),          // 4: metacensus.v1.UserSignature
-	(*InstitutionalSignature)(nil), // 5: metacensus.v1.InstitutionalSignature
-	(*User)(nil),                   // 6: metacensus.v1.User
-	(*timestamppb.Timestamp)(nil),  // 7: google.protobuf.Timestamp
+	(*ListMetadata)(nil),          // 0: metacensus.v1.ListMetadata
+	(*HealthcheckRequest)(nil),    // 1: metacensus.v1.HealthcheckRequest
+	(*HealthcheckResponse)(nil),   // 2: metacensus.v1.HealthcheckResponse
+	(*Interpretation)(nil),        // 3: metacensus.v1.Interpretation
+	(*Signature)(nil),             // 4: metacensus.v1.Signature
+	(*User)(nil),                  // 5: metacensus.v1.User
+	(*Signature_Assertion)(nil),   // 6: metacensus.v1.Signature.Assertion
+	(*timestamppb.Timestamp)(nil), // 7: google.protobuf.Timestamp
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
-	0, // 0: metacensus.v1.UserSignature.alg:type_name -> metacensus.v1.UserSignature.Alg
-	7, // 1: metacensus.v1.UserSignature.signing_time:type_name -> google.protobuf.Timestamp
-	0, // 2: metacensus.v1.InstitutionalSignature.alg:type_name -> metacensus.v1.UserSignature.Alg
-	7, // 3: metacensus.v1.InstitutionalSignature.recorded:type_name -> google.protobuf.Timestamp
-	2, // 4: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
-	3, // 5: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	7, // 0: metacensus.v1.Signature.time:type_name -> google.protobuf.Timestamp
+	6, // 1: metacensus.v1.Signature.assertion:type_name -> metacensus.v1.Signature.Assertion
+	1, // 2: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
+	2, // 3: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_common_proto_init() }
@@ -579,14 +530,13 @@ func file_metacensus_v1_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_common_proto_rawDesc), len(file_metacensus_v1_common_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   6,
+			NumEnums:      0,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_metacensus_v1_common_proto_goTypes,
 		DependencyIndexes: file_metacensus_v1_common_proto_depIdxs,
-		EnumInfos:         file_metacensus_v1_common_proto_enumTypes,
 		MessageInfos:      file_metacensus_v1_common_proto_msgTypes,
 	}.Build()
 	File_metacensus_v1_common_proto = out.File

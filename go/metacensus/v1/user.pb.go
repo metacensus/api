@@ -25,20 +25,22 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A signed record. Also the key directory: reading a user's enrolling
-// `user_signature.public_key` is how a verifier resolves a `key_id`.
+// A signed record. Also the key directory: a user's enrolling key (carried on
+// the SignUpRequest that created them) is how a verifier resolves a `key_id` to
+// its trust anchor.
 type UserSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Minted by the server, outside the signature.
+	// Minted by the server, outside every signature.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Server's observation; see UserSignature.signing_time for the author's
-	// claim.
-	Recorded      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content       *User                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
-	UserSignature *UserSignature         `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
-	// The institution's countersignature over `user_signature.value`; see the
-	// InstitutionalSignature type.
-	InstitutionalSignature *InstitutionalSignature `protobuf:"bytes,5,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
+	// Server's observation; see Signature.time for the author's claim.
+	Recorded *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content  *User                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	// How to read this record; sealed by both signatures below.
+	Interpretation *Interpretation `protobuf:"bytes,4,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	// The participant vouches for `content`.
+	UserSignature *Signature `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	// The institution vouches for `user_signature`; see the Signature type.
+	InstitutionalSignature *Signature `protobuf:"bytes,6,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -94,14 +96,21 @@ func (x *UserSigned) GetContent() *User {
 	return nil
 }
 
-func (x *UserSigned) GetUserSignature() *UserSignature {
+func (x *UserSigned) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *UserSigned) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
 	return nil
 }
 
-func (x *UserSigned) GetInstitutionalSignature() *InstitutionalSignature {
+func (x *UserSigned) GetInstitutionalSignature() *Signature {
 	if x != nil {
 		return x.InstitutionalSignature
 	}
@@ -273,14 +282,15 @@ var File_metacensus_v1_user_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_user_proto_rawDesc = "" +
 	"\n" +
-	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xae\x02\n" +
+	"\x18metacensus/v1/user.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1ametacensus/v1/common.proto\"\xe4\x02\n" +
 	"\n" +
 	"UserSigned\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
-	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.UserR\acontent\x12C\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\x12^\n" +
-	"\x17institutional_signature\x18\x05 \x01(\v2%.metacensus.v1.InstitutionalSignatureR\x16institutionalSignatureJ\x04\b\x06\x10\a\"\x11\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.UserR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x04 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\x12Q\n" +
+	"\x17institutional_signature\x18\x06 \x01(\v2\x18.metacensus.v1.SignatureR\x16institutionalSignatureJ\x04\b\a\x10\b\"\x11\n" +
 	"\x0fUserListRequest\";\n" +
 	"\bUserList\x12/\n" +
 	"\x05items\x18\x01 \x03(\v2\x19.metacensus.v1.UserSignedR\x05items\")\n" +
@@ -307,33 +317,34 @@ func file_metacensus_v1_user_proto_rawDescGZIP() []byte {
 
 var file_metacensus_v1_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_metacensus_v1_user_proto_goTypes = []any{
-	(*UserSigned)(nil),             // 0: metacensus.v1.UserSigned
-	(*UserListRequest)(nil),        // 1: metacensus.v1.UserListRequest
-	(*UserList)(nil),               // 2: metacensus.v1.UserList
-	(*UserGetRequest)(nil),         // 3: metacensus.v1.UserGetRequest
-	(*SelfGetRequest)(nil),         // 4: metacensus.v1.SelfGetRequest
-	(*timestamppb.Timestamp)(nil),  // 5: google.protobuf.Timestamp
-	(*User)(nil),                   // 6: metacensus.v1.User
-	(*UserSignature)(nil),          // 7: metacensus.v1.UserSignature
-	(*InstitutionalSignature)(nil), // 8: metacensus.v1.InstitutionalSignature
+	(*UserSigned)(nil),            // 0: metacensus.v1.UserSigned
+	(*UserListRequest)(nil),       // 1: metacensus.v1.UserListRequest
+	(*UserList)(nil),              // 2: metacensus.v1.UserList
+	(*UserGetRequest)(nil),        // 3: metacensus.v1.UserGetRequest
+	(*SelfGetRequest)(nil),        // 4: metacensus.v1.SelfGetRequest
+	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
+	(*User)(nil),                  // 6: metacensus.v1.User
+	(*Interpretation)(nil),        // 7: metacensus.v1.Interpretation
+	(*Signature)(nil),             // 8: metacensus.v1.Signature
 }
 var file_metacensus_v1_user_proto_depIdxs = []int32{
 	5, // 0: metacensus.v1.UserSigned.recorded:type_name -> google.protobuf.Timestamp
 	6, // 1: metacensus.v1.UserSigned.content:type_name -> metacensus.v1.User
-	7, // 2: metacensus.v1.UserSigned.user_signature:type_name -> metacensus.v1.UserSignature
-	8, // 3: metacensus.v1.UserSigned.institutional_signature:type_name -> metacensus.v1.InstitutionalSignature
-	0, // 4: metacensus.v1.UserList.items:type_name -> metacensus.v1.UserSigned
-	1, // 5: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
-	3, // 6: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
-	4, // 7: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
-	2, // 8: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
-	0, // 9: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.UserSigned
-	0, // 10: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.UserSigned
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	7, // 2: metacensus.v1.UserSigned.interpretation:type_name -> metacensus.v1.Interpretation
+	8, // 3: metacensus.v1.UserSigned.user_signature:type_name -> metacensus.v1.Signature
+	8, // 4: metacensus.v1.UserSigned.institutional_signature:type_name -> metacensus.v1.Signature
+	0, // 5: metacensus.v1.UserList.items:type_name -> metacensus.v1.UserSigned
+	1, // 6: metacensus.v1.UserRoutes.ListUsers:input_type -> metacensus.v1.UserListRequest
+	3, // 7: metacensus.v1.UserRoutes.GetUser:input_type -> metacensus.v1.UserGetRequest
+	4, // 8: metacensus.v1.UserRoutes.GetSelf:input_type -> metacensus.v1.SelfGetRequest
+	2, // 9: metacensus.v1.UserRoutes.ListUsers:output_type -> metacensus.v1.UserList
+	0, // 10: metacensus.v1.UserRoutes.GetUser:output_type -> metacensus.v1.UserSigned
+	0, // 11: metacensus.v1.UserRoutes.GetSelf:output_type -> metacensus.v1.UserSigned
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_user_proto_init() }

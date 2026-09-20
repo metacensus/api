@@ -78,17 +78,27 @@ func (x *LoginRequest) GetPassword() string {
 
 // Creates an account and enrolls the signing key every later write is
 // signed with: trust on first use — nobody vouches for the key, the service
-// binds whatever it's handed, and the signature proves possession of the
-// matching private key at enrollment.
+// binds whatever it's handed, and the assertion proves possession of the
+// matching private key at enrollment. This is the one write whose key is not
+// resolved from persistence: no account, and so no key history, exists yet.
 type SignUpRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Content *User                  `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	// Deliberately outside `content`: a password must never be inside a
 	// signed, stored document.
 	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	// Over `content`, made with the key being enrolled. `signer_id` is empty
-	// (no id exists yet) and `public_key` carries the key inline.
-	UserSignature *UserSignature `protobuf:"bytes,3,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	// How the enrolling assertion is to be read; re-stamped onto the UserSigned.
+	Interpretation *Interpretation `protobuf:"bytes,3,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	// The public half of the key being enrolled: base64url SPKI DER. Carried
+	// here, on the one enrollment write, rather than on every Signature — a
+	// usually-empty key field on every record is a footgun (forge content, key
+	// and signature and it "verifies"). The store checks `user_signature.key_id`
+	// thumbprints this key before binding it. For a passkey this is the public
+	// key the navigator.credentials.create() ceremony yielded.
+	PublicKey string `protobuf:"bytes,4,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	// Over `content`, made with the key being enrolled; verified at sign-up
+	// against `public_key` (bound by key_id), not against a resolved key.
+	UserSignature *Signature `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -137,7 +147,21 @@ func (x *SignUpRequest) GetPassword() string {
 	return ""
 }
 
-func (x *SignUpRequest) GetUserSignature() *UserSignature {
+func (x *SignUpRequest) GetInterpretation() *Interpretation {
+	if x != nil {
+		return x.Interpretation
+	}
+	return nil
+}
+
+func (x *SignUpRequest) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
+func (x *SignUpRequest) GetUserSignature() *Signature {
 	if x != nil {
 		return x.UserSignature
 	}
@@ -352,11 +376,14 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\x18metacensus/v1/auth.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1ametacensus/v1/common.proto\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\"\x9f\x01\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"\x81\x02\n" +
 	"\rSignUpRequest\x12-\n" +
 	"\acontent\x18\x01 \x01(\v2\x13.metacensus.v1.UserR\acontent\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\x12C\n" +
-	"\x0euser_signature\x18\x03 \x01(\v2\x1c.metacensus.v1.UserSignatureR\ruserSignature\"c\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12E\n" +
+	"\x0einterpretation\x18\x03 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x04 \x01(\tR\tpublicKey\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\"c\n" +
 	"\aSession\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1d\n" +
 	"\n" +
@@ -395,24 +422,26 @@ var file_metacensus_v1_auth_proto_goTypes = []any{
 	(*LogoutRequest)(nil),  // 4: metacensus.v1.LogoutRequest
 	(*LogoutResponse)(nil), // 5: metacensus.v1.LogoutResponse
 	(*User)(nil),           // 6: metacensus.v1.User
-	(*UserSignature)(nil),  // 7: metacensus.v1.UserSignature
+	(*Interpretation)(nil), // 7: metacensus.v1.Interpretation
+	(*Signature)(nil),      // 8: metacensus.v1.Signature
 }
 var file_metacensus_v1_auth_proto_depIdxs = []int32{
 	6, // 0: metacensus.v1.SignUpRequest.content:type_name -> metacensus.v1.User
-	7, // 1: metacensus.v1.SignUpRequest.user_signature:type_name -> metacensus.v1.UserSignature
-	0, // 2: metacensus.v1.AuthRoutes.Login:input_type -> metacensus.v1.LoginRequest
-	1, // 3: metacensus.v1.AuthRoutes.SignUp:input_type -> metacensus.v1.SignUpRequest
-	3, // 4: metacensus.v1.AuthRoutes.Refresh:input_type -> metacensus.v1.RefreshRequest
-	4, // 5: metacensus.v1.AuthRoutes.Logout:input_type -> metacensus.v1.LogoutRequest
-	2, // 6: metacensus.v1.AuthRoutes.Login:output_type -> metacensus.v1.Session
-	2, // 7: metacensus.v1.AuthRoutes.SignUp:output_type -> metacensus.v1.Session
-	2, // 8: metacensus.v1.AuthRoutes.Refresh:output_type -> metacensus.v1.Session
-	5, // 9: metacensus.v1.AuthRoutes.Logout:output_type -> metacensus.v1.LogoutResponse
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	7, // 1: metacensus.v1.SignUpRequest.interpretation:type_name -> metacensus.v1.Interpretation
+	8, // 2: metacensus.v1.SignUpRequest.user_signature:type_name -> metacensus.v1.Signature
+	0, // 3: metacensus.v1.AuthRoutes.Login:input_type -> metacensus.v1.LoginRequest
+	1, // 4: metacensus.v1.AuthRoutes.SignUp:input_type -> metacensus.v1.SignUpRequest
+	3, // 5: metacensus.v1.AuthRoutes.Refresh:input_type -> metacensus.v1.RefreshRequest
+	4, // 6: metacensus.v1.AuthRoutes.Logout:input_type -> metacensus.v1.LogoutRequest
+	2, // 7: metacensus.v1.AuthRoutes.Login:output_type -> metacensus.v1.Session
+	2, // 8: metacensus.v1.AuthRoutes.SignUp:output_type -> metacensus.v1.Session
+	2, // 9: metacensus.v1.AuthRoutes.Refresh:output_type -> metacensus.v1.Session
+	5, // 10: metacensus.v1.AuthRoutes.Logout:output_type -> metacensus.v1.LogoutResponse
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_auth_proto_init() }

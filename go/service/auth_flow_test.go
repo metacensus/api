@@ -57,8 +57,9 @@ func TestAuthTokenLifecycle(t *testing.T) {
 
 	// Sign up.
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	suInterp, suSig := c.sign(user)
 	signup := c.do("POST", "/signup", &v1.SignUpRequest{
-		Content: user, Password: "pw", UserSignature: c.sign(user, "", true),
+		Content: user, Password: "pw", Interpretation: suInterp, PublicKey: c.publicKey(), UserSignature: suSig,
 	})
 	var session v1.Session
 	decode(t, signup, &session)
@@ -142,8 +143,9 @@ func TestRefreshViaBodyToken(t *testing.T) {
 	c := newClient(t, mux)
 
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	suInterp, suSig := c.sign(user)
 	signup := c.do("POST", "/signup", &v1.SignUpRequest{
-		Content: user, Password: "pw", UserSignature: c.sign(user, "", true),
+		Content: user, Password: "pw", Interpretation: suInterp, PublicKey: c.publicKey(), UserSignature: suSig,
 	})
 	cookie := refreshCookie(signup)
 	if cookie == nil {

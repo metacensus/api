@@ -19,13 +19,15 @@
 // membership record before its provenance is decided. Omitted until a backend
 // needs it.
 //
-// Key storage and resolution. How a signer_id + key_id resolves to a public
-// key, and how a key history lets an old signature resolve against the key in
+// Key storage and resolution. How a key_id resolves to a public key and its
+// owner, and how a key history lets an old signature resolve against the key in
 // force when it was made, is handled below this seam — each backend stores keys
-// its own way (a Postgres table; Fabric world state). The interface exposes
-// only GetUser, through which the enrolling key is read. Which stored timestamp
-// selects the key from the rotation history — recorded, or signing_time — is a
-// backend-internal choice this interface does not force.
+// its own way (a Postgres table; Fabric world state). The enrolling key is bound
+// at EnrollUser and never carried on a later record. Which stored timestamp
+// selects the key from the rotation history — recorded, or the signature's own
+// time — is a backend-internal choice this interface does not force. Revocation
+// (retiring a key so it attributes no new record while its old ones stand) is
+// undesigned; see the repository README's open questions.
 //
 // Pagination, sort and filter. No method takes page/limit/cursor or an order.
 // Offset pagination is not implementable over a Fabric range scan, and
@@ -38,10 +40,11 @@
 // into Unavailable rather than given a Kind of its own that only one backend
 // could ever return.
 //
-// The institutional signature's runtime. common.proto now carries
-// InstitutionalSignature (the reserved slot is spent), so no later wire break
-// is needed to populate it; but computing and verifying it — its
-// canonicalization, its digest over user_signature.value — is not defined here.
-// The store persists the field as given and, this pass, checks it no harder
-// than the Postgres backend checks a user signature.
+// The institutional signature's runtime. common.proto carries the
+// institutional_signature (a second Signature, in the same format as the user's;
+// the reserved slot is spent), so no later wire break is needed to populate it;
+// but computing and verifying it — its digest over the user signature it nests
+// over, its acceptance policy — is not defined here. The store persists the
+// field as given and, this pass, checks it no harder than the Postgres backend
+// checks a user signature.
 package store

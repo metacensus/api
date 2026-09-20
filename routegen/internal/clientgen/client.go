@@ -227,8 +227,13 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 	if r.Signed {
 		reqContent := r.Descriptor.Input().Fields().ByName(model.ContentField).Message()
 		*refs = append(*refs, refOf(r.Descriptor.Input().Fields().ByName(model.SignatureField).Message()))
+		if interp := r.Descriptor.Input().Fields().ByName("interpretation"); interp != nil {
+			*refs = append(*refs, refOf(interp.Message()))
+		}
 		m := base
-		m.Req = "Omit<" + in.Name + `, "userSignature">`
+		// The signer supplies interpretation, the signature, and (sign-up only)
+		// the enrolling public key; a caller passes flat content, never these.
+		m.Req = "Omit<" + in.Name + `, "userSignature" | "interpretation" | "publicKey">`
 		m.CType = string(reqContent.FullName())
 		m.PathExpr = pathExpr(r.Path, r.Params, "")
 		if respHasToken { // sign-up: enrols the key and logs in

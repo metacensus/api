@@ -27,33 +27,51 @@ They are separate packages, not a corner of one: `TestNoMessageFieldCrossesResou
 
 ## The signing chain
 
-Two identities answer different questions. A **login token** says who is *connected* — it grants access and permits no write on its own. A **signing keypair** says who *authored* a record. `Prop.author_id`/`created` were the first pretending to be the second; they're gone, and the signature carries both facts.
+Two identities answer different questions. A **login token** says who is *connected* — it grants access and permits no write on its own. A **signing key** says who *authored* a record. `Prop.author_id`/`created` were the first pretending to be the second; they're gone, and the signature carries authorship.
 
-Every write on `metacensus.v1` carries `content` and a `userSignature` over it (`TestEveryWriteCarriesASignature` makes that a property; exceptions are `unsignedWrites` in `go/contract/signing_test.go`). The public surface is exempt — it has no identities. A stored record is the signed content wrapped, never modified:
+The signing mechanism is **WebAuthn/passkeys** — the enterprise-grade, widely-adopted way to hold a non-extractable private key on a device and prove possession. The object design follows that standard rather than a hand-rolled raw-ECDSA scheme, and **one format serves both layers**: the participant signs with a passkey, the institution countersigns headless (server/HSM), and both are the same `Signature` — a WebAuthn assertion whose challenge is the record's digest. One decoder, one primitive (**ECDSA P-256 / ES256**, WebAuthn's default), the whole chain down.
+
+**No silent assertion is needed, because MetaCensus doesn't sign every request.** The mutable working surface (data extraction, drafts) lives in a staging store off the ledger; ledger writes are deliberate, bulk, scoped attestations — submitting votes and props for a paper. A passkey gesture at the moment a participant vouches is the correct semantic for "who vouches for this content," and the assertion even carries proof a human was verified. Non-interactive participant signing (curl, CI) has no story and isn't meant to — see [Open questions](#open-questions).
+
+Every write on `metacensus.v1` carries `content`, an `interpretation`, and a `userSignature` over them (`TestEveryWriteCarriesASignature`; exceptions are `unsignedWrites` in `go/contract/signing_test.go`). The public surface is exempt — it has no identities. A stored record is the signed content wrapped, never modified:
 
 ```json
 {
   "id": "...", "recorded": "2023-11-14T22:13:20Z",
   "content": { "topicId": "...", "type": "Statement", "description": "..." },
+  "interpretation": { "spec": "metacensus.sig/2", "contentType": "metacensus.v1.Prop" },
   "userSignature": {
-    "signerId": "...", "keyId": "...", "alg": "Es384", "publicKey": "",
-    "signingTime": "...", "spec": "metacensus.sig/1",
-    "contentType": "metacensus.v1.Prop", "value": "..."
-  }
+    "keyId": "...", "time": "...",
+    "assertion": { "authenticatorData": "...", "clientDataJson": "...", "signature": "..." }
+  },
+  "institutionalSignature": { "keyId": "...", "time": "...", "assertion": { "...": "..." } }
 }
 ```
 
+WebAuthn doesn't sign arbitrary bytes — it signs `authenticatorData ‖ SHA-256(clientDataJSON)`, with the content digest carried inside `clientDataJSON.challenge`. So the chain is a **digest** and a **wrapper around it**:
+
 ```
-digest = SHA-384( JCS( {"content": C, "signature": S} ) )
+challenge = SHA-256( JCS( {"content": C, "interpretation": I, "keyId": K, "time": T} ) )
+assertion.signature = ECDSA( authenticatorData ‖ SHA-256(clientDataJSON) ),  clientDataJSON.challenge = challenge
 ```
 
-`C` is the content as the contract's JSON; `S` is `userSignature` with `value` emptied. **`signing.Verify` is the one to call — do not write a second implementation of this digest.** Why canonical JSON of the decoded message, why `value` is emptied, why the signed attributes sit on the signature: the [`go/signing`](go/signing/signing.go) package comment. How to sign in each language, and enrolment at sign-up: [ts/README.md](ts/README.md), "Signing", and the same `go/signing` package.
+`C` is the content as the contract's JSON, `I` the interpretation, `K`/`T` the signature's own `keyId`/`time`. **`signing.VerifyUser` is the one to call — do not write a second implementation of this digest.** The **verify procedure** is:
 
-Two facts reach the schema. **Every id the path binds is inside the signed content**; server-minted ids are not, and can't be — an id that changes what the content *means* is covered, one that is merely its *address* need not be, and `routegen` refuses a signed route that omits a path-bound id. And **no 64-bit number crosses the digest**: JCS prints numbers as ECMAScript would, so `TestNoWideNumbersCrossJCS` holds the "JSON is the wire" rule below to what both languages print identically.
+1. **Resolve the key.** `keyId` selects the signer's enrolled key from persistence; that key is the trust anchor. The record never carries its own verification key (a `publicKey` on a general record is a footgun — forge content, key and signature and it "verifies"). The one exception is sign-up (below).
+2. **Recompute the digest** from the record's own `content`, `interpretation`, `keyId` and `time`, and confirm it equals `clientDataJSON.challenge` (base64url). Nothing is reverse-engineered — the challenge is rebuilt from stored inputs.
+3. **Verify the signature** over `authenticatorData ‖ SHA-256(clientDataJSON)` under the resolved key. `clientDataJSON` is hashed as stored and only parsed to read `challenge`/`type` — never re-serialised, so a passkey's browser-minted bytes are not a second canonicalization problem.
+4. **Apply the layer's acceptance policy** — the *only* honest difference between the layers, a per-layer check, not a second code path. A participant requires `clientDataJSON.type` `webauthn.get`, a known `origin`, and the user-verified flag; the institution requires the countersign `type`, no browser origin, and honest flags. A headless signer must **never forge passkey metadata** — the flags and type are the custody signal a verifier reads (synced vs device-bound is readable from the `BE`/`BS` flags).
+5. **The institution nests over the participant.** `institutionalSignature` is the same `Signature`, but its challenge is `SHA-256( JCS( {"signature": userSignature, "interpretation": I, "keyId": K, "time": T} ) )` — it vouches for the whole `userSignature`, so altering the participant's signature invalidates the countersignature.
 
-**Verification happens behind persistence, not at the API edge** — the signature travels in the body so it reaches the chaincode boundary intact; `Runtime.VerifyBody` and the `X-Signature` header are gone. **Ordering uses `recorded` (the server's observation), never `signingTime` (the participant's claim)**, or a participant could order their own writes. A stored record carries an `institutional_signature` and reserves the field after it, so the next signature layer is a pure addition (`TestSignedRecordsReserveTheNextField`).
+The **interpretation** is why a record self-describes: append-only, it can be neither re-signed nor allowed to assume the surrounding schema holds still, so it carries the signing scheme (`spec`, an atomic version of canonicalization + digest + curve + encoding) and the payload type (`contentType`). Deriving the type from the current envelope would fail the moment that schema drifts. It is a record property, identical for both signatures, and sealed by both digests.
 
-**`ts/test/wire.test.mjs` pins the wire:** protojson and ts-proto must emit the same document, or a signature verifies only on the machine that made it, not just a readability problem. It checks that pairing over reads; the two languages signing in conjunction across the write path waits on an integration suite over mock persistence ([#31](https://github.com/metacensus/api/issues/31)), and the signing module's own behaviour is unit-tested in `ts/test/signing.test.mjs`.
+**Enrollment (sign-up) is the one trust-on-first-use write.** No key is enrolled yet, so `SignUpRequest` carries the enrolling `public_key` — on the request, not on every `Signature` — and the store binds it under `user_signature.key_id`, which must thumbprint it. The field comment and `signing.EnrolledKey` carry the rest.
+
+Two more facts reach the schema. **Every id the path binds is inside the signed content**; server-minted ids are not, and can't be — an id that changes what the content *means* is covered, one that is merely its *address* need not be, and `routegen` refuses a signed route that omits a path-bound id. And **no 64-bit number crosses the digest**: JCS prints numbers as ECMAScript would, so `TestNoWideNumbersCrossJCS` holds the "JSON is the wire" rule below to what both languages print identically.
+
+**Verification happens behind persistence, not at the API edge** — the signature travels in the body so it reaches the chaincode boundary intact; `Runtime.VerifyBody` and the `X-Signature` header are gone. **Authorship binds to the key, resolved below the store seam**: `signerId` is gone from the wire, since it is `keyId`'s owner, not a client claim; the service fast-fails only that a caller is present and that a vote's `user_id` is the caller. **Ordering uses `recorded` (the server's observation), never `time` (the participant's claim)**, or a participant could order their own writes. A stored record carries an `institutional_signature` and reserves the field after it, so the next signature layer is a pure addition (`TestSignedRecordsReserveTheNextField`).
+
+**`ts/test/wire.test.mjs` pins the wire and the cross-language chain:** protojson and ts-proto must emit the same document, and a signature Go makes must verify in TypeScript — the DER assertion Go writes, TypeScript recomputes the challenge for and verifies. The two languages signing in conjunction across the full write path waits on an integration suite over mock persistence ([#31](https://github.com/metacensus/api/issues/31)); the signing module's own behaviour is unit-tested in `ts/test/signing.test.mjs`. How to sign in each language, and the browser passkey ceremony, are in [ts/README.md](ts/README.md), "Signing", and the [`go/signing`](go/signing/signing.go) package comment.
 
 ## JSON is the wire
 
@@ -163,7 +181,7 @@ On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside 
 - **`go/store`** is the persistence port: a write takes a fully-minted `*v1.XSigned` and returns only an error, in a closed vocabulary (`store.KindOf`) the service maps to an HTTP status. `metacensus/demo` (Postgres) and `metacensus/infra` (Fabric) each implement it; the service's tests run against an in-memory fake.
 - **`go/auth`** is the session port: a short-lived access token the bearer middleware resolves to a `callerID` per request, and a long-lived, rotating refresh token that mints a fresh one at `/refresh` and is revoked at logout. The token model is now settled; `MemorySessions` is its in-memory storage placeholder — swap it before this is anything but a demo. How the refresh token stays out of a browser's JavaScript, and how that lifts out to a reverse proxy unchanged, is in the package doc.
 
-Per request it resolves the caller, mints the `id` and `recorded` (record-level, outside the signed content, so a signature survives assembly), hashes the password above the seam, calls the store once, and maps its `Kind` to a status. It verifies no signature, and fails fast only on checks the store re-enforces — a caller is present, and the signature's signer (and a vote's `user_id`) is that caller. `go/service`'s package comment is the account of itself.
+Per request it resolves the caller, mints the `id` and `recorded` (record-level, outside the signed content, so a signature survives assembly), hashes the password above the seam, calls the store once, and maps its `Kind` to a status. It verifies no signature, and fails fast only on checks the store re-enforces — a caller is present, and a vote's `user_id` is that caller. Binding the author to the caller (the key `keyId` resolves to must be the caller's) needs the key history, so it is the store's, below the seam; no record carries a signer id for the edge to shortcut with. `go/service`'s package comment is the account of itself.
 
 ## The generated client
 
@@ -174,8 +192,10 @@ The same walk writes `ts/src/client.ts`: one **batteries-included** client per s
 Written down, not tracked — the four `ui` issues that held this work were closed as not-planned on the move, and nothing replaced them. Each is a decision nobody has standing to take until the consumer that would settle it exists.
 
 - **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` and clients hand back the text unparsed. Exactly the schema that goes wrong when invented before a second consumer. Refs [#3](https://github.com/metacensus/api/issues/3).
-- **No write path verifies a signature yet.** What persistence owes is stated only in field comments: verify the digest under the key `keyId` resolves to, refuse a `signerId` disagreeing with its content's `userId`, check at sign-up that `keyId` thumbprints the `publicKey`, and hold a `signingTime`/`recorded` tolerance in chaincode config. No repository implements any of it.
-- **Key rotation.** `keyId` exists so a second key is a lookup, but no route enrols one and nothing says what happens to records signed by a retired key. Sign-up is the only enrolment.
+- **No write path verifies a signature yet.** `signing.VerifyUser`/`VerifyCountersign` implement the verify procedure above and the acceptance policy, but no repository calls them on a write. What that leaves to a backend, beyond the procedure: refuse a vote whose `user_id` is not the resolved author, bind `authenticatorData`'s rpId hash to the expected RP per environment (left to verifier config, not done in `signing`), and hold a `time`/`recorded` tolerance in chaincode config.
+- **Key rotation is anticipated; revocation is not designed.** Per-device and synced passkeys mean several keys per participant over time, which the key-history-by-timestamp model already allows — a record stays verifiable forever by resolving the key in force at signing time. Recovery is: regain account access, enrol a new key; the old one is retired in the history, never re-signed. But **revocation — a lost key must not attribute *new* records while the records it already signed stay valid — is undesigned**, and no route enrols a second key yet (sign-up is the only enrolment). Synced-vs-device-bound is a custody distinction readable from the assertion's `BE`/`BS` flags, recorded honestly rather than as a field.
+- **Non-interactive participant signing has no story.** A passkey assertion needs a user gesture and a browser authenticator, so curl, CI and any headless *participant* cannot produce one — deliberately (see "The signing chain"). The institutional layer is headless by design; a headless participant would need a different enrolled key type, which nothing defines. Refs [ui#55](https://github.com/metacensus/ui/issues/55).
+- **The browser passkey ceremony lives in the consumer.** `go/signing` and `ts/src/signing.ts` expose the format primitives — build the digest, verify an assertion, sign headless — but `navigator.credentials.create()/get()` is the SPA's, tracked in [ui#55](https://github.com/metacensus/ui/issues/55) (key provisioning). The generated TypeScript client's `Signer` is the seam it plugs into.
 - **Session storage, not session design.** The token model is now settled — short-lived opaque access tokens, long-lived rotating refresh tokens, an `HttpOnly` refresh cookie (see `go/auth`). What is still a placeholder is where that state lives: `MemorySessions` holds it in one process's memory, so a restart forgets every session and nothing is shared across replicas. A persistent `Sessions` (the demo's Postgres, the infra's Fabric) slots in behind the port. Two deployment choices ride with it and belong to whoever operates the API, not to this contract: the credentialed-CORS configuration the browser posture needs, and whether the refresh cookie is set here or by a reverse proxy the adapter relocates to.
 - **Should the client, or a zero-valued query parameter, be split out / emitted?** No route declares a query field, and `sideEffects: false` already lets a bundler drop the client, so neither is urgent. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not the ones it could grow** — a 64-bit integer, a map, a `oneof` are untested, so the pairing in `proto/buf.gen.yaml` is only checked where a route exercises it.
