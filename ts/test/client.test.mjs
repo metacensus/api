@@ -193,7 +193,7 @@ test("logout clears the token", async () => {
   assert.equal(client.token, undefined);
 });
 
-// --- transport concerns Client now owns ---------------------------------
+// --- errors, encoding, headers, prefix ----------------------------------
 
 test("a non-2xx throws ApiError carrying status, url and raw body", async () => {
   const { fetch } = fetcher({ status: 404, body: '{"error":"no such topic"}' });

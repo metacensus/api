@@ -264,7 +264,7 @@ func classify(r model.Route, addView func(viewType), refs *[]tsRef) []clientMeth
 		flat := base
 		flat.Envelope, flat.List, flat.Flatten = elemRef.Name, out.Name, "flatten"+cRef.Name
 		signed := base
-		signed.Name, signed.Envelope, signed.List = base.Name+"Signed", elemRef.Name, out.Name
+		signed.Name, signed.List = base.Name+"Signed", out.Name
 		if isList {
 			flat.Kind, flat.Return = "flattenList", cRef.Name+"View[]"
 			signed.Kind, signed.Return = "list", elemRef.Name+"[]"
