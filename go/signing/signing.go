@@ -142,8 +142,7 @@ func UserChallenge(content proto.Message, interp *v1.Interpretation, keyID strin
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(in)
-	return sum[:], nil
+	return challenge(in), nil
 }
 
 // CountersignChallenge is SHA-256 over CountersignInput.
@@ -152,8 +151,12 @@ func CountersignChallenge(userSig *v1.Signature, interp *v1.Interpretation, keyI
 	if err != nil {
 		return nil, err
 	}
+	return challenge(in), nil
+}
+
+func challenge(in []byte) []byte {
 	sum := sha256.Sum256(in)
-	return sum[:], nil
+	return sum[:]
 }
 
 // baseFields is the part of the digest input both layers share.

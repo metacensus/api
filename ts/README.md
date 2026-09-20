@@ -186,23 +186,16 @@ const { privateKey, publicKey } = await generateKeyPair(); // ECDSA P-256 (ES256
 ```
 
 The mechanism is **WebAuthn/passkeys**, one format for both the participant and
-the institution (ECDSA P-256 / ES256). The digest is
-`SHA-256(JCS({content, interpretation, keyId, time}))`; it rides inside the
-WebAuthn assertion as `clientDataJSON.challenge`, and the assertion signs
-`authenticatorData ‖ SHA-256(clientDataJSON)`. Every field the digest covers is
-inside it, so a signature cannot be re-attributed, re-dated, or re-interpreted —
-which is why the `interpretation` (`spec` + `contentType`) has to name the scheme
-and the content you actually signed, and `time` has to be set. Verifying is
-`verifyUser(pub, content, interpretation, signature, policy)`: it recomputes the
-digest, checks the challenge binding, applies the acceptance policy (a passkey vs
-a headless countersignature — the one honest difference between the layers), then
-verifies the signature. `routes` carries a `signed` flag per route, so "which
-routes need a key?" is a lookup rather than a guess.
+the institution (ECDSA P-256 / ES256). This module is the toolkit: `interpretation`
+and `userChallenge` build the digest, `assert` makes a headless assertion,
+`verifyUser`/`verifyCountersign` check one under a `participantPolicy` or
+`institutionPolicy`. `routes` carries a `signed` flag per route, so "which routes
+need a key?" is a lookup rather than a guess.
 
-The full account of the chain, the verify procedure, and `go/signing` — the other
-half that computes the same digest and whose DER assertions this module verifies —
-are in the repository README. The browser passkey ceremony itself is
-[ui#55](https://github.com/metacensus/ui/issues/55).
+The scheme, the digest, and the verify procedure are the repository README's
+"The signing chain"; `go/signing` is the other half that computes the same digest
+and whose DER assertions this module verifies. The browser passkey ceremony
+itself is [ui#55](https://github.com/metacensus/ui/issues/55).
 
 ## Both surfaces
 

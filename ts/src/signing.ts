@@ -104,6 +104,11 @@ function numberToJCS(n: number): string {
   return String(n);
 }
 
+/**
+ * RFC 8785 §3.2.2.2 escaping, spelled out rather than delegated to
+ * `JSON.stringify` — which would match, but Go's `encoding/json` also
+ * escapes `<`, `>` and `&`, and two implementations read alike this way.
+ */
 const SHORT: Record<string, string> = {
   "\b": "\\b",
   "\t": "\\t",
@@ -184,7 +189,7 @@ export async function userChallenge(
   keyId: string,
   time: string,
 ): Promise<Bytes> {
-  return new Uint8Array(await sha256(new TextEncoder().encode(userSigningInput(content, interp, keyId, time))));
+  return challenge(userSigningInput(content, interp, keyId, time));
 }
 
 /** SHA-256 over countersignInput — the institutional assertion's challenge. */
@@ -194,7 +199,11 @@ export async function countersignChallenge(
   keyId: string,
   time: string,
 ): Promise<Bytes> {
-  return new Uint8Array(await sha256(new TextEncoder().encode(countersignInput(userSignature, interp, keyId, time))));
+  return challenge(countersignInput(userSignature, interp, keyId, time));
+}
+
+async function challenge(input: string): Promise<Bytes> {
+  return new Uint8Array(await sha256(new TextEncoder().encode(input)));
 }
 
 // ---------------------------------------------------------------------------
