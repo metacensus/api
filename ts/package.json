@@ -4,7 +4,7 @@
   "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1 and /metacensus/public): generated types, a route manifest, a typed transport-agnostic client per surface, and the signing chain.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=25"
   },
   "sideEffects": false,
   "main": "./dist/index.js",

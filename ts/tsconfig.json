@@ -12,8 +12,9 @@
     // runtime dependency: nothing it names is imported.
     //
     // ESNext.TypedArrays, not the whole of ESNext, for one thing: Uint8Array's
-    // base64 codec (toBase64/fromBase64) that src/signing.ts uses. Node 22+ and
-    // current browsers have it; older runtimes are why it's named, not assumed.
+    // base64 codec (toBase64/fromBase64) that src/signing.ts uses. It sets the
+    // package floor: Node 25, Chrome/Edge 140, Firefox 133, Safari 18.2 — hence
+    // engines.node >=25 and .nvmrc. A deliberate floor-raise, not an assumption.
     "lib": ["ES2022", "DOM", "ESNext.TypedArrays"],
 
     // strictNullChecks is what makes `?: T | undefined` mean anything.
