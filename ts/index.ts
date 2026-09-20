@@ -16,15 +16,21 @@ export * from "./src/route-manifest.js";
 export { protobufPackage } from "./src/metacensus/v1/common.js";
 
 // Named, not `export *`: src/client.ts has one class per surface, and this
-// entry point wants only the authenticated one.
+// entry point wants only the authenticated one — plus its sugar.
 //
-// `ClientSigned` returns the `…Signed` envelopes. The name `Client` is
-// deliberately freed for a sugar client — returning the plain domain objects
-// — added in follow-up work; until it lands, `@metacensus/api` exports no
-// `Client`.
+// `ClientSigned` returns the `…Signed` envelopes; `Client` is the sugar over
+// it, returning flat views ({id, recorded, ...content}) and taking a session
+// signer for writes. The `…View` types are those flat shapes; `Signer` is the
+// write seam. See ts/README.md, "The sugar Client".
 export {
   ClientSigned,
+  Client,
   ApiError,
+  type Signer,
+  type TopicView,
+  type PropView,
+  type VoteView,
+  type UserView,
   type ClientRequest,
   type ClientResponse,
   type Transport,

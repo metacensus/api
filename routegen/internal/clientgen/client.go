@@ -2,6 +2,13 @@
 // typed method per rpc, over a caller-supplied transport. The shared envelope
 // (Transport, ApiError) is one declaration — two ApiError classes would make
 // `instanceof` depend on the import path.
+//
+// It also renders the sugar layer beneath the raw classes: a Client that wraps
+// ClientSigned and returns flat views ({id, recorded, ...content}) rather than
+// the signed envelopes. Reads flatten the response; writes take flat content
+// plus a session signer and assemble the envelope. Only the authenticated
+// surface gets one — see describeSugarSurface for why — and only its record
+// routes, so sign-up, login and logout stay on ClientSigned.
 package clientgen
 
 import (
@@ -208,6 +215,175 @@ type fileImport struct {
 	Names []string
 }
 
+// The sugar layer (the Client class) is rendered into the same file. It reads
+// the response shape off the descriptor — the envelope is not uniform, so
+// unwrapping is per type — and turns each record route into a flat view. The
+// classifiers below name the four shapes ClientSigned returns; a plain
+// response (Session, a healthcheck) has no record to flatten and is left off
+// the sugar entirely, which is what keeps sign-up, login and logout on
+// ClientSigned where they belong.
+
+// sugarClass is one sugar client: the class name, the raw class it wraps, and
+// whether it carries any writes (which decide the signer machinery).
+type sugarClass struct {
+	Name      string // e.g. "Client"
+	TSClient  string // the raw class it wraps, e.g. "ClientSigned"
+	TSConst   string // the surface's prefix constant, e.g. "apiPrefix"
+	HasWrites bool
+}
+
+// viewType is a flat view alias and its flatten helper, emitted once per
+// content type however many routes return it. Flatten is empty for an
+// already-flat record (Member), which needs no unwrapping.
+type viewType struct {
+	View     string // "TopicView"
+	Content  string // "Topic"
+	Envelope string // "TopicSigned"
+	HasId    bool
+	Flatten  string // "flattenTopic", "" when the record is already flat
+}
+
+// sugarMethod is one method of a sugar client: a read that flattens an
+// envelope (or returns an already-flat record), a list that does the same
+// per item, or a signed write that wraps flat content before sending it.
+type sugarMethod struct {
+	Name     string // lowerFirst(RPC)
+	Service  string
+	RPC      string
+	HTTP     string // GET/POST, for the doc comment
+	Path     string
+	Req      string // request type name
+	List     bool   // response is {items: T[]}
+	Write    bool   // signed write: take flat content, assemble the envelope
+	Envelope bool   // element is a *Signed needing a flatten() call
+	View     string // element view type: "TopicView", or "Member" when flat
+	Flatten  string // "flattenTopic", "" when not an envelope
+	CType    string // contentType string a write signs under
+}
+
+// listElem returns the element message and true when md is a list envelope
+// ({items: T[]}), else md itself and false.
+func listElem(md protoreflect.MessageDescriptor) (protoreflect.MessageDescriptor, bool) {
+	if md.Fields().Len() == 1 {
+		f := md.Fields().Get(0)
+		if f.JSONName() == "items" && f.IsList() && f.Kind() == protoreflect.MessageKind {
+			return f.Message(), true
+		}
+	}
+	return md, false
+}
+
+// envelopeContent returns the content message when md is a signed envelope
+// ({content, userSignature, ...}), whether it also carries a server-minted id
+// (Vote does not), and true. The pair is what a signature attests to, so both
+// fields present is the test.
+func envelopeContent(md protoreflect.MessageDescriptor) (protoreflect.MessageDescriptor, bool, bool) {
+	c := md.Fields().ByName(model.ContentField)
+	s := md.Fields().ByName(model.SignatureField)
+	if c == nil || s == nil || c.Kind() != protoreflect.MessageKind {
+		return nil, false, false
+	}
+	return c.Message(), md.Fields().ByName("id") != nil, true
+}
+
+// describeSugar classifies one route's response for the sugar layer. include
+// is false for a plain response (no record to flatten), which drops the route
+// — that is how login, sign-up, logout and the healthcheck stay off the sugar
+// client. When the element is an envelope it also returns the content ref, so
+// the view alias's `& Topic` half can be imported.
+func describeSugar(r model.Route) (sm sugarMethod, vt viewType, content tsRef, include bool) {
+	elem, list := listElem(r.Descriptor.Output())
+	sm = sugarMethod{
+		Name:    lowerFirst(r.RPC),
+		Service: r.Service,
+		RPC:     r.RPC,
+		HTTP:    r.Method,
+		Path:    r.Path,
+		Req:     string(r.Descriptor.Input().Name()),
+		List:    list,
+	}
+
+	if cmd, hasID, ok := envelopeContent(elem); ok {
+		cRef := refOf(cmd)
+		sm.Envelope = true
+		sm.View = cRef.Name + "View"
+		sm.Flatten = "flatten" + cRef.Name
+		vt = viewType{View: sm.View, Content: cRef.Name, Envelope: refOf(elem).Name, HasId: hasID, Flatten: sm.Flatten}
+		if r.Signed {
+			// The signed write wraps flat content; the contentType it must sign
+			// under is the request's own content field, named exactly.
+			sm.Write = true
+			sm.CType = string(r.Descriptor.Input().Fields().ByName(model.ContentField).Message().FullName())
+		}
+		return sm, vt, cRef, true
+	}
+
+	// An already-flat record (Member) carries a server id but no envelope;
+	// return it as-is, no view type and no flatten.
+	if elem.Fields().ByName("id") != nil && elem.Fields().ByName(model.ContentField) == nil {
+		sm.View = refOf(elem).Name
+		return sm, viewType{}, tsRef{}, true
+	}
+
+	return sugarMethod{}, viewType{}, tsRef{}, false
+}
+
+// sugarSurface is one surface's sugar rendering, computed once so its imports
+// can be merged before the import block and its body emitted after the raw
+// classes.
+type sugarSurface struct {
+	class   sugarClass
+	methods []sugarMethod
+	views   []viewType
+	refs    []tsRef // extra type imports the sugar needs
+}
+
+// describeSugarSurface builds the sugar for one surface, or ok=false when the
+// surface has no sugar. A surface gets a sugar client only when its raw class
+// name ends in "Signed" (the authenticated surface): the sugar's whole job is
+// unwrapping signed records, and the name it takes is that suffix dropped —
+// ClientSigned becomes Client, the name index.ts reserves. A surface with no
+// record route (the public one) yields nothing even so.
+func describeSugarSurface(pkg model.Package, routes []model.Route) (sugarSurface, bool) {
+	name := strings.TrimSuffix(pkg.TSClient, "Signed")
+	if name == pkg.TSClient {
+		return sugarSurface{}, false
+	}
+
+	s := sugarSurface{class: sugarClass{Name: name, TSClient: pkg.TSClient, TSConst: pkg.TSConst}}
+	seen := map[string]bool{} // view types are per content type, not per route
+	var sigRef tsRef
+	for _, r := range routes {
+		if r.Pkg.Proto != pkg.Proto {
+			continue
+		}
+		sm, vt, content, ok := describeSugar(r)
+		if !ok {
+			continue
+		}
+		s.methods = append(s.methods, sm)
+		if sm.Envelope {
+			s.refs = append(s.refs, content)
+			if !seen[vt.View] {
+				seen[vt.View] = true
+				s.views = append(s.views, vt)
+			}
+		}
+		if sm.Write {
+			s.class.HasWrites = true
+			sigRef = refOf(r.Descriptor.Input().Fields().ByName(model.SignatureField).Message())
+		}
+	}
+	if len(s.methods) == 0 {
+		return sugarSurface{}, false
+	}
+	if s.class.HasWrites {
+		s.refs = append(s.refs, sigRef) // UserSignature, for the Signer type
+	}
+	sort.Slice(s.views, func(i, j int) bool { return s.views[i].View < s.views[j].View })
+	return s, true
+}
+
 // Render writes ts/src/client.ts: one Client class, one typed method per rpc,
 // over a caller-supplied Transport.
 func Render(routes []model.Route) ([]byte, error) {
@@ -220,6 +396,16 @@ func Render(routes []model.Route) ([]byte, error) {
 		methods = append(methods, newMethodView(cr))
 	}
 
+	// The sugar surfaces are described up front: their extra type imports (the
+	// content half of each view, and UserSignature for the Signer) have to join
+	// the import block below, and their bodies are emitted after the raw classes.
+	var sugars []sugarSurface
+	for _, pkg := range withRoutes(methods) {
+		if s, ok := describeSugarSurface(pkg, routes); ok {
+			sugars = append(sugars, s)
+		}
+	}
+
 	var b bytes.Buffer
 	if err := execute(&b, "header", nil); err != nil {
 		return nil, err
@@ -227,12 +413,19 @@ func Render(routes []model.Route) ([]byte, error) {
 
 	// Type-only imports, grouped by generated file.
 	byFile := map[string]map[string]bool{}
+	addRef := func(ref tsRef) {
+		if byFile[ref.File] == nil {
+			byFile[ref.File] = map[string]bool{}
+		}
+		byFile[ref.File][ref.Name] = true
+	}
 	for _, m := range methods {
-		for _, ref := range []tsRef{m.In, m.Out} {
-			if byFile[ref.File] == nil {
-				byFile[ref.File] = map[string]bool{}
-			}
-			byFile[ref.File][ref.Name] = true
+		addRef(m.In)
+		addRef(m.Out)
+	}
+	for _, s := range sugars {
+		for _, ref := range s.refs {
+			addRef(ref)
 		}
 	}
 	var files []string
@@ -295,6 +488,38 @@ func Render(routes []model.Route) ([]byte, error) {
 			}
 			if err := tmpl.ExecuteTemplate(&b, "route", m); err != nil {
 				return nil, fmt.Errorf("client.ts.tmpl: route %s.%s: %w", m.Service, m.RPC, err)
+			}
+		}
+		if err := execute(&b, "classClose", nil); err != nil {
+			return nil, err
+		}
+	}
+
+	// The sugar layer last: it wraps the raw classes above, so it reads best
+	// after them. Per surface: the Signer type (only where writes exist), the
+	// view aliases and their flatten helpers, then the class.
+	for _, s := range sugars {
+		if s.class.HasWrites {
+			if err := execute(&b, "signer", nil); err != nil {
+				return nil, err
+			}
+		}
+		for _, vt := range s.views {
+			if err := execute(&b, "viewType", vt); err != nil {
+				return nil, err
+			}
+		}
+		for _, vt := range s.views {
+			if err := execute(&b, "flatten", vt); err != nil {
+				return nil, err
+			}
+		}
+		if err := execute(&b, "sugarOpen", s.class); err != nil {
+			return nil, err
+		}
+		for _, m := range s.methods {
+			if err := tmpl.ExecuteTemplate(&b, "sugarMethod", m); err != nil {
+				return nil, fmt.Errorf("client.ts.tmpl: sugar %s.%s: %w", m.Service, m.RPC, err)
 			}
 		}
 		if err := execute(&b, "classClose", nil); err != nil {

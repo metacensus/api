@@ -5,9 +5,9 @@
 
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "./metacensus/v1/auth.js";
-import type { HealthcheckRequest, HealthcheckResponse } from "./metacensus/v1/common.js";
-import type { PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
-import type { Member, MemberGetRequest, MemberList, MemberListRequest, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
+import type { HealthcheckRequest, HealthcheckResponse, User, UserSignature } from "./metacensus/v1/common.js";
+import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
+import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
 import { apiPrefix, publicPrefix } from "./route-manifest.js";
 function param(v: string | number | boolean): string {
@@ -183,6 +183,129 @@ export class PublicClient {
   submitPartnerInterest(req: PartnerSubmission): Promise<PartnerReceipt> {
     const body = req;
     return this.call("POST", "/partner", JSON.stringify(body));
+  }
+}
+
+// A Signer turns content and its contentType into a UserSignature. It is
+// identical per session — the signing key does not change between calls — so
+// the sugar client takes it as a constructor argument, not a per-call one. The
+// sugar supplies the content and the exact contentType (which sign and verify
+// leave to the caller); the caller's closure signs it with its own key. See
+// ts/README.md, "The sugar Client".
+export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
+
+export type PropView = { id: string; recorded?: string } & Prop;
+export type TopicView = { id: string; recorded?: string } & Topic;
+export type UserView = { id: string; recorded?: string } & User;
+export type VoteView = { recorded?: string } & Vote;
+function flattenProp(r: PropSigned): PropView {
+  return { id: r.id, recorded: r.recorded, ...(r.content as Prop) };
+}
+
+function flattenTopic(r: TopicSigned): TopicView {
+  return { id: r.id, recorded: r.recorded, ...(r.content as Topic) };
+}
+
+function flattenUser(r: UserSigned): UserView {
+  return { id: r.id, recorded: r.recorded, ...(r.content as User) };
+}
+
+function flattenVote(r: VoteSigned): VoteView {
+  return { recorded: r.recorded, ...(r.content as Vote) };
+}
+
+// Client is syntactic sugar over ClientSigned: reads return the flat domain
+// object — {id, recorded, ...content} — rather than the {content, userSignature}
+// envelope, and writes take flat content plus a session signer and assemble the
+// envelope, so a caller never hand-builds one. It wraps ClientSigned rather than
+// replacing it: sign-up, login and logout stay there. See ts/README.md.
+export class Client {
+  private readonly api: ClientSigned;
+
+  // The signer is a session-wide object, not a per-call argument — the key it
+  // signs with does not change between calls. Omit it for a read-only client;
+  // a write without one throws.
+  constructor(
+    transport: Transport,
+    private readonly signer?: Signer,
+    prefix: string = apiPrefix,
+  ) {
+    this.api = new ClientSigned(transport, prefix);
+  }
+
+  private sign(content: unknown, contentType: string): Promise<UserSignature> {
+    if (this.signer === undefined) {
+      throw new Error("Client: a write needs a signer; construct `new Client(transport, signer)`");
+    }
+    return this.signer(content, contentType);
+  }
+
+  // PropRoutes.ListProps: GET /topic/{topicId}/prop
+  listProps(req: PropListRequest): Promise<PropView[]> {
+    return this.api.listProps(req).then((r) => r.items.map(flattenProp));
+  }
+
+  // PropRoutes.GetProp: GET /topic/{topicId}/prop/{propId}
+  getProp(req: PropGetRequest): Promise<PropView> {
+    return this.api.getProp(req).then(flattenProp);
+  }
+
+  // PropRoutes.CreateProp: POST /topic/{topicId}/prop
+  async createProp(req: Omit<PropCreateRequest, "userSignature">): Promise<PropView> {
+    const userSignature = await this.sign(req.content, "metacensus.v1.Prop");
+    return flattenProp(await this.api.createProp({ ...req, userSignature }));
+  }
+
+  // PropRoutes.ListVotes: GET /topic/{topicId}/prop/{propId}/vote
+  listVotes(req: VoteListRequest): Promise<VoteView[]> {
+    return this.api.listVotes(req).then((r) => r.items.map(flattenVote));
+  }
+
+  // PropRoutes.SetVote: POST /topic/{topicId}/prop/{propId}/vote
+  async setVote(req: Omit<VoteSetRequest, "userSignature">): Promise<VoteView> {
+    const userSignature = await this.sign(req.content, "metacensus.v1.Vote");
+    return flattenVote(await this.api.setVote({ ...req, userSignature }));
+  }
+
+  // TopicRoutes.ListTopics: GET /topic
+  listTopics(req: TopicListRequest): Promise<TopicView[]> {
+    return this.api.listTopics(req).then((r) => r.items.map(flattenTopic));
+  }
+
+  // TopicRoutes.GetTopic: GET /topic/{topicId}
+  getTopic(req: TopicGetRequest): Promise<TopicView> {
+    return this.api.getTopic(req).then(flattenTopic);
+  }
+
+  // TopicRoutes.CreateTopic: POST /topic
+  async createTopic(req: Omit<TopicCreateRequest, "userSignature">): Promise<TopicView> {
+    const userSignature = await this.sign(req.content, "metacensus.v1.Topic");
+    return flattenTopic(await this.api.createTopic({ ...req, userSignature }));
+  }
+
+  // TopicRoutes.ListMembers: GET /topic/{topicId}/member
+  listMembers(req: MemberListRequest): Promise<Member[]> {
+    return this.api.listMembers(req).then((r) => r.items);
+  }
+
+  // TopicRoutes.GetMember: GET /topic/{topicId}/member/{userId}
+  getMember(req: MemberGetRequest): Promise<Member> {
+    return this.api.getMember(req);
+  }
+
+  // UserRoutes.ListUsers: GET /user
+  listUsers(req: UserListRequest): Promise<UserView[]> {
+    return this.api.listUsers(req).then((r) => r.items.map(flattenUser));
+  }
+
+  // UserRoutes.GetUser: GET /user/{userId}
+  getUser(req: UserGetRequest): Promise<UserView> {
+    return this.api.getUser(req).then(flattenUser);
+  }
+
+  // UserRoutes.GetSelf: GET /self
+  getSelf(req: SelfGetRequest): Promise<UserView> {
+    return this.api.getSelf(req).then(flattenUser);
   }
 }
 

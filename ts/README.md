@@ -47,6 +47,77 @@ these types describe the same document: `api.createTopic({ name })` does not
 type-check, `{ name, description: "" }` does. Message-typed fields are
 optional.
 
+## The sugar Client
+
+`ClientSigned` hands back the wire document exactly: `getTopic` returns a
+`TopicSigned` — `{id, recorded, content, userSignature}` — and a reader wanting
+the name reaches through `.content`. `Client` is a thin sugar layer over it that
+returns the **flat** view instead:
+
+```ts
+import { Client, type Signer, type TopicView } from "@metacensus/api";
+
+const client = new Client(transport);
+const topic = await client.getTopic({ topicId }); // TopicView: {id, recorded, name, description}
+topic.name; // not topic.content.name
+```
+
+`Client` is generated from the same route table as `ClientSigned`, so it can't
+drift out of step with the contract. It is not a replacement — it wraps
+`ClientSigned` and drops back to it for anything that isn't a record.
+
+**Reads** return the flat view. The envelope isn't uniform, so the view isn't
+either — the flattening is per shape, and the view types name the results:
+
+| Method | Returns | Note |
+| --- | --- | --- |
+| `getTopic`, `getProp`, `getUser`, `getSelf` | `TopicView` / `PropView` / `UserView` | `{id, recorded, ...content}` |
+| `listTopics`, `listProps`, `listUsers` | `TopicView[]` etc. | `{items}` unwrapped |
+| `listVotes` | `VoteView[]` | a vote carries **no `id`** — the view has none either |
+| `getMember`, `listMembers` | `Member` / `Member[]` | already flat; returned unchanged |
+
+**Writes** take flat content and a **signer**, set once on the constructor —
+it's identical for a session, so it isn't a per-call argument. The sugar
+assembles the `{content, userSignature}` envelope and, crucially, supplies the
+`contentType` itself (the one thing `sign`/`verify` leave to the caller and the
+easiest to get wrong). Signing stays explicit — the caller's closure holds the
+key and does the crypto; the key never enters the sugar:
+
+```ts
+import { SPEC, sign, keyId } from "@metacensus/api/signing";
+
+const signer: Signer = async (content, contentType) => {
+  const s = {
+    signerId,
+    keyId: await keyId(publicKey),
+    alg: "Es384",
+    publicKey: "",
+    signingTime: new Date().toISOString(),
+    spec: SPEC,
+    contentType, // the sugar names it — you don't
+    value: "",
+  };
+  s.value = await sign(privateKey, content, s);
+  return s;
+};
+
+const client = new Client(transport, signer);
+const created = await client.createTopic({ content: { name: "A review", description: "" } });
+// TopicView, flattened like a read
+```
+
+A `Client` built without a signer still reads; a write on it throws. Construct
+`new Client(transport)` when you only read.
+
+**When to use which.** Reach for `Client` when you want the domain object and
+nothing else — a UI rendering topics, a script reading votes. Stay on
+`ClientSigned` when you need the envelope: the `userSignature` (verifying
+authorship), `recorded` versus `signingTime`, or the raw document to re-hash.
+And `ClientSigned` is where **`signUp`, `login` and `logout`** live —
+`signUp` is the ceremony that *creates* the identity a session signer stands
+for (its signature enrols the key inline, with no `signerId` yet), so it can't
+use a pre-set signer and isn't on `Client` at all.
+
 ## The public surface
 
 The public, unauthenticated surface is an entry point of its own in the same

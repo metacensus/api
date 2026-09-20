@@ -85,3 +85,64 @@ export class {{.TSClient}} {
 {{define "classClose"}}}
 
 {{end}}
+{{define "signer"}}// A Signer turns content and its contentType into a UserSignature. It is
+// identical per session — the signing key does not change between calls — so
+// the sugar client takes it as a constructor argument, not a per-call one. The
+// sugar supplies the content and the exact contentType (which sign and verify
+// leave to the caller); the caller's closure signs it with its own key. See
+// ts/README.md, "The sugar Client".
+export type Signer = (content: unknown, contentType: string) => Promise<UserSignature>;
+
+{{end}}
+{{define "viewType"}}export type {{.View}} = { {{if .HasId}}id: string; {{end}}recorded?: string } & {{.Content}};
+{{end}}
+{{define "flatten"}}function {{.Flatten}}(r: {{.Envelope}}): {{.View}} {
+  return { {{if .HasId}}id: r.id, {{end}}recorded: r.recorded, ...(r.content as {{.Content}}) };
+}
+
+{{end}}
+{{define "sugarOpen"}}// {{.Name}} is syntactic sugar over {{.TSClient}}: reads return the flat domain
+// object — {id, recorded, ...content} — rather than the {content, userSignature}
+// envelope, and writes take flat content plus a session signer and assemble the
+// envelope, so a caller never hand-builds one. It wraps {{.TSClient}} rather than
+// replacing it: sign-up, login and logout stay there. See ts/README.md.
+export class {{.Name}} {
+  private readonly api: {{.TSClient}};
+
+  // The signer is a session-wide object, not a per-call argument — the key it
+  // signs with does not change between calls. Omit it for a read-only client;
+  // a write without one throws.
+  constructor(
+    transport: Transport,
+{{if .HasWrites}}    private readonly signer?: Signer,
+{{end}}    prefix: string = {{.TSConst}},
+  ) {
+    this.api = new {{.TSClient}}(transport, prefix);
+  }
+{{if .HasWrites}}
+  private sign(content: unknown, contentType: string): Promise<UserSignature> {
+    if (this.signer === undefined) {
+      throw new Error("{{.Name}}: a write needs a signer; construct `new {{.Name}}(transport, signer)`");
+    }
+    return this.signer(content, contentType);
+  }
+{{end}}{{end}}
+{{define "sugarMethod"}}
+  // {{.Service}}.{{.RPC}}: {{.HTTP}} {{.Path}}
+{{if .Write}}  async {{.Name}}(req: Omit<{{.Req}}, "userSignature">): Promise<{{.View}}> {
+    const userSignature = await this.sign(req.content, {{printf "%q" .CType}});
+    return {{.Flatten}}(await this.api.{{.Name}}({ ...req, userSignature }));
+  }
+{{else if and .List .Envelope}}  {{.Name}}(req: {{.Req}}): Promise<{{.View}}[]> {
+    return this.api.{{.Name}}(req).then((r) => r.items.map({{.Flatten}}));
+  }
+{{else if .List}}  {{.Name}}(req: {{.Req}}): Promise<{{.View}}[]> {
+    return this.api.{{.Name}}(req).then((r) => r.items);
+  }
+{{else if .Envelope}}  {{.Name}}(req: {{.Req}}): Promise<{{.View}}> {
+    return this.api.{{.Name}}(req).then({{.Flatten}});
+  }
+{{else}}  {{.Name}}(req: {{.Req}}): Promise<{{.View}}> {
+    return this.api.{{.Name}}(req);
+  }
+{{end}}{{end}}
