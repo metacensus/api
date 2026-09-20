@@ -35,8 +35,8 @@
 //
 // MVCC. Fabric raises a read-conflict at commit that Postgres at READ COMMITTED
 // never will. This pass does not model versioning, so a conflict is absorbed
-// into Unavailable — the one Kind that already means "retry may work" — rather
-// than given a Kind of its own that only one backend could ever return.
+// into Unavailable rather than given a Kind of its own that only one backend
+// could ever return.
 //
 // The institutional signature's runtime. common.proto now carries
 // InstitutionalSignature (the reserved slot is spent), so no later wire break

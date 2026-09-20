@@ -8,8 +8,7 @@ import (
 // Kind is the closed vocabulary a Store speaks, independent of any backend's
 // own error strings. It exists so the server maps a Kind to an HTTP status
 // (that mapping is the server PR's) rather than string-matching a driver
-// message — infra today returns HTTP 500 with the raw backend string for every
-// application error, which this replaces.
+// message; see doc.go for the infra prototype this replaces.
 //
 // A Kind both names the failure and is itself an error, so a backend can return
 // a bare Kind for the common case and callers can test with errors.Is:
@@ -51,10 +50,9 @@ const (
 	Unauthenticated Kind = "unauthenticated"
 
 	// Unavailable: the backend could not answer and the same request might
-	// succeed later — a connection lost or timed out, or a Fabric MVCC read
-	// conflict. It is the one Kind whose meaning is "retry may work"; see the
-	// note on MVCC in doc.go for why a conflict lands here rather than in a
-	// vocabulary of its own this pass.
+	// succeed later — a lost or timed-out connection, or a Fabric MVCC read
+	// conflict. The one Kind that means retry may work; see doc.go for why a
+	// conflict is absorbed here rather than given a Kind of its own.
 	Unavailable Kind = "unavailable"
 )
 
@@ -84,7 +82,8 @@ func (e *Error) Unwrap() []error {
 	return []error{e.Kind, e.Err}
 }
 
-// Errf builds an *Error of the given Kind. cause may be nil.
+// Errf wraps a cause with a Kind and the failing Store method (op); cause may
+// be nil.
 func Errf(kind Kind, op string, cause error) *Error {
 	return &Error{Kind: kind, Op: op, Err: cause}
 }
