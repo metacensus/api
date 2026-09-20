@@ -6,7 +6,7 @@ response under `/metacensus/api/v1` and `/metacensus/public`, generated from the
 
 What ships is the generated interfaces, the route manifest, `protobufPackage`,
 a typed client per surface — over a transport you supply — and the signing
-chain. How dependencies are weighed is in the repository README, under
+chain. How dependencies are weighed is in the repository's AGENTS.md, under
 "Dependencies".
 
 ```bash

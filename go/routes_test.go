@@ -196,7 +196,7 @@ func TestPrefix(t *testing.T) {
 }
 
 // A route whose prefix is neither declared constant is one nothing routes.
-// This is also why /healthz is not in the contract — see README.md.
+// This is also why /healthz is not in the contract — see AGENTS.md.
 func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 	known := map[string]bool{
 		routes.Prefix:       true,

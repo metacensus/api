@@ -70,7 +70,7 @@ var Packages = []Package{
 	},
 	{
 		Proto: "metacensus.public.v1",
-		// No version segment: README.md, "Versioning the public surface".
+		// No version segment: AGENTS.md, "Compatibility and versioning".
 		Prefix:   "/metacensus/public",
 		GoImport: "github.com/metacensus/api/go/metacensus/public/v1",
 		GoAlias:  "publicv1",

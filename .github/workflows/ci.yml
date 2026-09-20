@@ -55,8 +55,8 @@ jobs:
       - name: Build the pinned code generators
         run: make tools
 
-      # Breaking-change detection is disabled; see README.md, "What breaking
-      # is measured against", and #14 for why and what re-enables it.
+      # Breaking-change detection is disabled; see AGENTS.md, "Compatibility
+      # and versioning", and #14 for why and what re-enables it.
       #
       # - name: Check for breaking changes
       #   run: |
