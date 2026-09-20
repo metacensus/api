@@ -222,7 +222,7 @@ type Prop struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	TopicId string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`
 	Type    Prop_Type              `protobuf:"varint,2,opt,name=type,proto3,enum=metacensus.v1.Prop_Type" json:"type,omitempty"`
-	// The text `VoteContent.citations` indexes into.
+	// The text `Vote.citations` indexes into.
 	Description   string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

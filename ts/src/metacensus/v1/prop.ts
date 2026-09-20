@@ -35,7 +35,7 @@ export interface PropSigned {
 export interface Prop {
   topicId: string;
   type: Prop_Type;
-  /** The text `VoteContent.citations` indexes into. */
+  /** The text `Vote.citations` indexes into. */
   description: string;
 }
 

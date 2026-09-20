@@ -75,7 +75,7 @@ message Prop {
 
   Type type = 2;
 
-  // The text `VoteContent.citations` indexes into.
+  // The text `Vote.citations` indexes into.
   string description = 3;
 }
 
@@ -90,8 +90,8 @@ message VoteSigned {
 
   UserSignature user_signature = 3;
 
-  // Held for an institutional signature; see UserSigned. Vote mints no id, so
-  // this is 4, not 5.
+  // Held for an institutional signature; see UserSigned. VoteSigned mints no
+  // id, so this is 4, not 5.
   reserved 4;
 }
 

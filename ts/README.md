@@ -27,8 +27,7 @@ const topic = await api.getTopic({ topicId }); // TopicSigned
 ```
 
 `ClientSigned` returns the `…Signed` envelopes (`getTopic` → `TopicSigned`,
-wrapping the plain `Topic` it carries in `content`); the name `Client` is
-reserved for a sugar client returning the domain objects, not built yet.
+wrapping the plain `Topic` it carries in `content`).
 
 `path` is absolute and already carries `/metacensus/api/v1`, every segment
 percent-encoded; prepend only an origin. `body`, when present, is the exact
