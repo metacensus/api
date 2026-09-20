@@ -29,7 +29,7 @@ They are separate packages, not a corner of one: `TestNoMessageFieldCrossesResou
 
 Two identities answer different questions. A **login token** says who is *connected* — it grants access and permits no write on its own. A **signing keypair** says who *authored* a record. `Prop.author_id`/`created` were the first pretending to be the second; they're gone, and the signature carries both facts.
 
-Every write on `metacensus.v1` carries `content` and a `userSignature` over it (`TestEveryWriteCarriesASignature` makes that a property; exceptions are `unsignedWrites` in `go/signing_test.go`). The public surface is exempt — it has no identities. A stored record is the signed content wrapped, never modified:
+Every write on `metacensus.v1` carries `content` and a `userSignature` over it (`TestEveryWriteCarriesASignature` makes that a property; exceptions are `unsignedWrites` in `go/contract/signing_test.go`). The public surface is exempt — it has no identities. A stored record is the signed content wrapped, never modified:
 
 ```json
 {
@@ -66,7 +66,7 @@ Protobuf binary is not used, supported, or a fallback — protobuf is here for t
 
 ## Routes
 
-Each resource file declares its routes (`topic.proto` → `TopicRoutes`); **to read the whole table, read the generated manifest** — [`go/routes`](go/routes/manifest.go) or `ts/src/route-manifest.ts`. `params`, `query` and `body` account for every field of a request message, so a request message models the whole request, not only its body.
+Each resource file declares its routes (`topic.proto` → `TopicRoutes`); **to read the whole table, read the generated manifest** — [`go/server/routes`](go/server/routes/manifest.go) or `ts/src/route-manifest.ts`. `params`, `query` and `body` account for every field of a request message, so a request message models the whole request, not only its body.
 
 The prefixes (`routes.Prefix`, `routes.PublicPrefix`) are part of the contract and generated from `model.Packages`; every `path` is relative to one, and each route carries its own `prefix` so a consumer holding a `Route` needn't guess which to join. `TestPrefix` pins the invariants (each absolute, no trailing slash, none nested); `TestNonConformingRoutes` pins the conventions at zero exceptions. They are route declarations, not a gRPC commitment — nothing generates or serves gRPC.
 
@@ -76,10 +76,14 @@ The prefixes (`routes.Prefix`, `routes.PublicPrefix`) are part of the contract a
 
 ```
 proto/            .proto sources and buf config — both surfaces
-go/               the contract in Go: types, route manifest, wire encoder,
-                  server, schema tests (go/metacensus/{v1,public/v1})
+go/               the contract in Go (go/metacensus/{v1,public/v1})
+go/contract/      the wire encoder and the whole-contract schema tests
 go/server/        generated handler interfaces + registration, hand-written runtime
+go/server/routes/ the generated route manifest (routes.Prefix, routes.Routes)
 go/signing/       the signing chain: JCS, the digest, sign and verify
+go/store/         the persistence port the two backends implement
+go/auth/          the session port + a development placeholder
+go/service/       the handlers: store + auth + minting, behind the server interfaces
 ts/               the contract in TypeScript — the npm package
                   (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
 internal/         protoscan, the .proto tree scan both modules check against
@@ -105,7 +109,7 @@ npm install @metacensus/api               # types, route manifest, a client per 
 ```go
 import v1 "github.com/metacensus/api/go/metacensus/v1"               // authenticated
 import publicv1 "github.com/metacensus/api/go/metacensus/public/v1"  // public
-import "github.com/metacensus/api/go/routes"                         // both, one table
+import "github.com/metacensus/api/go/server/routes"                  // both surfaces, one table
 import "github.com/metacensus/api/go/signing"                        // the signing chain
 ```
 
@@ -152,6 +156,15 @@ server.RegisterTopicRoutes(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix:
 
 On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside whatever it's mounted under; `server.Except(authed, v1, rt, "AuthRoutes.Login", "AuthRoutes.SignUp")` sends the public rpcs to a second router. `routegen/chitest` pins both routers' behaviour.
 
+## The service layer
+
+`go/service` implements those handler interfaces over two ports, so a backend supplies persistence and nothing else — no routing, no request handling. `service.New(service.Config{Store: …})` returns the handlers; `h.Register(mux, rt)` mounts every service, wrapping all but the health check, login and sign-up in the session middleware.
+
+- **`go/store`** is the persistence port: a write takes a fully-minted `*v1.XSigned` and returns only an error, in a closed vocabulary (`store.KindOf`) the service maps to an HTTP status. `metacensus/demo` (Postgres) and `metacensus/infra` (Fabric) each implement it; the service's tests run against an in-memory fake.
+- **`go/auth`** is the session port — token to `callerID` — with an in-memory placeholder. Real authentication is deferred behind the interface (see [Open questions](#open-questions)); nothing in `go/auth` is a security boundary today.
+
+The service resolves the caller from the session, mints the `id` and `recorded` a replicated executor cannot, and wraps the client's content and signature into the record. `id` and `recorded` are record-level, outside the `{content, signature}` the client hashed, so minting cannot invalidate a signature — and the service never verifies one; that happens behind the store boundary. Password hashing lives here too, above the seam: bcrypt mints its salt in the service, so the hash the store persists is deterministic across endorsing peers and the plaintext is never an invocation argument. The service fails fast only on O(1), state-independent checks the store re-enforces — that a caller is present, and that the signature's signer (and a vote's `user_id`) is that caller.
+
 ## The generated client
 
 The same walk writes `ts/src/client.ts`: one **batteries-included** client per surface — `Client` for the authenticated API, `PublicClient` for the public one. Constructed with `{ baseUrl, fetch?, signer?, token? }`, `Client` owns its HTTP — it builds the path, holds the session token across `login`/`logout` (adding `Authorization` itself), and signs writes through the injected `signer`. Reads return flat records (`getTopic` → `TopicRecord`, `{id, recorded, ...content}`); a signed-envelope read also gets a `getTopicSigned` twin returning the raw envelope, for verifying authorship. Writes take flat content, never an envelope. A 2xx is parsed and cast; a non-2xx throws `ApiError` (status, url, raw text). `ApiError` is one class across both entry points, which is why both classes share one file. Usage and the public-surface variant are in [ts/README.md](ts/README.md).
@@ -163,5 +176,6 @@ Written down, not tracked — the four `ui` issues that held this work were clos
 - **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` and clients hand back the text unparsed. Exactly the schema that goes wrong when invented before a second consumer. Refs [#3](https://github.com/metacensus/api/issues/3).
 - **No write path verifies a signature yet.** What persistence owes is stated only in field comments: verify the digest under the key `keyId` resolves to, refuse a `signerId` disagreeing with its content's `userId`, check at sign-up that `keyId` thumbprints the `publicKey`, and hold a `signingTime`/`recorded` tolerance in chaincode config. No repository implements any of it.
 - **Key rotation.** `keyId` exists so a second key is a lookup, but no route enrols one and nothing says what happens to records signed by a retired key. Sign-up is the only enrolment.
+- **Authentication is undesigned.** `go/service` resolves a caller through the `go/auth` session port, but the only implementation is an in-memory placeholder: a random token mapped to a `callerID`, no expiry, no persistence, no cryptographic binding. What a token should be, where session state lives, and how any of it improves under a real "authn" story are all open; the port exists so the answer slots in without touching the service.
 - **Should the client, or a zero-valued query parameter, be split out / emitted?** No route declares a query field, and `sideEffects: false` already lets a bundler drop the client, so neither is urgent. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not the ones it could grow** — a 64-bit integer, a map, a `oneof` are untested, so the pairing in `proto/buf.gen.yaml` is only checked where a route exercises it.

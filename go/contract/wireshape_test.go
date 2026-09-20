@@ -23,7 +23,7 @@ var contractPackages = []string{
 }
 
 // protoDir is relative to this package's directory, where `go test` runs.
-const protoDir = "../proto"
+const protoDir = "../../proto"
 
 func isContractPackage(pkg string) bool {
 	return slices.Contains(contractPackages, pkg)

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/metacensus/api/go/routes"
+	"github.com/metacensus/api/go/server/routes"
 )
 
 // Except sends the named rpcs to alt and every other route to mux, so one

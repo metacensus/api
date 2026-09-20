@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	contract "github.com/metacensus/api/go"
+	contract "github.com/metacensus/api/go/contract"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
-	"github.com/metacensus/api/go/routes"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

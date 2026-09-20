@@ -18,7 +18,7 @@ BUF := $(BIN)/buf
 
 # Every path `gen` writes, named once so `clean` and the pre-commit hook agree.
 # Paths, not directories: go/server holds both generated and hand-written code.
-GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
+GENERATED := $(GO_DIR)/metacensus $(GO_DIR)/server/routes $(GO_DIR)/server/routes_gen.go $(TS_DIR)/src
 
 # Read out of go.mod so this can't drift from what CI's setup-go uses.
 # GOTOOLCHAIN= with an empty value is silently accepted, so guard and fail

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	contract "github.com/metacensus/api/go"
+	contract "github.com/metacensus/api/go/contract"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
