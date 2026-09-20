@@ -37,9 +37,13 @@ type Store interface {
 	// write of theirs is verified against — trust on first use: nobody vouches
 	// for the key, the store binds whatever the record carries inline. The
 	// record is fully minted (id, recorded); its user_signature has an empty
-	// signer_id and carries the enrolling key in public_key. password is
-	// deliberately a separate argument: it must never sit inside a signed,
-	// stored document.
+	// signer_id and carries the enrolling key in public_key. passwordHash is
+	// deliberately a separate argument: it is the already-hashed credential —
+	// bcrypt mints its salt above this seam, so the hash a backend stores is a
+	// pure function of (request, current state), and the same string reaches
+	// every endorsing peer. The plaintext never crosses the seam, so it is
+	// never an invocation argument and never sits inside a signed, stored
+	// document.
 	//
 	// AlreadyExists if the email is taken or the minted id collides.
 	// InvalidContent if signer_id is non-empty or public_key is absent.
@@ -48,15 +52,18 @@ type Store interface {
 	// Email uniqueness is the store's, not a backend's: Postgres gets it from a
 	// unique index, but Fabric world state is addressed by id alone and needs a
 	// separate email→id key written in the same invocation.
-	EnrollUser(ctx context.Context, record *v1.UserSigned, password string) error
+	EnrollUser(ctx context.Context, record *v1.UserSigned, passwordHash string) error
 
-	// Authenticate checks an email/password pair and returns the user it
-	// belongs to, so the layer above can mint a session for that id. It writes
-	// nothing.
+	// Credential returns the id and stored password hash of the user an email
+	// belongs to, so the layer above can compare the hash and, on a match, mint
+	// a session for that id. The comparison lives above the seam because bcrypt
+	// verification takes the plaintext, which must never become an invocation
+	// argument; the store hands back only the hash it stored. It writes nothing.
 	//
-	// Unauthenticated if no such email exists or the password does not match —
-	// one Kind for both, so a caller cannot probe which emails are enrolled.
-	Authenticate(ctx context.Context, email, password string) (*v1.UserSigned, error)
+	// Unauthenticated if no such email exists — the same Kind the layer above
+	// returns for a hash mismatch, so no failure below or above the seam reveals
+	// whether an email is enrolled.
+	Credential(ctx context.Context, email string) (id, passwordHash string, err error)
 
 	// GetUser returns one user by id. This is also key resolution's public
 	// face: a verifier reads a user's enrolling public_key through it. GetSelf

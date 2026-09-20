@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	contract "github.com/metacensus/api/go"
+	contract "github.com/metacensus/api/go/contract"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -30,11 +30,14 @@ func (rt *Runtime) respond(w http.ResponseWriter, resp proto.Message, err error)
 	_, _ = w.Write(body)
 }
 
-// writeError writes err as {"error": message, "code": code}. An error that is
-// not an *Error becomes a fixed-message 500 — its text stays server-side.
-// The envelope is a google.protobuf.Struct, encoded via the contract's
-// MarshalOptions, to keep encoding/json out of this module.
-func (rt *Runtime) writeError(w http.ResponseWriter, err error) {
+// WriteError writes err as {"error": message, "code": code}. An error that is
+// not an *Error becomes a fixed-message 500 — its text stays server-side. The
+// envelope is a google.protobuf.Struct, encoded via the contract's
+// MarshalOptions, to keep encoding/json out of this module. Exported for a
+// caller outside a generated handler — the auth middleware turns a failed
+// session into a 401 this way; inside a handler the error is returned, and
+// respond routes it here.
+func WriteError(w http.ResponseWriter, err error) {
 	var e *Error
 	// A typed-nil *Error in a non-nil error interface reaches here as ok-and-nil.
 	if !errors.As(err, &e) || e == nil {
@@ -55,3 +58,5 @@ func (rt *Runtime) writeError(w http.ResponseWriter, err error) {
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
 }
+
+func (rt *Runtime) writeError(w http.ResponseWriter, err error) { WriteError(w, err) }

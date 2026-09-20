@@ -19,8 +19,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
-	"github.com/metacensus/api/go/routes"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 )
 
 // topics records the id it was bound with, which is the whole question here.

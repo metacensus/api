@@ -25,8 +25,8 @@ import (
 	"time"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
-	"github.com/metacensus/api/go/routes"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/signing"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"

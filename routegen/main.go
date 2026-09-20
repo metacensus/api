@@ -23,7 +23,7 @@ import (
 // Output paths are relative to the repository root, which is where the
 // Makefile runs this.
 const (
-	goOut     = "go/routes/manifest.go"
+	goOut     = "go/server/routes/manifest.go"
 	tsOut     = "ts/src/route-manifest.ts"
 	srvOut    = "go/server/routes_gen.go"
 	clientOut = "ts/src/client.ts"

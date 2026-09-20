@@ -15,7 +15,7 @@ const DefaultMaxBodyBytes int64 = 1 << 20
 // verified over the decoded message, not the octets (see UserSignature).
 type Runtime struct {
 	// Prefix is the path every route hangs off; "" means already mounted
-	// there. Use routes.Prefix or routes.PublicPrefix for the origin root —
+	// there. Use Prefix or PublicPrefix for the origin root —
 	// a process serving both surfaces needs one Runtime per surface.
 	Prefix string
 

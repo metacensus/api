@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"math/big"
 
-	contract "github.com/metacensus/api/go"
+	contract "github.com/metacensus/api/go/contract"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"google.golang.org/protobuf/proto"
 )

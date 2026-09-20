@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/metacensus/api/go/routes"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 )
 
 // fakeChiRouter mimics chi v5's chi.Router.Method signature without pulling

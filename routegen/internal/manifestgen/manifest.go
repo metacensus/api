@@ -1,4 +1,4 @@
-// Package manifestgen renders go/routes/manifest.go and
+// Package manifestgen renders go/server/routes/manifest.go and
 // ts/src/route-manifest.ts: the same data-only Route, in Go and in
 // TypeScript. One package for both because a field added to model.Route is a
 // field both literals must gain in the same commit.
@@ -35,11 +35,12 @@ var (
 // packagesData is what the header block needs: the surfaces.
 type packagesData struct{ Packages []model.Package }
 
-// RenderGo writes go/routes/manifest.go: a constant per prefix and the whole
-// route table as a []Route literal, gofmt'd.
+// RenderGo writes go/server/routes/manifest.go: a constant per prefix and the
+// whole route table as a []Route literal, gofmt'd, in a data-only sub-package
+// under server so the table reads as routes.Prefix / routes.Routes.
 func RenderGo(routes []model.Route) ([]byte, error) {
 	return render(goTmpl, routes, func(b []byte) ([]byte, error) {
-		return model.GoFormat("go/routes/manifest.go", b)
+		return model.GoFormat("go/server/routes/manifest.go", b)
 	})
 }
 
