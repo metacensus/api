@@ -6,9 +6,8 @@
 // It also renders the sugar layer beneath the raw classes: a Client that wraps
 // ClientSigned and returns flat views ({id, recorded, ...content}) rather than
 // the signed envelopes. Reads flatten the response; writes take flat content
-// plus a session signer and assemble the envelope. Only the authenticated
-// surface gets one — see describeSugarSurface for why — and only its record
-// routes, so sign-up, login and logout stay on ClientSigned.
+// plus a session signer and assemble the envelope. describeSugarSurface and
+// describeSugar settle which surface gets one and which routes it covers.
 package clientgen
 
 import (
@@ -218,10 +217,7 @@ type fileImport struct {
 // The sugar layer (the Client class) is rendered into the same file. It reads
 // the response shape off the descriptor — the envelope is not uniform, so
 // unwrapping is per type — and turns each record route into a flat view. The
-// classifiers below name the four shapes ClientSigned returns; a plain
-// response (Session, a healthcheck) has no record to flatten and is left off
-// the sugar entirely, which is what keeps sign-up, login and logout on
-// ClientSigned where they belong.
+// classifiers below name the four shapes ClientSigned returns.
 
 // sugarClass is one sugar client: the class name, the raw class it wraps, and
 // whether it carries any writes (which decide the signer machinery).
@@ -290,16 +286,17 @@ func envelopeContent(md protoreflect.MessageDescriptor) (protoreflect.MessageDes
 // is false for a plain response (no record to flatten), which drops the route
 // — that is how login, sign-up, logout and the healthcheck stay off the sugar
 // client. When the element is an envelope it also returns the content ref, so
-// the view alias's `& Topic` half can be imported.
-func describeSugar(r model.Route) (sm sugarMethod, vt viewType, content tsRef, include bool) {
-	elem, list := listElem(r.Descriptor.Output())
+// the view alias's `& Topic` half can be imported. It reads the request type
+// name off cr.In, the one refOf already computed, rather than re-deriving it.
+func describeSugar(cr clientRoute) (sm sugarMethod, vt viewType, content tsRef, include bool) {
+	elem, list := listElem(cr.Descriptor.Output())
 	sm = sugarMethod{
-		Name:    lowerFirst(r.RPC),
-		Service: r.Service,
-		RPC:     r.RPC,
-		HTTP:    r.Method,
-		Path:    r.Path,
-		Req:     string(r.Descriptor.Input().Name()),
+		Name:    lowerFirst(cr.RPC),
+		Service: cr.Service,
+		RPC:     cr.RPC,
+		HTTP:    cr.Method,
+		Path:    cr.Path,
+		Req:     cr.In.Name,
 		List:    list,
 	}
 
@@ -309,11 +306,11 @@ func describeSugar(r model.Route) (sm sugarMethod, vt viewType, content tsRef, i
 		sm.View = cRef.Name + "View"
 		sm.Flatten = "flatten" + cRef.Name
 		vt = viewType{View: sm.View, Content: cRef.Name, Envelope: refOf(elem).Name, HasId: hasID, Flatten: sm.Flatten}
-		if r.Signed {
+		if cr.Signed {
 			// The signed write wraps flat content; the contentType it must sign
 			// under is the request's own content field, named exactly.
 			sm.Write = true
-			sm.CType = string(r.Descriptor.Input().Fields().ByName(model.ContentField).Message().FullName())
+			sm.CType = string(cr.Descriptor.Input().Fields().ByName(model.ContentField).Message().FullName())
 		}
 		return sm, vt, cRef, true
 	}
@@ -344,7 +341,7 @@ type sugarSurface struct {
 // unwrapping signed records, and the name it takes is that suffix dropped —
 // ClientSigned becomes Client, the name index.ts reserves. A surface with no
 // record route (the public one) yields nothing even so.
-func describeSugarSurface(pkg model.Package, routes []model.Route) (sugarSurface, bool) {
+func describeSugarSurface(pkg model.Package, methods []methodView) (sugarSurface, bool) {
 	name := strings.TrimSuffix(pkg.TSClient, "Signed")
 	if name == pkg.TSClient {
 		return sugarSurface{}, false
@@ -353,11 +350,11 @@ func describeSugarSurface(pkg model.Package, routes []model.Route) (sugarSurface
 	s := sugarSurface{class: sugarClass{Name: name, TSClient: pkg.TSClient, TSConst: pkg.TSConst}}
 	seen := map[string]bool{} // view types are per content type, not per route
 	var sigRef tsRef
-	for _, r := range routes {
-		if r.Pkg.Proto != pkg.Proto {
+	for _, m := range methods {
+		if m.Pkg.Proto != pkg.Proto {
 			continue
 		}
-		sm, vt, content, ok := describeSugar(r)
+		sm, vt, content, ok := describeSugar(m.clientRoute)
 		if !ok {
 			continue
 		}
@@ -371,7 +368,7 @@ func describeSugarSurface(pkg model.Package, routes []model.Route) (sugarSurface
 		}
 		if sm.Write {
 			s.class.HasWrites = true
-			sigRef = refOf(r.Descriptor.Input().Fields().ByName(model.SignatureField).Message())
+			sigRef = refOf(m.Descriptor.Input().Fields().ByName(model.SignatureField).Message())
 		}
 	}
 	if len(s.methods) == 0 {
@@ -401,7 +398,7 @@ func Render(routes []model.Route) ([]byte, error) {
 	// the import block below, and their bodies are emitted after the raw classes.
 	var sugars []sugarSurface
 	for _, pkg := range withRoutes(methods) {
-		if s, ok := describeSugarSurface(pkg, routes); ok {
+		if s, ok := describeSugarSurface(pkg, methods); ok {
 			sugars = append(sugars, s)
 		}
 	}

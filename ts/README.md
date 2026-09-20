@@ -67,14 +67,16 @@ drift out of step with the contract. It is not a replacement — it wraps
 `ClientSigned` and drops back to it for anything that isn't a record.
 
 **Reads** return the flat view. The envelope isn't uniform, so the view isn't
-either — the flattening is per shape, and the view types name the results:
+either — the flattening is per shape:
 
-| Method | Returns | Note |
+| Response shape | Read returns | List returns |
 | --- | --- | --- |
-| `getTopic`, `getProp`, `getUser`, `getSelf` | `TopicView` / `PropView` / `UserView` | `{id, recorded, ...content}` |
-| `listTopics`, `listProps`, `listUsers` | `TopicView[]` etc. | `{items}` unwrapped |
-| `listVotes` | `VoteView[]` | a vote carries **no `id`** — the view has none either |
-| `getMember`, `listMembers` | `Member` / `Member[]` | already flat; returned unchanged |
+| id-bearing envelope (topic, prop, user) | `TopicView` — `{id, recorded, ...content}` | `TopicView[]` |
+| a vote — envelope with **no `id`** | — | `VoteView[]` (no `id`) |
+| a member — already flat | `Member`, unchanged | `Member[]` |
+
+Every `get*`/`list*` method on `Client` follows the shape of what it returns;
+the class itself is the full roster.
 
 **Writes** take flat content and a **signer**, set once on the constructor —
 it's identical for a session, so it isn't a per-call argument. The sugar
