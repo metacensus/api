@@ -6,16 +6,6 @@ import (
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 )
 
-// Caller is the participant a request is authenticated as: the login token's
-// subject, resolved above this seam and never read from a body field. On a
-// write it must equal the author the record's user_signature.signer_id names,
-// or the store refuses the pair — see Unauthenticated for why the two are held
-// to each other.
-type Caller struct {
-	// UserID is the server-minted id of the signed-in user.
-	UserID string
-}
-
 // Store is the seam between the shared API layer and whichever backend holds
 // the data: metacensus/demo over Postgres, metacensus/infra over Hyperledger
 // Fabric. It is the whole contract between them; nothing Fabric- or
@@ -36,6 +26,10 @@ type Caller struct {
 //
 //   - Verification is inherited. A value checked at the write boundary is
 //     trusted by every later read; reads resolve state, they do not re-verify.
+//
+// A write's callerID is the session's authenticated user, resolved above this
+// seam and never a body field; it must equal the author user_signature.signer_id
+// names, or the write is refused (Unauthenticated).
 //
 // What this seam deliberately omits is in doc.go.
 type Store interface {
@@ -66,18 +60,17 @@ type Store interface {
 
 	// GetUser returns one user by id. This is also key resolution's public
 	// face: a verifier reads a user's enrolling public_key through it. GetSelf
-	// above resolves to GetUser(caller.UserID). NotFound if absent.
+	// above resolves to GetUser(callerID). NotFound if absent.
 	GetUser(ctx context.Context, id string) (*v1.UserSigned, error)
 
 	// ListUsers returns every user; no pagination (see doc.go).
 	ListUsers(ctx context.Context) ([]*v1.UserSigned, error)
 
-	// CreateTopic persists a new topic. The record is fully minted; caller must
-	// equal user_signature.signer_id.
+	// CreateTopic persists a new topic; the record is fully minted.
 	//
-	// Unauthenticated if caller is not the author. AlreadyExists on id
+	// Unauthenticated if callerID is not the author. AlreadyExists on id
 	// collision. SignatureInvalid (Fabric) if the signature does not stand.
-	CreateTopic(ctx context.Context, caller Caller, record *v1.TopicSigned) error
+	CreateTopic(ctx context.Context, callerID string, record *v1.TopicSigned) error
 
 	// GetTopic returns one topic by id. NotFound if absent.
 	GetTopic(ctx context.Context, id string) (*v1.TopicSigned, error)
@@ -85,13 +78,13 @@ type Store interface {
 	// ListTopics returns every topic, as ListUsers does.
 	ListTopics(ctx context.Context) ([]*v1.TopicSigned, error)
 
-	// CreateProp persists a new prop under its content.topic_id. The record is
-	// fully minted; caller must equal user_signature.signer_id.
+	// CreateProp persists a new prop under its content.topic_id; the record is
+	// fully minted.
 	//
 	// InvalidContent if topic_id is absent or names a topic that does not
-	// exist. Unauthenticated if caller is not the author. AlreadyExists on id
+	// exist. Unauthenticated if callerID is not the author. AlreadyExists on id
 	// collision. SignatureInvalid (Fabric) if the signature does not stand.
-	CreateProp(ctx context.Context, caller Caller, record *v1.PropSigned) error
+	CreateProp(ctx context.Context, callerID string, record *v1.PropSigned) error
 
 	// GetProp returns one prop, addressed by the (topic, prop) tuple rather
 	// than an opaque composite key — how the two ids compose into a stored key
@@ -104,14 +97,14 @@ type Store interface {
 	// SetVote records the caller's position on one prop, keyed by
 	// (prop, user): a second vote from the same user replaces the first rather
 	// than adding to it. The record is fully minted; content.user_id must equal
-	// both the signer and the caller, and content.topic_id/prop_id must name an
+	// both the signer and callerID, and content.topic_id/prop_id must name an
 	// existing prop.
 	//
 	// InvalidContent if any of the three ids is absent, if user_id disagrees
-	// with the signer, or if the prop does not exist. Unauthenticated if caller
-	// is not the author. SignatureInvalid (Fabric) if the signature does not
-	// stand.
-	SetVote(ctx context.Context, caller Caller, record *v1.VoteSigned) error
+	// with the signer, or if the prop does not exist. Unauthenticated if
+	// callerID is not the author. SignatureInvalid (Fabric) if the signature
+	// does not stand.
+	SetVote(ctx context.Context, callerID string, record *v1.VoteSigned) error
 
 	// ListVotes returns every vote on one prop — the only way to read votes;
 	// there is no GetVote, because a vote is addressed only as one member's
