@@ -90,24 +90,28 @@ message Prop {
 // One member's position on one prop, keyed by `(propId, userId)`; a second
 // vote from the same user replaces the first rather than adding to it.
 message VoteSigned {
+  // 1 is the id the other envelopes mint; a vote is keyed by (prop, user) and
+  // mints none, so every *Signed record numbers its fields alike.
+  reserved 1;
+
   // Server's observation, and the only ordering a reader may use —
   // `user_signature.time` is the voter's own claim.
-  google.protobuf.Timestamp recorded = 1;
+  google.protobuf.Timestamp recorded = 2;
 
-  Vote content = 2;
+  Vote content = 3;
 
   // How to read this record; sealed by both signatures below.
-  Interpretation interpretation = 3;
+  Interpretation interpretation = 4;
 
   // The participant vouches for `content`.
-  Signature user_signature = 4;
+  Signature user_signature = 5;
 
   // The institution vouches for `user_signature`; see UserSigned.
-  Signature institutional_signature = 5;
+  Signature institutional_signature = 6;
 
   // Held for the next signature layer — see the reserve-the-next-field rule in
   // go/contract/signing_test.go.
-  reserved 6;
+  reserved 7;
 }
 
 // What a voter signs. `user_id` duplicates the author `user_signature.key_id`

@@ -304,14 +304,14 @@ type VoteSigned struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server's observation, and the only ordering a reader may use —
 	// `user_signature.time` is the voter's own claim.
-	Recorded *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=recorded,proto3" json:"recorded,omitempty"`
-	Content  *Vote                  `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Recorded *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	Content  *Vote                  `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	// How to read this record; sealed by both signatures below.
-	Interpretation *Interpretation `protobuf:"bytes,3,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
+	Interpretation *Interpretation `protobuf:"bytes,4,opt,name=interpretation,proto3" json:"interpretation,omitempty"`
 	// The participant vouches for `content`.
-	UserSignature *Signature `protobuf:"bytes,4,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
+	UserSignature *Signature `protobuf:"bytes,5,opt,name=user_signature,json=userSignature,proto3" json:"user_signature,omitempty"`
 	// The institution vouches for `user_signature`; see UserSigned.
-	InstitutionalSignature *Signature `protobuf:"bytes,5,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
+	InstitutionalSignature *Signature `protobuf:"bytes,6,opt,name=institutional_signature,json=institutionalSignature,proto3" json:"institutional_signature,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -934,14 +934,14 @@ const file_metacensus_v1_prop_proto_rawDesc = "" +
 	"\tUserAdmit\x10\x04\x12\x0f\n" +
 	"\vUserExpulse\x10\x05\x12\x1b\n" +
 	"\x17PaperExtractionComplete\x10\x06\x12\x1c\n" +
-	"\x18PaperIncludeMetaAnalysis\x10\a\"\xd4\x02\n" +
+	"\x18PaperIncludeMetaAnalysis\x10\a\"\xda\x02\n" +
 	"\n" +
 	"VoteSigned\x126\n" +
-	"\brecorded\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
-	"\acontent\x18\x02 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12E\n" +
-	"\x0einterpretation\x18\x03 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
-	"\x0euser_signature\x18\x04 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\x12Q\n" +
-	"\x17institutional_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\x16institutionalSignatureJ\x04\b\x06\x10\a\"\xaa\x02\n" +
+	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12-\n" +
+	"\acontent\x18\x03 \x01(\v2\x13.metacensus.v1.VoteR\acontent\x12E\n" +
+	"\x0einterpretation\x18\x04 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12?\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\x12Q\n" +
+	"\x17institutional_signature\x18\x06 \x01(\v2\x18.metacensus.v1.SignatureR\x16institutionalSignatureJ\x04\b\x01\x10\x02J\x04\b\a\x10\b\"\xaa\x02\n" +
 	"\x04Vote\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x17\n" +
 	"\aprop_id\x18\x02 \x01(\tR\x06propId\x12\x17\n" +
