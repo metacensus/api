@@ -9,14 +9,7 @@ import type { HealthcheckRequest, HealthcheckResponse } from "./metacensus/v1/co
 import type { PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
-
-// The same literal as route-manifest.ts's apiPrefix, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
-const apiPrefixDefault = "/metacensus/api/v1";
-
-// The same literal as route-manifest.ts's publicPrefix, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
-const publicPrefixDefault = "/metacensus/public";
+import { apiPrefix, publicPrefix } from "./route-manifest.js";
 function param(v: string | number | boolean): string {
   return encodeURIComponent(String(v));
 }
@@ -63,7 +56,7 @@ export class ClientSigned {
   // test harness can mount the same routes elsewhere.
   constructor(
     private readonly transport: Transport,
-    private readonly prefix: string = apiPrefixDefault,
+    private readonly prefix: string = apiPrefix,
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {
@@ -173,7 +166,7 @@ export class PublicClient {
   // test harness can mount the same routes elsewhere.
   constructor(
     private readonly transport: Transport,
-    private readonly prefix: string = publicPrefixDefault,
+    private readonly prefix: string = publicPrefix,
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {

@@ -6,10 +6,7 @@
 {{end}}
 {{define "import"}}import type { {{join ", " .Names}} } from {{printf "%q" .File}};
 {{end}}
-{{define "prefixConst"}}
-// The same literal as route-manifest.ts's {{.TSConst}}, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
-const {{.TSConst}}Default = {{printf "%q" .Prefix}};
+{{define "valueImport"}}import { {{join ", " .Names}} } from {{printf "%q" .File}};
 {{end}}
 {{define "staticBody"}}
 // What a client hands the transport. path is absolute and percent-encoded; body
@@ -54,7 +51,7 @@ export class {{.TSClient}} {
   // test harness can mount the same routes elsewhere.
   constructor(
     private readonly transport: Transport,
-    private readonly prefix: string = {{.TSConst}}Default,
+    private readonly prefix: string = {{.TSConst}},
   ) {}
 
   private async call<T>(method: string, path: string, body?: string): Promise<T> {

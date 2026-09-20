@@ -7,11 +7,12 @@
 // conformance suite, the HTTP server ts/test/wire.test.mjs drives, and buf and
 // protoc-gen-go as `tool` dependencies. A `tool` directive is a real module
 // requirement, and buf drags ~90 transitive ones — the Docker CLI,
-// quic-go, the whole buf server graph. github.com/metacensus/api, the
-// contract, requires exactly two things and must keep doing so. That is the
-// whole reason for the split, and it is one reason, which is why there is one
-// module here and not two: a conformance test that imports chi and a tool
-// directive that names buf are the same problem.
+// quic-go, the whole buf server graph. That graph must never land on
+// github.com/metacensus/api, the contract, which consumers import and whose
+// own dependencies are weighed one at a time (see its README, "Dependencies").
+// That is the whole reason for the split, and it is one reason, which is why
+// there is one module here and not two: a conformance test that imports chi
+// and a tool directive that names buf are the same problem.
 //
 // The buf and protoc-gen-go versions are the ones that produced the committed
 // output. **Do not `go mod tidy`.** Add a requirement by hand instead.

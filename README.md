@@ -86,7 +86,7 @@ If the answer ever changes, it's because something started consuming it programm
 
 **The display wording is deliberately not mechanised.** The enum carries the set; the label ("Fund the work") stays in the SPA as copy. Putting labels in the schema would make a copy edit into a schema change, a regeneration, a release and a deploy — and the two fail differently: a stale label renders an odd string, a stale set rejects every submission. Only the second is worth a build failure.
 
-**The validation limits are documented, not enforced.** `name` ≤ 120, `email` ≤ 254, `message` ≤ 2000, body ≤ 16 KiB — comments on the fields rather than `protovalidate` constraints, because the constraint couldn't reach the half that needs it: ts-proto runs with `onlyTypes=true` and drops field options entirely, while `protovalidate-es` would put a runtime dependency into a package whose whole claim is that it has none. A mismatched cap degrades a form; a mismatched interest set breaks it — only one was worth new machinery.
+**The validation limits are documented, not enforced.** `name` ≤ 120, `email` ≤ 254, `message` ≤ 2000, body ≤ 16 KiB — comments on the fields rather than `protovalidate` constraints, because the constraint couldn't reach the half that needs it: ts-proto runs with `onlyTypes=true` and drops field options entirely, so `protovalidate-es` on the TypeScript side would have no constraint to enforce. A mismatched cap degrades a form; a mismatched interest set breaks it — only one was worth new machinery.
 
 **The server and the client are generated, at the same depth as the authenticated surface.** `routegen` renders every surface in `model.Packages`, so the public routes get `PartnerRoutes`, `UnimplementedPartnerRoutes` and `RegisterPartnerRoutes` in `go/server`, and a `PublicClient` in `ts/src/client.ts`. Generating less for one surface than the other is the absence this contract exists to refuse.
 
@@ -162,7 +162,7 @@ Reading a user is how a verifier resolves a key: `GET /user/{userId}` returns th
 
 ### Computing it
 
-`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone. Neither adds a dependency: `go.mod` is unchanged, and `check-no-runtime.mjs` holds `dependencies: {}` on the npm side (see "What the tests check").
+`go/signing` and `@metacensus/api/signing` are the two halves, and neither may be edited alone.
 
 ```go
 sig := &v1.UserSignature{
@@ -221,7 +221,7 @@ routegen/go.mod   module 2, github.com/metacensus/api/routegen
 
 | | Holds | May require | Imported by |
 |---|---|---|---|
-| `github.com/metacensus/api` | the contract: types, manifest, wire encoder, server, signing | exactly two things, and they are checked | consumers |
+| `github.com/metacensus/api` | the contract: types, manifest, wire encoder, server, signing | little, and each addition is weighed — see "Dependencies" | consumers |
 | `github.com/metacensus/api/routegen` | generation, and everything that tests generation | anything — chi, buf, protoc-gen-go | nobody, ever |
 
 The split has one reason: a `tool` directive is a real module requirement, and a test-only import is indistinguishable from a runtime one, so buf's ~90 transitive requirements and chi would both land on every consumer of the contract. Both are generation, so both live in the second module. `routegen` is `replace`d onto the working tree, so its tests run against what's in front of you rather than a published version.
@@ -229,6 +229,17 @@ The split has one reason: a `tool` directive is a real module requirement, and a
 **The Go packages sit under `go/`, so imports read `github.com/metacensus/api/go/metacensus/v1`.** Hoisting `metacensus/` to the root would read better at the call site, but the root is shared with `ts/`, `proto/`, `internal/` and `scripts/`, and a generated `metacensus/` tree there would be the only directory whose name says nothing about which language reads it. This is a one-way door once a tag exists — the import path is the module's public surface.
 
 **`go.mod` is at the repository root, not in `go/`, and must stay there.** A module whose `go.mod` sits in `go/` is versioned by `go/v1.2.3` tags: a plain `v1.2.3` tag would publish nothing, and `go/v1.2.3` wouldn't match the release workflow's tag filter — nothing would run and no failure would be reported. Rooted here, one plain semver tag does the job, and `routegen` is deliberately unversioned: no `routegen/v*` tag is ever cut.
+
+## Dependencies
+
+The stance is **skeptical curiosity**: a dependency is weighed, not banned — the enforced no-runtime check is gone, and no test pins a count. This module already rests on protobuf and genproto, so "zero" was never the real position, and reimplementing a well-scoped library from scratch is often the *lower*-quality choice. When weighing one, ask:
+
+1. the cost of ownership it incurs, now and later;
+2. the opportunity cost of *not* using it — reimplementation, bugs, missed maintenance;
+3. whether, if a library is wanted here, this is the best one available;
+4. what makes a library worthwhile in the abstract, and whether this candidate clears that bar.
+
+Two costs weigh heavier here than any count did: a requirement in the root `go.mod` reaches every consumer (why generation's heavy graph lives in `routegen` — see "Layout"), and a runtime dependency in the npm package ships to the browser. **Importing the package's own modules is neither, and always fine** — it is how `client.ts` takes its route prefixes from `route-manifest.ts`.
 
 ## Working on it
 
@@ -283,7 +294,7 @@ import "github.com/metacensus/api/go/signing" // the same chain, the same digest
 
 **One package, one entry point per concern**, the set derived by `check-entry-points.mjs` from `package.json` rather than listed here. The SPA calls both surfaces from one build and takes one dependency; a consumer of only the public surface — a third party integrating against `/metacensus/public/*`, never having had a session — imports `@metacensus/api/public` and does not acquire the authenticated types. Go needed no equivalent: its packages were already separate.
 
-`@metacensus/api/signing` splits by *concern* rather than by surface: it's a canonicaliser and a pile of WebCrypto calls, and a consumer who only wants `Topic` shouldn't have to resolve it. It carries no runtime dependency either — see "The signing chain". The route manifest is exported from both, deliberately, because "every MetaCensus route on one screen" is the reason the contract lives in one repository.
+`@metacensus/api/signing` splits by *concern* rather than by surface: it's a canonicaliser and a pile of WebCrypto calls, and a consumer who only wants `Topic` shouldn't have to resolve it. The route manifest is exported from both, deliberately, because "every MetaCensus route on one screen" is the reason the contract lives in one repository.
 
 **A consumer's Go must satisfy the `go` directive in the root `go.mod`** — a build error below it, not a fallback. It's the one thing here that constrains another repository's toolchain, so a consumer still on an older Go has to move first.
 
@@ -483,10 +494,7 @@ Route identity is the **full** path, prefix included: a public `/partner` and an
 
 `go/signing` has a suite of its own: the canonicaliser against the cases RFC 8785 exists for — key ordering by code unit, the escapes `encoding/json` would have got wrong, the numbers both languages refuse — and then the chain, where an altered content, an altered signed attribute, a substituted `contentType` and a key that doesn't thumbprint to its `keyId` each have to fail.
 
-Two scripts guard the npm package, both run by `npm run check`:
-
-- `check-no-runtime.mjs` asserts it reaches for nothing at runtime: empty `dependencies`, no value import in anything that ships. `@metacensus/api/signing` is inside that, not an exception — it writes its own canonicaliser and reaches WebCrypto through a global, so it imports nothing.
-- `check-entry-points.mjs` asserts what `package.json` publishes, what the entry points export and what the tsconfigs compile are the same set. `index.ts` and `public.ts` list their exports by hand, and both tsconfigs list the entry points by hand, so without it a new `.proto` file generates a module no consumer can import, and a new subpath export emits no `dist/` file at all — the same shape of hole as a proto package missing from `contractPackages`. Both entry points share `src/client.ts`, which holds a class per surface: `ApiError` has to be one class, or catching it would depend on which entry point the catch block imported from.
+`check-entry-points.mjs` guards the npm package, run by `npm run check`. It asserts what `package.json` publishes, what the entry points export and what the tsconfigs compile are the same set. `index.ts` and `public.ts` list their exports by hand, and both tsconfigs list the entry points by hand, so without it a new `.proto` file generates a module no consumer can import, and a new subpath export emits no `dist/` file at all — the same shape of hole as a proto package missing from `contractPackages`. Both entry points share `src/client.ts`, which holds a class per surface: `ApiError` has to be one class, or catching it would depend on which entry point the catch block imported from.
 
 `npm test` (`ts/test/*.test.mjs`, plain `node --test` against the built `dist/`) exercises the clients — every method the manifest declares, on the client for that route's surface, compared against the route it says it is — and `wire.test.mjs`, which builds `routegen/wireserver` and drives the generated client against the generated server over HTTP, so the `protojson` / ts-proto pairing is a check rather than a configuration nobody has run. That one needs Go on `PATH`, which `make check` and CI have. It gates signature validity as well as readability, for the reason given under "The digest" above.
 
