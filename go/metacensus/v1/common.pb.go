@@ -331,6 +331,105 @@ func (x *UserSignature) GetValue() string {
 	return ""
 }
 
+// An institution's countersignature over a UserSignature.value — it endorses
+// the author (enrolled and in good standing when the record was written), not
+// the content. Server-minted and outside the user's signature, so it rides on
+// the stored envelope and never inside signed content. Computing and checking
+// it is the store's, below the persistence seam; this contract only carries
+// the shape so a later runtime needs no wire break. See README.md.
+type InstitutionalSignature struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The institution that countersigned.
+	SignerId string `protobuf:"bytes,1,opt,name=signer_id,json=signerId,proto3" json:"signer_id,omitempty"`
+	// base64url SHA-256 of the institution key's SPKI DER, resolved against the
+	// institution's key history the way a user's key_id is.
+	KeyId string `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	// Reuses UserSignature's closed algorithm vocabulary.
+	Alg UserSignature_Alg `protobuf:"varint,3,opt,name=alg,proto3,enum=metacensus.v1.UserSignature_Alg" json:"alg,omitempty"`
+	// The server's observation of when it countersigned; the institution makes
+	// no separately-claimed time.
+	Recorded *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=recorded,proto3" json:"recorded,omitempty"`
+	// Versions the countersignature scheme, independently of UserSignature.spec.
+	Spec string `protobuf:"bytes,5,opt,name=spec,proto3" json:"spec,omitempty"`
+	// base64url r||s over the countersigned UserSignature.value. Emptied from
+	// its own digest by the same rule as UserSignature.value.
+	Value         string `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InstitutionalSignature) Reset() {
+	*x = InstitutionalSignature{}
+	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InstitutionalSignature) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InstitutionalSignature) ProtoMessage() {}
+
+func (x *InstitutionalSignature) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InstitutionalSignature.ProtoReflect.Descriptor instead.
+func (*InstitutionalSignature) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *InstitutionalSignature) GetSignerId() string {
+	if x != nil {
+		return x.SignerId
+	}
+	return ""
+}
+
+func (x *InstitutionalSignature) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *InstitutionalSignature) GetAlg() UserSignature_Alg {
+	if x != nil {
+		return x.Alg
+	}
+	return UserSignature_Unspecified
+}
+
+func (x *InstitutionalSignature) GetRecorded() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Recorded
+	}
+	return nil
+}
+
+func (x *InstitutionalSignature) GetSpec() string {
+	if x != nil {
+		return x.Spec
+	}
+	return ""
+}
+
+func (x *InstitutionalSignature) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
 // The part of a user record its owner signs. Lives here, not user.proto,
 // because auth.proto's SignUpRequest and user.proto's UserSigned both need it.
 type User struct {
@@ -344,7 +443,7 @@ type User struct {
 
 func (x *User) Reset() {
 	*x = User{}
-	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	mi := &file_metacensus_v1_common_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +455,7 @@ func (x *User) String() string {
 func (*User) ProtoMessage() {}
 
 func (x *User) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_common_proto_msgTypes[4]
+	mi := &file_metacensus_v1_common_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +468,7 @@ func (x *User) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use User.ProtoReflect.Descriptor instead.
 func (*User) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4}
+	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *User) GetName() string {
@@ -417,7 +516,14 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x05value\x18\b \x01(\tR\x05value\"!\n" +
 	"\x03Alg\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\t\n" +
-	"\x05Es384\x10\x01\"J\n" +
+	"\x05Es384\x10\x01\"\xe2\x01\n" +
+	"\x16InstitutionalSignature\x12\x1b\n" +
+	"\tsigner_id\x18\x01 \x01(\tR\bsignerId\x12\x15\n" +
+	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x122\n" +
+	"\x03alg\x18\x03 \x01(\x0e2 .metacensus.v1.UserSignature.AlgR\x03alg\x126\n" +
+	"\brecorded\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12\x12\n" +
+	"\x04spec\x18\x05 \x01(\tR\x04spec\x12\x14\n" +
+	"\x05value\x18\x06 \x01(\tR\x05value\"J\n" +
 	"\x04User\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x18\n" +
@@ -438,26 +544,29 @@ func file_metacensus_v1_common_proto_rawDescGZIP() []byte {
 }
 
 var file_metacensus_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_metacensus_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_metacensus_v1_common_proto_goTypes = []any{
-	(UserSignature_Alg)(0),        // 0: metacensus.v1.UserSignature.Alg
-	(*ListMetadata)(nil),          // 1: metacensus.v1.ListMetadata
-	(*HealthcheckRequest)(nil),    // 2: metacensus.v1.HealthcheckRequest
-	(*HealthcheckResponse)(nil),   // 3: metacensus.v1.HealthcheckResponse
-	(*UserSignature)(nil),         // 4: metacensus.v1.UserSignature
-	(*User)(nil),                  // 5: metacensus.v1.User
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(UserSignature_Alg)(0),         // 0: metacensus.v1.UserSignature.Alg
+	(*ListMetadata)(nil),           // 1: metacensus.v1.ListMetadata
+	(*HealthcheckRequest)(nil),     // 2: metacensus.v1.HealthcheckRequest
+	(*HealthcheckResponse)(nil),    // 3: metacensus.v1.HealthcheckResponse
+	(*UserSignature)(nil),          // 4: metacensus.v1.UserSignature
+	(*InstitutionalSignature)(nil), // 5: metacensus.v1.InstitutionalSignature
+	(*User)(nil),                   // 6: metacensus.v1.User
+	(*timestamppb.Timestamp)(nil),  // 7: google.protobuf.Timestamp
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{
 	0, // 0: metacensus.v1.UserSignature.alg:type_name -> metacensus.v1.UserSignature.Alg
-	6, // 1: metacensus.v1.UserSignature.signing_time:type_name -> google.protobuf.Timestamp
-	2, // 2: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
-	3, // 3: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	7, // 1: metacensus.v1.UserSignature.signing_time:type_name -> google.protobuf.Timestamp
+	0, // 2: metacensus.v1.InstitutionalSignature.alg:type_name -> metacensus.v1.UserSignature.Alg
+	7, // 3: metacensus.v1.InstitutionalSignature.recorded:type_name -> google.protobuf.Timestamp
+	2, // 4: metacensus.v1.HealthRoutes.Healthcheck:input_type -> metacensus.v1.HealthcheckRequest
+	3, // 5: metacensus.v1.HealthRoutes.Healthcheck:output_type -> metacensus.v1.HealthcheckResponse
+	5, // [5:6] is the sub-list for method output_type
+	4, // [4:5] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_common_proto_init() }
@@ -471,7 +580,7 @@ func file_metacensus_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_common_proto_rawDesc), len(file_metacensus_v1_common_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

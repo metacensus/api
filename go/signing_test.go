@@ -135,8 +135,10 @@ func TestContentHasNoSingularMessageFields(t *testing.T) {
 	})
 }
 
-// Holds the field number reserved for the (later) institutional signature —
-// see README.md ("The signing chain") — so it isn't spent on something else.
+// Every stored signed record reserves the field just past its last one, so the
+// next signature layer has a home the wire already protects — the institutional
+// signature took the slot this rule held open before it, and the same rule now
+// holds the slot after it. See README.md ("The signing chain").
 func TestSignedRecordsReserveTheNextField(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()
@@ -163,7 +165,7 @@ func TestSignedRecordsReserveTheNextField(t *testing.T) {
 			}
 		}
 		t.Errorf("%s stores a signature but does not `reserved %d;`. That number is "+
-			"where the institutional signature over user_signature.value lands, and a "+
+			"the home the next signature layer will need, held open on the wire, and a "+
 			"comment saying so is found by the next reader rather than by protoc.",
 			md.FullName(), want)
 	})

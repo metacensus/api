@@ -74,6 +74,40 @@ export enum UserSignature_Alg {
 }
 
 /**
+ * An institution's countersignature over a UserSignature.value — it endorses
+ * the author (enrolled and in good standing when the record was written), not
+ * the content. Server-minted and outside the user's signature, so it rides on
+ * the stored envelope and never inside signed content. Computing and checking
+ * it is the store's, below the persistence seam; this contract only carries
+ * the shape so a later runtime needs no wire break. See README.md.
+ */
+export interface InstitutionalSignature {
+  /** The institution that countersigned. */
+  signerId: string;
+  /**
+   * base64url SHA-256 of the institution key's SPKI DER, resolved against the
+   * institution's key history the way a user's key_id is.
+   */
+  keyId: string;
+  /** Reuses UserSignature's closed algorithm vocabulary. */
+  alg: UserSignature_Alg;
+  /**
+   * The server's observation of when it countersigned; the institution makes
+   * no separately-claimed time.
+   */
+  recorded?:
+    | string
+    | undefined;
+  /** Versions the countersignature scheme, independently of UserSignature.spec. */
+  spec: string;
+  /**
+   * base64url r||s over the countersigned UserSignature.value. Emptied from
+   * its own digest by the same rule as UserSignature.value.
+   */
+  value: string;
+}
+
+/**
  * The part of a user record its owner signs. Lives here, not user.proto,
  * because auth.proto's SignUpRequest and user.proto's UserSigned both need it.
  */
