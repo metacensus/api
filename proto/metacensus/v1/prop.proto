@@ -102,8 +102,7 @@ message VoteSigned {
   // The participant vouches for `content`.
   Signature user_signature = 4;
 
-  // The institution vouches for `user_signature`; see UserSigned. VoteSigned
-  // mints no id, so the numbers run one lower than the other envelopes.
+  // The institution vouches for `user_signature`; see UserSigned.
   Signature institutional_signature = 5;
 
   // Held for the next signature layer — see the reserve-the-next-field rule in

@@ -83,10 +83,7 @@ export interface VoteSigned {
   userSignature?:
     | Signature
     | undefined;
-  /**
-   * The institution vouches for `user_signature`; see UserSigned. VoteSigned
-   * mints no id, so the numbers run one lower than the other envelopes.
-   */
+  /** The institution vouches for `user_signature`; see UserSigned. */
   institutionalSignature?: Signature | undefined;
 }
 
