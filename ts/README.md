@@ -6,9 +6,8 @@ response under `/metacensus/api/v1` and `/metacensus/public`, generated from the
 
 What ships is the generated interfaces, the route manifest, `protobufPackage`,
 a typed client per surface — over a transport you supply — and the signing
-chain. It reaches for nothing at runtime; `scripts/check-no-runtime.mjs` is
-what says so, and what fails the build. The signing module is inside that
-guard rather than an exception to it.
+chain. How dependencies are weighed is in the repository README, under
+"Dependencies".
 
 ```bash
 npm install @metacensus/api

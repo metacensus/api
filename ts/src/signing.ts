@@ -9,8 +9,9 @@
 // byte-stable, so only canonicalizing keeps a record verifiable after it's
 // relayed, re-encoded and stored.
 //
-// No runtime dependency: the canonicalizer below is hand-written, and
-// signing uses the WebCrypto `crypto` global rather than an import.
+// The canonicalizer below is hand-written — it must match go/signing byte for
+// byte, which no general RFC 8785 library does — and signing uses the WebCrypto
+// `crypto` global and the platform's own base64 codec, so it pulls in nothing.
 
 import type { UserSignature } from "./metacensus/v1/common.js";
 
@@ -205,16 +206,12 @@ export async function keyId(publicKey: CryptoKey): Promise<string> {
 }
 
 function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return bytes.toBase64({ alphabet: "base64url", omitPadding: true });
 }
 
 // Uint8Array<ArrayBuffer>, not the default <ArrayBufferLike>: WebCrypto's
-// BufferSource excludes SharedArrayBuffer.
+// BufferSource excludes SharedArrayBuffer. fromBase64's loose chunk handling
+// accepts the unpadded input toBase64Url writes.
 function fromBase64Url(s: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
-  const out = new Uint8Array(new ArrayBuffer(binary.length));
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+  return Uint8Array.fromBase64(s, { alphabet: "base64url" });
 }

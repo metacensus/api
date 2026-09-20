@@ -7,8 +7,8 @@
 {{define "import"}}import type { {{join ", " .Names}} } from {{printf "%q" .File}};
 {{end}}
 {{define "prefixConst"}}
-// The same literal as route-manifest.ts's {{.TSConst}}, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
+// The same literal as route-manifest.ts's {{.TSConst}}, emitted here too so a
+// path builds without an import.
 const {{.TSConst}}Default = {{printf "%q" .Prefix}};
 {{end}}
 {{define "staticBody"}}

@@ -10,12 +10,12 @@ import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, User, UserGetRequest, UserList, UserListRequest } from "./metacensus/v1/user.js";
 
-// The same literal as route-manifest.ts's apiPrefix, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
+// The same literal as route-manifest.ts's apiPrefix, emitted here too so a
+// path builds without an import.
 const apiPrefixDefault = "/metacensus/api/v1";
 
-// The same literal as route-manifest.ts's publicPrefix, re-emitted rather than
-// imported, since a value import under src/ is forbidden (check-no-runtime.mjs).
+// The same literal as route-manifest.ts's publicPrefix, emitted here too so a
+// path builds without an import.
 const publicPrefixDefault = "/metacensus/public";
 function param(v: string | number | boolean): string {
   return encodeURIComponent(String(v));
