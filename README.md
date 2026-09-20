@@ -137,7 +137,7 @@ From a fresh clone nothing has to be installed first — `gen` and `check` build
 `routegen` writes `go/server/routes_gen.go` per service: a handler interface with one method per rpc (path, query and body already bound), an `Unimplemented<Service>` answering 501, and a `Register<Service>` that binds and dispatches. **`go/server`'s own comments are the account of itself** — `runtime.go` for the package, `Mux`'s doc comment for what it leaves to the router. `Unimplemented<Service>` is the whole default; persistence is entirely the implementer's. Two facts decide how you mount:
 
 - **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix wants the zero value; one at the origin root wants `routes.Prefix`. A process serving both surfaces needs one `Runtime` per surface — sharing one mounts a surface under the wrong prefix, silently.
-- **Any `Mux` that is not a `StdMux` must set `PathValue`**, and a `chi.Router` wants `server.EscapedPathValue` — `ServeMux` percent-decodes a segment, chi does not, and the client percent-encodes every one. `Register<Service>` panics until it's set. A service whose rpcs don't share one middleware needs `server.Except`.
+- **Any `Mux` that is not a `StdMux` must set `PathValue`**, and a `chi.Router` wants `server.EscapedPathValue` — `ServeMux` percent-decodes a segment, chi does not, and the client percent-encodes every one. `Register<Service>` panics until it's set.
 
 ```go
 type topics struct{ server.UnimplementedTopicRoutes }
@@ -154,7 +154,7 @@ mux := http.NewServeMux()
 server.RegisterTopicRoutes(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix: routes.Prefix}, topics{})
 ```
 
-On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside whatever it's mounted under; `server.Except(authed, v1, rt, "AuthRoutes.Login", "AuthRoutes.SignUp")` sends the public rpcs to a second router. `routegen/chitest` pins both routers' behaviour.
+On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside whatever it's mounted under. `routegen/chitest` pins both routers' behaviour.
 
 ## The service layer
 
