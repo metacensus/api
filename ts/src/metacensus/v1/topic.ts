@@ -12,7 +12,7 @@ export const protobufPackage = "metacensus.v1";
 /** Topics and their membership. */
 
 /** A systematic review in progress, as a signed record. */
-export interface Topic {
+export interface TopicSigned {
   /** Minted by the server, outside the signature. */
   id: string;
   /**
@@ -20,7 +20,7 @@ export interface Topic {
    * claim.
    */
   recorded?: string | undefined;
-  content?: TopicContent | undefined;
+  content?: Topic | undefined;
   userSignature?: UserSignature | undefined;
 }
 
@@ -28,7 +28,7 @@ export interface Topic {
  * What a topic's author signs; carries no id — the server mints the
  * topic's key.
  */
-export interface TopicContent {
+export interface Topic {
   name: string;
   description: string;
 }
@@ -37,7 +37,7 @@ export interface TopicListRequest {
 }
 
 export interface TopicList {
-  items: Topic[];
+  items: TopicSigned[];
 }
 
 export interface TopicGetRequest {
@@ -45,7 +45,7 @@ export interface TopicGetRequest {
 }
 
 export interface TopicCreateRequest {
-  content?: TopicContent | undefined;
+  content?: Topic | undefined;
   userSignature?: UserSignature | undefined;
 }
 

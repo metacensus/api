@@ -115,14 +115,14 @@ Every write on `metacensus.v1` carries two fields — `content` and a `userSigna
   "userSignature": {
     "signerId": "...", "keyId": "...", "alg": "Es384", "publicKey": "",
     "signingTime": "...", "spec": "metacensus.sig/1",
-    "contentType": "metacensus.v1.PropContent", "value": "..."
+    "contentType": "metacensus.v1.Prop", "value": "..."
   }
 }
 ```
 
 **The server wraps, it never modifies.** Everything it adds — the minted id, the recording time — sits around the signed content, never inside it, so a reader checking one record against another never has to unwrap or cast.
 
-A stored record reserves the field number after its last, so an institutional signature lands as a pure field addition later. Which number differs per message (`Vote` mints no id, so its fields stop earlier); `reserved` holds it and `TestSignedRecordsReserveTheNextField` holds that. That future signature would cover the *user's signature value*, not the content — it endorses the author, not the data.
+A stored record reserves the field number after its last, so an institutional signature lands as a pure field addition later. Which number differs per message (`VoteSigned` mints no id, so its fields stop earlier); `reserved` holds it and `TestSignedRecordsReserveTheNextField` holds that. That future signature would cover the *user's signature value*, not the content — it endorses the author, not the data.
 
 ### Which ids are inside the signature
 
@@ -169,7 +169,7 @@ sig := &v1.UserSignature{
 	SignerId: userID, KeyId: keyID, Alg: v1.UserSignature_Es384,
 	SigningTime: timestamppb.Now(),
 	Spec:        signing.Spec,
-	ContentType: "metacensus.v1.TopicContent",
+	ContentType: "metacensus.v1.Topic",
 }
 if err := signing.Sign(priv, content, sig); err != nil { ... }
 // and, behind persistence:
@@ -182,7 +182,7 @@ import { SPEC, sign, keyId, encodePublicKey } from "@metacensus/api/signing";
 const signature = {
   signerId, keyId: await keyId(publicKey), alg: "Es384", publicKey: "",
   signingTime: new Date().toISOString(),
-  spec: SPEC, contentType: "metacensus.v1.TopicContent", value: "",
+  spec: SPEC, contentType: "metacensus.v1.Topic", value: "",
 };
 signature.value = await sign(privateKey, content, signature);
 await api.createTopic({ content, userSignature: signature });
@@ -418,7 +418,7 @@ Sharing one `Runtime` between them would mount one surface's routes under the ot
 
 ## The generated client
 
-The same walk writes `ts/src/client.ts`: one class per surface — `Client` for the authenticated API, `PublicClient` for the public one — each with one method per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). Each method builds the path from the request's path fields (percent-encoded per segment), the query string from its query fields, serialises the body exactly once, and hands `{method, path, body?}` to a caller-supplied `Transport`. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there's no runtime schema to validate against; a non-2xx throws `ApiError`, carrying the status, the path requested and the raw response text unparsed. Parse that text defensively: a 404 or 405 comes from the router before any handler runs, so it's often not JSON at all.
+The same walk writes `ts/src/client.ts`: one class per surface — `ClientSigned` for the authenticated API, `PublicClient` for the public one — each with one method per rpc, typed against ts-proto's generated types (`import type` only, so it costs nothing at runtime). `ClientSigned` returns the `…Signed` envelopes (`getTopic` → `TopicSigned`). Each method builds the path from the request's path fields (percent-encoded per segment), the query string from its query fields, serialises the body exactly once, and hands `{method, path, body?}` to a caller-supplied `Transport`. A 2xx response is `JSON.parse`d and cast to the response type — with `onlyTypes`, there's no runtime schema to validate against; a non-2xx throws `ApiError`, carrying the status, the path requested and the raw response text unparsed. Parse that text defensively: a 404 or 405 comes from the router before any handler runs, so it's often not JSON at all.
 
 **The `Transport` is where the caller's own concerns live**, deliberately: auth headers, and status policy beyond "2xx parses, the rest throws" (the SPA's 401-clears-the-token-and-redirects behavior, or retries). The client doesn't call `fetch` itself and carries no cache of its own.
 
@@ -427,7 +427,7 @@ It is not where signing happens. A participant's signature is part of the reques
 A caller writes:
 
 ```ts
-import { Client, ApiError, type Transport } from "@metacensus/api";
+import { ClientSigned, ApiError, type Transport } from "@metacensus/api";
 
 const transport: Transport = async ({ method, path, body }) => {
   const headers = new Headers({ "Content-Type": "application/json" });
@@ -436,7 +436,7 @@ const transport: Transport = async ({ method, path, body }) => {
   return { status: r.status, body: await r.text() };
 };
 
-const api = new Client(transport);
+const api = new ClientSigned(transport);
 const topic = await api.getTopic({ topicId });
 const created = await api.createTopic({ name, description: "" });
 ```

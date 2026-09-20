@@ -5,7 +5,7 @@
 // source: metacensus/v1/auth.proto
 
 /* eslint-disable */
-import type { UserContent, UserSignature } from "./common.js";
+import type { User, UserSignature } from "./common.js";
 
 export const protobufPackage = "metacensus.v1";
 
@@ -24,7 +24,7 @@ export interface LoginRequest {
  */
 export interface SignUpRequest {
   content?:
-    | UserContent
+    | User
     | undefined;
   /**
    * Deliberately outside `content`: a password must never be inside a

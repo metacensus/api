@@ -42,7 +42,7 @@ message LoginRequest {
 // binds whatever it's handed, and the signature proves possession of the
 // matching private key at enrollment.
 message SignUpRequest {
-  UserContent content = 1;
+  User content = 1;
 
   // Deliberately outside `content`: a password must never be inside a
   // signed, stored document.

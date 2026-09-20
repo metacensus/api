@@ -236,7 +236,7 @@ type UserSignature struct {
 	// canonicalization, digest, or encoding changes this string.
 	Spec string `protobuf:"bytes,6,opt,name=spec,proto3" json:"spec,omitempty"`
 	// Full proto name of the message `content` holds, e.g.
-	// "metacensus.v1.PropContent". Stops a signature over one type being
+	// "metacensus.v1.Prop". Stops a signature over one type being
 	// replayed as another.
 	ContentType string `protobuf:"bytes,7,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// Excluded from its own digest by being emptied, not dropped.
@@ -332,8 +332,8 @@ func (x *UserSignature) GetValue() string {
 }
 
 // The part of a user record its owner signs. Lives here, not user.proto,
-// because auth.proto's SignUpRequest and user.proto's User both need it.
-type UserContent struct {
+// because auth.proto's SignUpRequest and user.proto's UserSigned both need it.
+type User struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
@@ -342,20 +342,20 @@ type UserContent struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UserContent) Reset() {
-	*x = UserContent{}
+func (x *User) Reset() {
+	*x = User{}
 	mi := &file_metacensus_v1_common_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UserContent) String() string {
+func (x *User) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UserContent) ProtoMessage() {}
+func (*User) ProtoMessage() {}
 
-func (x *UserContent) ProtoReflect() protoreflect.Message {
+func (x *User) ProtoReflect() protoreflect.Message {
 	mi := &file_metacensus_v1_common_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -367,26 +367,26 @@ func (x *UserContent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UserContent.ProtoReflect.Descriptor instead.
-func (*UserContent) Descriptor() ([]byte, []int) {
+// Deprecated: Use User.ProtoReflect.Descriptor instead.
+func (*User) Descriptor() ([]byte, []int) {
 	return file_metacensus_v1_common_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *UserContent) GetName() string {
+func (x *User) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *UserContent) GetEmail() string {
+func (x *User) GetEmail() string {
 	if x != nil {
 		return x.Email
 	}
 	return ""
 }
 
-func (x *UserContent) GetCountry() string {
+func (x *User) GetCountry() string {
 	if x != nil {
 		return x.Country
 	}
@@ -417,8 +417,8 @@ const file_metacensus_v1_common_proto_rawDesc = "" +
 	"\x05value\x18\b \x01(\tR\x05value\"!\n" +
 	"\x03Alg\x12\x0f\n" +
 	"\vUnspecified\x10\x00\x12\t\n" +
-	"\x05Es384\x10\x01\"Q\n" +
-	"\vUserContent\x12\x12\n" +
+	"\x05Es384\x10\x01\"J\n" +
+	"\x04User\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x18\n" +
 	"\acountry\x18\x03 \x01(\tR\acountry2z\n" +
@@ -445,7 +445,7 @@ var file_metacensus_v1_common_proto_goTypes = []any{
 	(*HealthcheckRequest)(nil),    // 2: metacensus.v1.HealthcheckRequest
 	(*HealthcheckResponse)(nil),   // 3: metacensus.v1.HealthcheckResponse
 	(*UserSignature)(nil),         // 4: metacensus.v1.UserSignature
-	(*UserContent)(nil),           // 5: metacensus.v1.UserContent
+	(*User)(nil),                  // 5: metacensus.v1.User
 	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
 }
 var file_metacensus_v1_common_proto_depIdxs = []int32{

@@ -14,11 +14,11 @@ service PropRoutes {
     option (google.api.http) = {get: "/topic/{topic_id}/prop"};
   }
 
-  rpc GetProp(PropGetRequest) returns (Prop) {
+  rpc GetProp(PropGetRequest) returns (PropSigned) {
     option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}"};
   }
 
-  rpc CreateProp(PropCreateRequest) returns (Prop) {
+  rpc CreateProp(PropCreateRequest) returns (PropSigned) {
     option (google.api.http) = {
       post: "/topic/{topic_id}/prop"
       body: "*"
@@ -29,7 +29,7 @@ service PropRoutes {
     option (google.api.http) = {get: "/topic/{topic_id}/prop/{prop_id}/vote"};
   }
 
-  rpc SetVote(VoteSetRequest) returns (Vote) {
+  rpc SetVote(VoteSetRequest) returns (VoteSigned) {
     option (google.api.http) = {
       post: "/topic/{topic_id}/prop/{prop_id}/vote"
       body: "*"
@@ -40,7 +40,7 @@ service PropRoutes {
 // A motion a topic's members vote on, as a signed record. `author_id` and
 // `created` were removed: they're `user_signature.signer_id` and
 // `.signing_time` now.
-message Prop {
+message PropSigned {
   // Minted by the server, outside the signature.
   string id = 1;
 
@@ -48,17 +48,17 @@ message Prop {
   // claim.
   google.protobuf.Timestamp recorded = 2;
 
-  PropContent content = 3;
+  Prop content = 3;
 
   UserSignature user_signature = 4;
 
-  // Held for an institutional signature; see User.
+  // Held for an institutional signature; see UserSigned.
   reserved 5;
 }
 
 // What a prop's author signs; carries `topic_id` but not the prop's own
 // server-minted id.
-message PropContent {
+message Prop {
   // What the proposition would do if it passed.
   enum Type {
     Unspecified = 0;
@@ -75,30 +75,30 @@ message PropContent {
 
   Type type = 2;
 
-  // The text `VoteContent.citations` indexes into.
+  // The text `Vote.citations` indexes into.
   string description = 3;
 }
 
 // One member's position on one prop, keyed by `(propId, userId)`; a second
 // vote from the same user replaces the first rather than adding to it.
-message Vote {
+message VoteSigned {
   // Server's observation, and the only ordering a reader may use —
   // `user_signature.signing_time` is the voter's own claim.
   google.protobuf.Timestamp recorded = 1;
 
-  VoteContent content = 2;
+  Vote content = 2;
 
   UserSignature user_signature = 3;
 
-  // Held for an institutional signature; see User. Vote mints no id, so this
-  // is 4, not 5.
+  // Held for an institutional signature; see UserSigned. VoteSigned mints no
+  // id, so this is 4, not 5.
   reserved 4;
 }
 
 // What a voter signs. `user_id` duplicates `user_signature.signer_id` by
 // design; persistence owes refusing the two when they disagree (see
 // README.md, "Open questions").
-message VoteContent {
+message Vote {
   enum Position {
     Unspecified = 0;
     For = 1;
@@ -130,7 +130,7 @@ message PropListRequest {
 }
 
 message PropList {
-  repeated Prop items = 1;
+  repeated PropSigned items = 1;
 }
 
 message PropGetRequest {
@@ -142,7 +142,7 @@ message PropGetRequest {
 // by the path and re-signed inside `content`; the two must agree.
 message PropCreateRequest {
   string topic_id = 1;
-  PropContent content = 2;
+  Prop content = 2;
   UserSignature user_signature = 3;
 }
 
@@ -153,7 +153,7 @@ message VoteListRequest {
 
 // The only way to read a prop's votes.
 message VoteList {
-  repeated Vote items = 1;
+  repeated VoteSigned items = 1;
 }
 
 // Replaces the caller's previous vote rather than creating a new one; both
@@ -161,6 +161,6 @@ message VoteList {
 message VoteSetRequest {
   string topic_id = 1;
   string prop_id = 2;
-  VoteContent content = 3;
+  Vote content = 3;
   UserSignature user_signature = 4;
 }

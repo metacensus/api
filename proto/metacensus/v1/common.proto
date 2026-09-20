@@ -64,7 +64,7 @@ message UserSignature {
   string spec = 6;
 
   // Full proto name of the message `content` holds, e.g.
-  // "metacensus.v1.PropContent". Stops a signature over one type being
+  // "metacensus.v1.Prop". Stops a signature over one type being
   // replayed as another.
   string content_type = 7;
 
@@ -73,8 +73,8 @@ message UserSignature {
 }
 
 // The part of a user record its owner signs. Lives here, not user.proto,
-// because auth.proto's SignUpRequest and user.proto's User both need it.
-message UserContent {
+// because auth.proto's SignUpRequest and user.proto's UserSigned both need it.
+message User {
   string name = 1;
   string email = 2;
   string country = 3;
