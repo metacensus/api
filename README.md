@@ -154,7 +154,7 @@ mux := http.NewServeMux()
 server.RegisterTopicRoutes(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix: routes.Prefix}, topics{})
 ```
 
-On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside whatever it's mounted under; `server.Except(authed, v1, rt, "AuthRoutes.Login", "AuthRoutes.SignUp")` sends the public rpcs to a second router. `routegen/chitest` pins both routers' behaviour.
+On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside whatever it's mounted under; `server.Except(authed, v1, rt, routes.AuthLogin, routes.AuthSignUp)` sends the named routes to a second router (the manifest's per-route values, so a mistyped one is a compile error). `routegen/chitest` pins both routers' behaviour.
 
 ## The service layer
 

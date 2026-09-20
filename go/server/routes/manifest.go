@@ -39,25 +39,50 @@ type Route struct {
 	Response string
 }
 
+// Each declared route, addressable on its own as <service without the Routes
+// suffix><RPC> — e.g. AuthRefresh. Routes below is assembled from these, so a
+// caller can name one route at compile time and the table can never disagree.
+var (
+	AuthLogin                    = Route{Prefix: Prefix, Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LoginRequest", Response: "Session"}
+	AuthSignUp                   = Route{Prefix: Prefix, Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Signed: true, Request: "SignUpRequest", Response: "Session"}
+	AuthRefresh                  = Route{Prefix: Prefix, Service: "AuthRoutes", RPC: "Refresh", Method: "POST", Path: "/refresh", Params: nil, Query: nil, Body: "*", Signed: false, Request: "RefreshRequest", Response: "Session"}
+	AuthLogout                   = Route{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LogoutRequest", Response: "LogoutResponse"}
+	HealthHealthcheck            = Route{Prefix: Prefix, Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Signed: false, Request: "HealthcheckRequest", Response: "HealthcheckResponse"}
+	PropListProps                = Route{Prefix: Prefix, Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "PropListRequest", Response: "PropList"}
+	PropGetProp                  = Route{Prefix: Prefix, Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "PropGetRequest", Response: "PropSigned"}
+	PropCreateProp               = Route{Prefix: Prefix, Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Signed: true, Request: "PropCreateRequest", Response: "PropSigned"}
+	PropListVotes                = Route{Prefix: Prefix, Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "VoteListRequest", Response: "VoteList"}
+	PropSetVote                  = Route{Prefix: Prefix, Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "*", Signed: true, Request: "VoteSetRequest", Response: "VoteSigned"}
+	TopicListTopics              = Route{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Query: nil, Body: "", Signed: false, Request: "TopicListRequest", Response: "TopicList"}
+	TopicGetTopic                = Route{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "TopicGetRequest", Response: "TopicSigned"}
+	TopicCreateTopic             = Route{Prefix: Prefix, Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Query: nil, Body: "*", Signed: true, Request: "TopicCreateRequest", Response: "TopicSigned"}
+	TopicListMembers             = Route{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "MemberListRequest", Response: "MemberList"}
+	TopicGetMember               = Route{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Query: nil, Body: "", Signed: false, Request: "MemberGetRequest", Response: "Member"}
+	UserListUsers                = Route{Prefix: Prefix, Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Signed: false, Request: "UserListRequest", Response: "UserList"}
+	UserGetUser                  = Route{Prefix: Prefix, Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Signed: false, Request: "UserGetRequest", Response: "UserSigned"}
+	UserGetSelf                  = Route{Prefix: Prefix, Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Signed: false, Request: "SelfGetRequest", Response: "UserSigned"}
+	PartnerSubmitPartnerInterest = Route{Prefix: PublicPrefix, Service: "PartnerRoutes", RPC: "SubmitPartnerInterest", Method: "POST", Path: "/partner", Params: nil, Query: nil, Body: "*", Signed: false, Request: "PartnerSubmission", Response: "PartnerReceipt"}
+)
+
 // Routes is every route across every surface.
 var Routes = []Route{
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LoginRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Signed: true, Request: "SignUpRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Refresh", Method: "POST", Path: "/refresh", Params: nil, Query: nil, Body: "*", Signed: false, Request: "RefreshRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LogoutRequest", Response: "LogoutResponse"},
-	{Prefix: Prefix, Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Signed: false, Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "PropListRequest", Response: "PropList"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "PropGetRequest", Response: "PropSigned"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "CreateProp", Method: "POST", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "*", Signed: true, Request: "PropCreateRequest", Response: "PropSigned"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListVotes", Method: "GET", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "VoteListRequest", Response: "VoteList"},
-	{Prefix: Prefix, Service: "PropRoutes", RPC: "SetVote", Method: "POST", Path: "/topic/{topicId}/prop/{propId}/vote", Params: []string{"topicId", "propId"}, Query: nil, Body: "*", Signed: true, Request: "VoteSetRequest", Response: "VoteSigned"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListTopics", Method: "GET", Path: "/topic", Params: nil, Query: nil, Body: "", Signed: false, Request: "TopicListRequest", Response: "TopicList"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetTopic", Method: "GET", Path: "/topic/{topicId}", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "TopicGetRequest", Response: "TopicSigned"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "CreateTopic", Method: "POST", Path: "/topic", Params: nil, Query: nil, Body: "*", Signed: true, Request: "TopicCreateRequest", Response: "TopicSigned"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "ListMembers", Method: "GET", Path: "/topic/{topicId}/member", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "MemberListRequest", Response: "MemberList"},
-	{Prefix: Prefix, Service: "TopicRoutes", RPC: "GetMember", Method: "GET", Path: "/topic/{topicId}/member/{userId}", Params: []string{"topicId", "userId"}, Query: nil, Body: "", Signed: false, Request: "MemberGetRequest", Response: "Member"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Signed: false, Request: "UserListRequest", Response: "UserList"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Signed: false, Request: "UserGetRequest", Response: "UserSigned"},
-	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Signed: false, Request: "SelfGetRequest", Response: "UserSigned"},
-	{Prefix: PublicPrefix, Service: "PartnerRoutes", RPC: "SubmitPartnerInterest", Method: "POST", Path: "/partner", Params: nil, Query: nil, Body: "*", Signed: false, Request: "PartnerSubmission", Response: "PartnerReceipt"},
+	AuthLogin,
+	AuthSignUp,
+	AuthRefresh,
+	AuthLogout,
+	HealthHealthcheck,
+	PropListProps,
+	PropGetProp,
+	PropCreateProp,
+	PropListVotes,
+	PropSetVote,
+	TopicListTopics,
+	TopicGetTopic,
+	TopicCreateTopic,
+	TopicListMembers,
+	TopicGetMember,
+	UserListUsers,
+	UserGetUser,
+	UserGetSelf,
+	PartnerSubmitPartnerInterest,
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/metacensus/api/go/auth"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"github.com/metacensus/api/go/server"
+	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/store"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -172,7 +173,7 @@ func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 func (h *Handlers) cookieConfig(rt *server.Runtime) auth.CookieConfig {
 	return auth.CookieConfig{
 		Name:     h.cookieName,
-		Path:     rt.Prefix + "/refresh",
+		Path:     rt.Prefix + routes.AuthRefresh.Path,
 		MaxAge:   auth.DefaultRefreshTTL,
 		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteStrictMode,

@@ -25,6 +25,15 @@ var funcs = template.FuncMap{
 	"goSlice":  model.GoSlice,
 	"quoteAll": model.QuoteAll,
 	"join":     func(sep string, items []string) string { return strings.Join(items, sep) },
+	"routeVar": routeVar,
+}
+
+// routeVar is a route's Go variable name in the manifest: the service name with
+// its "Routes" suffix dropped, then the rpc — AuthRoutes.Refresh becomes
+// AuthRefresh. Every service name ends in "Routes", so the trim is total; the
+// rpc keeps the manifest's names globally unique.
+func routeVar(r model.Route) string {
+	return strings.TrimSuffix(r.Service, "Routes") + r.RPC
 }
 
 var (
@@ -67,6 +76,22 @@ func render(t *template.Template, routes []model.Route, format func([]byte) ([]b
 		}
 	}
 	if err := execute(&b, t, "routeType", nil); err != nil {
+		return nil, err
+	}
+	// The vars pass names each route (Go only; the TS blocks are empty), and the
+	// route pass then lists them — a name in Go, the full literal in TS.
+	if err := execute(&b, t, "varsOpen", nil); err != nil {
+		return nil, err
+	}
+	for _, r := range routes {
+		if err := t.ExecuteTemplate(&b, "varLine", r); err != nil {
+			return nil, fmt.Errorf("%s: route var %s.%s: %w", t.Name(), r.Service, r.RPC, err)
+		}
+	}
+	if err := execute(&b, t, "varsClose", nil); err != nil {
+		return nil, err
+	}
+	if err := execute(&b, t, "routesOpen", nil); err != nil {
 		return nil, err
 	}
 	for _, r := range routes {

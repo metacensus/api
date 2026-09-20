@@ -30,7 +30,11 @@ export interface Route {
   readonly request: string;
   readonly response: string;
 }
-
+{{end}}
+{{define "varsOpen"}}{{end}}
+{{define "varLine"}}{{end}}
+{{define "varsClose"}}{{end}}
+{{define "routesOpen"}}
 export const routes: readonly Route[] = [
 {{end}}
 {{define "route"}}  { prefix: {{.Pkg.TSConst}}, service: {{printf "%q" .Service}}, rpc: {{printf "%q" .RPC}}, method: {{printf "%q" .Method}}, path: {{printf "%q" .Path}}, params: [{{join ", " (quoteAll .Params)}}], query: [{{join ", " (quoteAll .Query)}}], body: {{printf "%q" .Body}}, signed: {{.Signed}}, request: {{printf "%q" .Request}}, response: {{printf "%q" .Response}} },

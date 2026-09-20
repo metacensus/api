@@ -34,11 +34,22 @@ type Route struct {
 	Request  string
 	Response string
 }
-
+{{end}}
+{{define "varsOpen"}}
+// Each declared route, addressable on its own as <service without the Routes
+// suffix><RPC> — e.g. AuthRefresh. Routes below is assembled from these, so a
+// caller can name one route at compile time and the table can never disagree.
+var (
+{{end}}
+{{define "varLine"}}	{{routeVar .}} = Route{Prefix: {{.Pkg.GoConst}}, Service: {{printf "%q" .Service}}, RPC: {{printf "%q" .RPC}}, Method: {{printf "%q" .Method}}, Path: {{printf "%q" .Path}}, Params: {{goSlice .Params}}, Query: {{goSlice .Query}}, Body: {{printf "%q" .Body}}, Signed: {{.Signed}}, Request: {{printf "%q" .Request}}, Response: {{printf "%q" .Response}}}
+{{end}}
+{{define "varsClose"}})
+{{end}}
+{{define "routesOpen"}}
 // Routes is every route across every surface.
 var Routes = []Route{
 {{end}}
-{{define "route"}}	{Prefix: {{.Pkg.GoConst}}, Service: {{printf "%q" .Service}}, RPC: {{printf "%q" .RPC}}, Method: {{printf "%q" .Method}}, Path: {{printf "%q" .Path}}, Params: {{goSlice .Params}}, Query: {{goSlice .Query}}, Body: {{printf "%q" .Body}}, Signed: {{.Signed}}, Request: {{printf "%q" .Request}}, Response: {{printf "%q" .Response}}},
+{{define "route"}}	{{routeVar .}},
 {{end}}
 {{define "footer"}}}
 {{end}}

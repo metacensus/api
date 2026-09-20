@@ -270,7 +270,7 @@ func TestServiceSplitAcrossAnAuthBoundary(t *testing.T) {
 		v1Routes.Group(func(authedRoutes chi.Router) {
 			authedRoutes.Use(jwt)
 			server.RegisterAuthRoutes(
-				server.Except(authedRoutes, v1Routes, rt, "AuthRoutes.Login", "AuthRoutes.SignUp"),
+				server.Except(authedRoutes, v1Routes, rt, routes.AuthLogin, routes.AuthSignUp),
 				rt, server.UnimplementedAuthRoutes{})
 		})
 	})
@@ -297,15 +297,4 @@ func TestServiceSplitAcrossAnAuthBoundary(t *testing.T) {
 			t.Errorf("%s: went through the middleware = %v, want %v", tc.path, got, tc.wantAuthd)
 		}
 	}
-}
-
-// The patterns stay in the manifest, so a renamed or mistyped rpc is a
-// startup failure rather than a route quietly mounted on the wrong router.
-func TestExceptRefusesAnRPCTheManifestDoesNotDeclare(t *testing.T) {
-	defer func() {
-		if p := recover(); p == nil {
-			t.Fatal("accepted an rpc that is not in the manifest")
-		}
-	}()
-	server.Except(chi.NewRouter(), chi.NewRouter(), &server.Runtime{}, "AuthRoutes.LogOut")
 }
