@@ -18,6 +18,8 @@ type AuthRoutes interface {
 	Login(context.Context, *v1.LoginRequest) (*v1.Session, error)
 	// POST /signup
 	SignUp(context.Context, *v1.SignUpRequest) (*v1.Session, error)
+	// POST /refresh
+	Refresh(context.Context, *v1.RefreshRequest) (*v1.Session, error)
 	// POST /logout
 	Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error)
 }
@@ -32,6 +34,10 @@ func (UnimplementedAuthRoutes) Login(context.Context, *v1.LoginRequest) (*v1.Ses
 
 func (UnimplementedAuthRoutes) SignUp(context.Context, *v1.SignUpRequest) (*v1.Session, error) {
 	return nil, errNotImplemented("AuthRoutes.SignUp")
+}
+
+func (UnimplementedAuthRoutes) Refresh(context.Context, *v1.RefreshRequest) (*v1.Session, error) {
+	return nil, errNotImplemented("AuthRoutes.Refresh")
 }
 
 func (UnimplementedAuthRoutes) Logout(context.Context, *v1.LogoutRequest) (*v1.LogoutResponse, error) {
@@ -91,8 +97,35 @@ func RegisterAuthRoutes(mux Mux, rt *Runtime, impl AuthRoutes) {
 		resp, err := impl.SignUp(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
+	mux.Method("POST", rt.Prefix+"/refresh", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.RefreshRequest)
+		raw, err := rt.readBody(w, r)
+		if err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.decodeBody(raw, req); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.Refresh(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
 	mux.Method("POST", rt.Prefix+"/logout", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.LogoutRequest)
+		raw, err := rt.readBody(w, r)
+		if err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.decodeBody(raw, req); err != nil {
+			rt.writeError(w, err)
+			return
+		}
 		if err := rt.bindQuery(r, req, nil); err != nil {
 			rt.writeError(w, err)
 			return

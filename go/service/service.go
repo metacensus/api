@@ -62,6 +62,14 @@ type Config struct {
 	// BcryptCost is the cost the password hash is minted at. Defaults to
 	// defaultBcryptCost. Tests set it low so hashing is cheap.
 	BcryptCost int
+
+	// RefreshCookieName is the name of the HttpOnly refresh cookie. Defaults to
+	// "mc_refresh".
+	RefreshCookieName string
+
+	// InsecureCookies drops the Secure attribute from the refresh cookie so it
+	// round-trips over plain http. For tests only; never set in production.
+	InsecureCookies bool
 }
 
 // Handlers implements every generated server route interface. It embeds each
@@ -75,11 +83,13 @@ type Handlers struct {
 	server.UnimplementedTopicRoutes
 	server.UnimplementedPropRoutes
 
-	store      store.Store
-	sessions   auth.Sessions
-	now        func() time.Time
-	newID      func() string
-	bcryptCost int
+	store        store.Store
+	sessions     auth.Sessions
+	now          func() time.Time
+	newID        func() string
+	bcryptCost   int
+	cookieName   string
+	cookieSecure bool
 
 	// dummyHash is compared against on a login for an unknown email, so a miss
 	// costs the same bcrypt work as a wrong password and cannot be timed apart.
@@ -102,7 +112,10 @@ func New(cfg Config) *Handlers {
 	}
 	sessions := cfg.Sessions
 	if sessions == nil {
-		sessions = auth.NewMemorySessions()
+		// Share the service's clock: expires_in is the access token's expiry
+		// (minted by Sessions) minus now (read here), so the two must agree. A
+		// caller supplying its own Sessions must align it with Config.Now.
+		sessions = auth.NewMemorySessionsWith(auth.MemoryConfig{Now: now})
 	}
 	cost := cfg.BcryptCost
 	if cost == 0 {
@@ -112,13 +125,19 @@ func New(cfg Config) *Handlers {
 	if err != nil {
 		panic("service: bcrypt rejected the configured cost: " + err.Error())
 	}
+	cookieName := cfg.RefreshCookieName
+	if cookieName == "" {
+		cookieName = "mc_refresh"
+	}
 	return &Handlers{
-		store:      cfg.Store,
-		sessions:   sessions,
-		now:        now,
-		newID:      newID,
-		bcryptCost: cost,
-		dummyHash:  dummy,
+		store:        cfg.Store,
+		sessions:     sessions,
+		now:          now,
+		newID:        newID,
+		bcryptCost:   cost,
+		cookieName:   cookieName,
+		cookieSecure: !cfg.InsecureCookies,
+		dummyHash:    dummy,
 	}
 }
 
@@ -134,14 +153,30 @@ func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 	// panic if they forgot server.EscapedPathValue.
 	rt = resolvePathValue(mux, rt)
 	authed := middlewareMux{inner: mux, mw: auth.Middleware(h.sessions)}
+	cookie := middlewareMux{inner: mux, mw: auth.CookieAdapter(h.cookieConfig(rt))}
 
 	server.RegisterHealthRoutes(mux, rt, h)
 	server.RegisterUserRoutes(authed, rt, h)
 	server.RegisterTopicRoutes(authed, rt, h)
 	server.RegisterPropRoutes(authed, rt, h)
-	// Login and SignUp establish a session, so they cannot require one; Logout
-	// ends one, so it must. Except routes only Logout to the wrapped mux.
-	server.RegisterAuthRoutes(server.Except(mux, authed, rt, "AuthRoutes.Logout"), rt, h)
+	// Every auth route establishes or ends a session, so none can require a
+	// live access token: all four mount behind the cookie adapter (which reads
+	// and writes the refresh cookie) and none behind the bearer middleware.
+	// Logout in particular must work with an expired access token.
+	server.RegisterAuthRoutes(cookie, rt, h)
+}
+
+// cookieConfig is the refresh-cookie policy the adapter enforces. The cookie is
+// scoped to the refresh route, so the browser sends it only there and not on
+// every API call.
+func (h *Handlers) cookieConfig(rt *server.Runtime) auth.CookieConfig {
+	return auth.CookieConfig{
+		Name:     h.cookieName,
+		Path:     rt.Prefix + "/refresh",
+		MaxAge:   auth.DefaultRefreshTTL,
+		Secure:   h.cookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	}
 }
 
 // middlewareMux wraps every handler registered through it before handing it to

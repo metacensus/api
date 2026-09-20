@@ -52,7 +52,7 @@ message TopicSigned {
   InstitutionalSignature institutional_signature = 5;
 
   // Held for the next signature layer — see the reserve-the-next-field rule in
-  // go/signing_test.go.
+  // go/contract/signing_test.go.
   reserved 6;
 }
 

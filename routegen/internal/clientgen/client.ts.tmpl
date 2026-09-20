@@ -39,11 +39,12 @@ async function request<T>(
   method: string,
   body: string | undefined,
   token: string | undefined,
+  credentials?: RequestCredentials,
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token !== undefined) headers["Authorization"] = `Bearer ${token}`;
-  const res = await f(url, { method, headers, body });
+  const res = await f(url, { method, headers, body, credentials });
   if (res.status < 200 || res.status >= 300) {
     throw new ApiError(method, url, res.status, await res.text());
   }
@@ -65,7 +66,10 @@ async function request<T>(
 {{if .HasSigner}}  readonly signer?: Signer;
 {{end}}{{if .HasToken}}  readonly token?: string;
 {{end}}  readonly prefix?: string;
-}
+{{if .HasToken}}  // Passed to every fetch. Set "include" in a browser so the `HttpOnly` refresh
+  // cookie rides the `/refresh` (and logout) call; omit it server-side.
+  readonly credentials?: RequestCredentials;
+{{end}}}
 
 // {{.Class}} calls {{.Summary}}.
 export class {{.Class}} {
@@ -73,14 +77,16 @@ export class {{.Class}} {
   readonly #fetch: typeof globalThis.fetch;
   readonly #prefix: string;
 {{if .HasSigner}}  readonly #signer?: Signer;
-{{end}}{{if .HasToken}}  #token?: string;
+{{end}}{{if .HasToken}}  readonly #credentials?: RequestCredentials;
+  #token?: string;
 {{end}}
   constructor(options: {{.Options}}) {
     this.#baseUrl = options.baseUrl;
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#prefix = options.prefix ?? {{.TSConst}};
 {{if .HasSigner}}    this.#signer = options.signer;
-{{end}}{{if .HasToken}}    this.#token = options.token;
+{{end}}{{if .HasToken}}    this.#credentials = options.credentials;
+    this.#token = options.token;
 {{end}}  }
 {{if .HasToken}}
   // The session token from the last login/signUp, for persisting a session.
@@ -89,7 +95,7 @@ export class {{.Class}} {
   }
 {{end}}
   #request<T>(method: string, path: string, body?: string): Promise<T> {
-    return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, {{if .HasToken}}this.#token{{else}}undefined{{end}});
+    return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, {{if .HasToken}}this.#token, this.#credentials{{else}}undefined{{end}});
   }
 {{if .HasSigner}}
   #sign(content: unknown, contentType: string): Promise<UserSignature> {
@@ -140,7 +146,7 @@ export class {{.Class}} {
 {{define "m_logout"}}
   // {{.Service}}.{{.RPC}}: {{.HTTP}} {{.Path}}
   async {{.Name}}(req: {{.Req}}): Promise<{{.Return}}> {
-    const res = await this.#request<{{.Return}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, undefined);
+    const res = await this.#request<{{.Return}}>({{printf "%q" .HTTP}}, {{.PathExpr}}, JSON.stringify(req));
     this.#token = undefined;
     return res;
   }

@@ -24,8 +24,9 @@ const (
 // unsignedWrites lists routes that write but carry no signature, each with
 // its reason; TestEveryWriteCarriesASignature fails if either side drifts.
 var unsignedWrites = map[string]string{
-	"POST /metacensus/api/v1/login":  "moves no content; the password is the credential and is never signed",
-	"POST /metacensus/api/v1/logout": "moves no content; it surrenders a token",
+	"POST /metacensus/api/v1/login":   "moves no content; the password is the credential and is never signed",
+	"POST /metacensus/api/v1/refresh": "moves no content; it exchanges a refresh token for a fresh access token",
+	"POST /metacensus/api/v1/logout":  "moves no content; it surrenders a token",
 }
 
 // TestEveryWriteCarriesASignature: a login token says who is connected, not

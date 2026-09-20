@@ -29,6 +29,8 @@ client to reach for. Construct it with:
   (wrap the global to add retries, a 401 policy, or logging).
 - `signer?` — signs writes; see "Writes", below. Omit it for a read-only client.
 - `token?` — an initial bearer token, to resume a session without logging in.
+- `credentials?` — the fetch credentials mode; set `"include"` in a browser so
+  the `HttpOnly` refresh cookie rides `refresh()` and `logout`. See "Auth", below.
 
 A non-2xx response throws `ApiError` (`method`, `url`, `status`, and the raw
 `body` — parse it defensively, since a 404 or 405 comes from the router, not a
@@ -101,12 +103,28 @@ a client built without a signer throws.
 
 ## Auth and the session token
 
-`login` and `signUp` store the returned token; the client adds
-`Authorization: Bearer <token>` to every later request, and `logout` clears it.
-`signUp` signs its `User` content through the same signer (that signature enrols
-the key — inline `publicKey`, empty `signerId`; keep the password out of
-`content`, since content is what gets stored). `token` (a getter) exposes the
-current token, to persist and later restore a session via the `token` option.
+There are two tokens. The **access token** is short-lived: `login` and `signUp`
+store the one they return, the client adds `Authorization: Bearer <token>` to
+every later request, and `session.expiresIn` (seconds) says how long it lasts.
+`token` (a getter) exposes the current one, to persist and restore a session via
+the `token` option. `signUp` signs its `User` content through the same signer
+(that signature enrols the key — inline `publicKey`, empty `signerId`; keep the
+password out of `content`, since content is what gets stored).
+
+The **refresh token** is long-lived and never touches JavaScript. In a browser
+the server keeps it in an `HttpOnly` cookie, so `refresh()` sends an empty body
+and lets the cookie speak — construct the client with `credentials: "include"`
+so the browser attaches that cookie (and the deployment must answer credentialed
+CORS for your origin). `refresh()` returns a fresh `Session` and stores its new
+access token, exactly as `login` does; the refresh token is rotated on each use
+and `logout` revokes it. A non-browser caller with no cookie can instead pass the
+token in `RefreshRequest.refreshToken` (and `LogoutRequest.refreshToken`) — the
+contract is cookie-agnostic; the cookie is a transport the server adds.
+
+The client keeps no refresh policy of its own: a 401 on an expired access token
+is an ordinary `ApiError`, and the consumer decides when to call `refresh()` and
+retry (react-query, say). Refresh at or before `expiresIn` to avoid the round
+trip.
 
 ## The public surface
 

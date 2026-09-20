@@ -13,7 +13,7 @@ const BASE = "https://api.test";
 function fetcher(reply = { status: 200, body: "{}" }) {
   const calls = [];
   const fetch = async (url, init) => {
-    calls.push({ url, method: init.method, headers: init.headers, body: init.body });
+    calls.push({ url, method: init.method, headers: init.headers, body: init.body, credentials: init.credentials });
     const r = typeof reply === "function" ? reply(url, init) : reply;
     return { status: r.status ?? 200, text: async () => r.body ?? "" };
   };
@@ -191,6 +191,32 @@ test("logout clears the token", async () => {
   assert.equal(client.token, "TK");
   await client.logout({});
   assert.equal(client.token, undefined);
+});
+
+test("refresh stores the fresh access token, like login", async () => {
+  const { calls, fetch } = fetcher(json({ token: "FRESH", expiresIn: 900 }));
+  const client = new Client({ baseUrl: BASE, fetch, token: "STALE" });
+
+  const session = await client.refresh({ refreshToken: "" });
+
+  assert.equal(session.token, "FRESH");
+  assert.equal(session.expiresIn, 900);
+  assert.equal(client.token, "FRESH");
+  assert.equal(calls[0].url, `${BASE}/metacensus/api/v1/refresh`);
+  assert.equal(calls[0].method, "POST");
+});
+
+test("the credentials option rides every fetch, so the refresh cookie is sent", async () => {
+  const { calls, fetch } = fetcher(json({ token: "TK", expiresIn: 900 }));
+  const client = new Client({ baseUrl: BASE, fetch, credentials: "include" });
+  await client.refresh({ refreshToken: "" });
+  assert.equal(calls[0].credentials, "include");
+});
+
+test("credentials is undefined by default, so a server-side client sends no cookie", async () => {
+  const { calls, fetch } = fetcher(json({ token: "TK", expiresIn: 900 }));
+  await new Client({ baseUrl: BASE, fetch }).refresh({ refreshToken: "r" });
+  assert.equal(calls[0].credentials, undefined);
 });
 
 // --- errors, encoding, headers, prefix ----------------------------------
