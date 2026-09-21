@@ -4,7 +4,7 @@
 // "The generated client", and ts/README.md.
 
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
-import type { LoginRequest, LogoutRequest, LogoutResponse, Session, SignUpRequest } from "./metacensus/v1/auth.js";
+import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
@@ -50,11 +50,12 @@ async function request<T>(
   method: string,
   body: string | undefined,
   token: string | undefined,
+  credentials?: RequestCredentials,
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token !== undefined) headers["Authorization"] = `Bearer ${token}`;
-  const res = await f(url, { method, headers, body });
+  const res = await f(url, { method, headers, body, credentials });
   if (res.status < 200 || res.status >= 300) {
     throw new ApiError(method, url, res.status, await res.text());
   }
@@ -89,6 +90,9 @@ export interface ClientOptions {
   readonly signer?: Signer;
   readonly token?: string;
   readonly prefix?: string;
+  // Passed to every fetch. Set "include" in a browser so the `HttpOnly` refresh
+  // cookie rides the `refresh()` and `logout()` calls; omit it server-side.
+  readonly credentials?: RequestCredentials;
 }
 
 // Client calls the authenticated API.
@@ -97,6 +101,7 @@ export class Client {
   readonly #fetch: typeof globalThis.fetch;
   readonly #prefix: string;
   readonly #signer?: Signer;
+  readonly #credentials?: RequestCredentials;
   #token?: string;
 
   constructor(options: ClientOptions) {
@@ -104,6 +109,7 @@ export class Client {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#prefix = options.prefix ?? apiPrefix;
     this.#signer = options.signer;
+    this.#credentials = options.credentials;
     this.#token = options.token;
   }
 
@@ -113,7 +119,7 @@ export class Client {
   }
 
   #request<T>(method: string, path: string, body?: string): Promise<T> {
-    return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, this.#token);
+    return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, this.#token, this.#credentials);
   }
 
   #sign(content: unknown, contentType: string): Promise<SignResult> {
@@ -138,9 +144,16 @@ export class Client {
     return session;
   }
 
+  // AuthRoutes.Refresh: POST /refresh
+  async refresh(req: RefreshRequest): Promise<Session> {
+    const session = await this.#request<Session>("POST", "/refresh", JSON.stringify(req));
+    this.#token = session.token;
+    return session;
+  }
+
   // AuthRoutes.Logout: POST /logout
   async logout(req: LogoutRequest): Promise<LogoutResponse> {
-    const res = await this.#request<LogoutResponse>("POST", "/logout", undefined);
+    const res = await this.#request<LogoutResponse>("POST", "/logout", JSON.stringify(req));
     this.#token = undefined;
     return res;
   }

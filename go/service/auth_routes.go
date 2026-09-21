@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/metacensus/api/go/auth"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
@@ -60,25 +61,58 @@ func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Sessi
 	return h.issue(record.Id)
 }
 
-// Logout revokes the session the request arrived on. The token is the one the
-// middleware carried onto the context; revoking one already gone is not an
-// error.
-func (h *Handlers) Logout(ctx context.Context, _ *v1.LogoutRequest) (*v1.LogoutResponse, error) {
-	token, ok := auth.TokenFrom(ctx)
-	if !ok {
+// Refresh rotates the refresh token, minting a fresh session. It prefers the
+// token the adapter read from the cookie over the request body. A missing,
+// expired or already-rotated token is all one 401.
+func (h *Handlers) Refresh(ctx context.Context, req *v1.RefreshRequest) (*v1.Session, error) {
+	token := req.GetRefreshToken()
+	if c, ok := auth.RefreshCookieFrom(ctx); ok && c != "" {
+		token = c
+	}
+	if token == "" {
 		return nil, unauthenticated("authentication required")
 	}
-	if err := h.sessions.Revoke(token); err != nil {
-		return nil, internal(err)
+	_, t, err := h.sessions.Refresh(token)
+	if err != nil {
+		return nil, unauthenticated("authentication required")
+	}
+	return h.session(t), nil
+}
+
+// Logout revokes the session its refresh token names — the token, its rotation
+// lineage and its access tokens. It prefers the cookie the adapter carried over
+// the body field. No token is a no-op success, and revoking one already gone is
+// not an error, so a double logout is idempotent.
+func (h *Handlers) Logout(ctx context.Context, req *v1.LogoutRequest) (*v1.LogoutResponse, error) {
+	token := req.GetRefreshToken()
+	if c, ok := auth.RefreshCookieFrom(ctx); ok && c != "" {
+		token = c
+	}
+	if token != "" {
+		if err := h.sessions.Revoke(token); err != nil {
+			return nil, internal(err)
+		}
 	}
 	return &v1.LogoutResponse{}, nil
 }
 
-// issue mints a session for id, the shared tail of Login and SignUp.
+// issue mints a fresh session for id, the shared tail of Login and SignUp.
 func (h *Handlers) issue(id string) (*v1.Session, error) {
-	token, err := h.sessions.Issue(id)
+	t, err := h.sessions.Issue(id)
 	if err != nil {
 		return nil, internal(err)
 	}
-	return &v1.Session{Token: token}, nil
+	return h.session(t), nil
+}
+
+// session maps a freshly minted token pair to the wire Session. expires_in is
+// the access token's remaining lifetime in whole seconds; refresh_token rides
+// the body until the cookie adapter lifts it into an HttpOnly cookie for a
+// browser.
+func (h *Handlers) session(t auth.Tokens) *v1.Session {
+	return &v1.Session{
+		Token:        t.Access,
+		ExpiresIn:    int32(t.AccessExpiry.Sub(h.now()) / time.Second),
+		RefreshToken: t.Refresh,
+	}
 }

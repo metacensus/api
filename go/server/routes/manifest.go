@@ -43,7 +43,8 @@ type Route struct {
 var Routes = []Route{
 	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Login", Method: "POST", Path: "/login", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LoginRequest", Response: "Session"},
 	{Prefix: Prefix, Service: "AuthRoutes", RPC: "SignUp", Method: "POST", Path: "/signup", Params: nil, Query: nil, Body: "*", Signed: true, Request: "SignUpRequest", Response: "Session"},
-	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "", Signed: false, Request: "LogoutRequest", Response: "LogoutResponse"},
+	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Refresh", Method: "POST", Path: "/refresh", Params: nil, Query: nil, Body: "*", Signed: false, Request: "RefreshRequest", Response: "Session"},
+	{Prefix: Prefix, Service: "AuthRoutes", RPC: "Logout", Method: "POST", Path: "/logout", Params: nil, Query: nil, Body: "*", Signed: false, Request: "LogoutRequest", Response: "LogoutResponse"},
 	{Prefix: Prefix, Service: "HealthRoutes", RPC: "Healthcheck", Method: "GET", Path: "/healthcheck", Params: nil, Query: nil, Body: "", Signed: false, Request: "HealthcheckRequest", Response: "HealthcheckResponse"},
 	{Prefix: Prefix, Service: "PropRoutes", RPC: "ListProps", Method: "GET", Path: "/topic/{topicId}/prop", Params: []string{"topicId"}, Query: nil, Body: "", Signed: false, Request: "PropListRequest", Response: "PropList"},
 	{Prefix: Prefix, Service: "PropRoutes", RPC: "GetProp", Method: "GET", Path: "/topic/{topicId}/prop/{propId}", Params: []string{"topicId", "propId"}, Query: nil, Body: "", Signed: false, Request: "PropGetRequest", Response: "PropSigned"},

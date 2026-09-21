@@ -1,19 +1,31 @@
-// Package auth is the caller-resolution seam: how a request's session token
+// Package auth is the caller-resolution seam: how a request's access token
 // becomes the callerID the service layer signs its work with. It is the second
 // outbound port beside store — a backend plugs in a Sessions and the service
 // depends only on this interface.
 //
-// # A placeholder, on purpose
+// # The token model
 //
-// Authentication is not designed yet. The open questions — what a token is
-// (opaque, JWT, key-bound), where session state lives, how tokens expire and
-// revoke, how any of this improves under a real "authn" story — are all
-// deferred behind Sessions. What this package ships today is the seam plus
-// MemorySessions, a development placeholder that makes the whole request path
-// resolve end to end without committing to any of those answers. Nothing here
-// is a security boundary; swap MemorySessions before this is anything but a
-// demo. The signature over each record, verified inside the store boundary,
-// remains the real proof of authorship — see go/signing and go/store.
+// Two tokens, the browser-auth standard. An access token is short-lived and
+// opaque, sent as `Authorization: Bearer <token>`; Resolve turns it back into a
+// caller on every authenticated request, and it expires on its own. A refresh
+// token is long-lived, single-use and rotated: Refresh consumes one and mints a
+// fresh pair, Revoke ends the whole lineage at logout. Both are opaque and
+// server-stored — the point of storing them is that logout can drop them now,
+// which a self-describing token could not promise before its own expiry.
+//
+// The CookieAdapter (see cookie.go) is what keeps the refresh token out of a
+// browser's JavaScript: it moves the token between the JSON contract and an
+// HttpOnly cookie, and it is the one piece designed to relocate to a reverse
+// proxy without the handlers or this port changing.
+//
+// # MemorySessions is still a placeholder
+//
+// The model is designed; the storage is not. MemorySessions holds it all in
+// memory: a restart forgets every session and it is not safe across processes.
+// Swap it for a persistent Sessions before this is anything but a demo. The
+// signature over each record, verified inside the store boundary, remains the
+// real proof of authorship — a session token only says who is connected. See
+// go/contract and go/store.
 package auth
 
 import (
@@ -21,27 +33,40 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/metacensus/api/go/server"
 )
 
-// Sessions turns a callerID into a bearer token and back. Issue mints a token
-// for an authenticated caller (login, sign-up); Resolve is the reverse, run on
-// every authenticated request; Revoke ends one (logout). A real implementation
-// decides token shape, expiry and persistence; the service never sees any of it.
-type Sessions interface {
-	Issue(callerID string) (token string, err error)
-	Resolve(token string) (callerID string, err error)
-	Revoke(token string) error
+// Tokens is one freshly minted access+refresh pair and the access token's
+// expiry. The service maps AccessExpiry to the wire's expires_in; the refresh
+// token's lifetime is the Sessions implementation's own, held in its store.
+type Tokens struct {
+	Access       string
+	AccessExpiry time.Time
+	Refresh      string
 }
 
-// ctxKey is unexported so only this package can put a caller or token on a
-// context; a handler reads them back through CallerFrom and TokenFrom.
+// Sessions is the session port. Issue mints a pair for a freshly authenticated
+// caller (login, sign-up); Resolve turns an access token back into its caller
+// on every authenticated request, rejecting an expired or unknown one; Refresh
+// consumes a refresh token and mints a new pair for the same caller, rotating
+// it; Revoke ends the lineage a refresh token belongs to (logout). A real
+// implementation decides storage and expiry; the service sees only this port.
+type Sessions interface {
+	Issue(callerID string) (Tokens, error)
+	Resolve(access string) (callerID string, err error)
+	Refresh(refresh string) (callerID string, t Tokens, err error)
+	Revoke(refresh string) error
+}
+
+// ctxKey is unexported so only this package can put a value on a context; a
+// handler reads them back through CallerFrom and RefreshCookieFrom.
 type ctxKey int
 
 const (
 	callerKey ctxKey = iota
-	tokenKey
+	refreshCookieKey
 )
 
 // CallerFrom returns the callerID the middleware resolved, or "" and false on a
@@ -51,18 +76,21 @@ func CallerFrom(ctx context.Context) (string, bool) {
 	return id, ok
 }
 
-// TokenFrom returns the raw bearer token the middleware carried onto the
-// context, or "" and false. Logout needs it to revoke the session it arrived on.
-func TokenFrom(ctx context.Context) (string, bool) {
-	tok, ok := ctx.Value(tokenKey).(string)
+// RefreshCookieFrom returns the refresh token the CookieAdapter read off the
+// request's HttpOnly cookie, or "" and false when the request carried none. The
+// Refresh and Logout handlers prefer it over the body field, so a browser can
+// leave the field empty and let the cookie speak.
+func RefreshCookieFrom(ctx context.Context) (string, bool) {
+	tok, ok := ctx.Value(refreshCookieKey).(string)
 	return tok, ok
 }
 
-// Middleware resolves the bearer token against s and, on success, carries the
-// callerID and the token onto the request context for the handler beneath it. A
+// Middleware resolves the bearer access token against s and, on success,
+// carries the callerID onto the request context for the handler beneath it. A
 // missing or unresolvable token is a 401 in the contract's error envelope, and
-// the handler never runs. The service layer wraps only the authenticated
-// routes with this; login, sign-up and the health check are mounted without it.
+// the handler never runs. The service layer chooses which routes it wraps — the
+// authenticated content routes, not the session-establishing ones, which cannot
+// require a live token to establish one. See Handlers.Register.
 func Middleware(s Sessions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +105,6 @@ func Middleware(s Sessions) func(http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), callerKey, callerID)
-			ctx = context.WithValue(ctx, tokenKey, token)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

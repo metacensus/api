@@ -170,8 +170,21 @@ func (x *SignUpRequest) GetUserSignature() *Signature {
 
 type Session struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Bearer token, sent back as `Authorization: Bearer <token>`.
-	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	// Short-lived access token, sent back as `Authorization: Bearer <token>`.
+	// Opaque; the client cannot read an expiry out of it, which is what
+	// `expires_in` is for.
+	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	// Seconds until `token` expires, measured from when this response was
+	// issued. The client refreshes at or before that horizon (see `/refresh`);
+	// it is the only expiry signal, since the token is opaque.
+	ExpiresIn int32 `protobuf:"varint,2,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	// Long-lived credential that mints a fresh access token at `/refresh`,
+	// rotated on every use and revoked at logout. In the browser posture it
+	// never travels here: the server lifts it into an `HttpOnly` cookie and
+	// blanks this field, so JavaScript never holds it. A non-browser caller (a
+	// proxy or another server) reads it here instead. See ts/README.md, "Auth
+	// and the session token".
+	RefreshToken  string `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -213,15 +226,79 @@ func (x *Session) GetToken() string {
 	return ""
 }
 
-type LogoutRequest struct {
+func (x *Session) GetExpiresIn() int32 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
+func (x *Session) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+// Exchanges a refresh token for a fresh session. Cookie or body delivery is as
+// on `Session.refresh_token`; a request that carries neither is rejected.
+type RefreshRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshRequest) Reset() {
+	*x = RefreshRequest{}
+	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshRequest) ProtoMessage() {}
+
+func (x *RefreshRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshRequest.ProtoReflect.Descriptor instead.
+func (*RefreshRequest) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RefreshRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type LogoutRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The refresh token whose session to end — its rotation lineage and its
+	// access tokens with it. Cookie or body delivery is as on
+	// `Session.refresh_token`.
+	RefreshToken  string `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LogoutRequest) Reset() {
 	*x = LogoutRequest{}
-	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -233,7 +310,7 @@ func (x *LogoutRequest) String() string {
 func (*LogoutRequest) ProtoMessage() {}
 
 func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_auth_proto_msgTypes[3]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -246,7 +323,14 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *LogoutRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
 }
 
 type LogoutResponse struct {
@@ -257,7 +341,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -269,7 +353,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_auth_proto_msgTypes[4]
+	mi := &file_metacensus_v1_auth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -282,7 +366,7 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_metacensus_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
 var File_metacensus_v1_auth_proto protoreflect.FileDescriptor
@@ -299,16 +383,23 @@ const file_metacensus_v1_auth_proto_rawDesc = "" +
 	"\x0einterpretation\x18\x03 \x01(\v2\x1d.metacensus.v1.InterpretationR\x0einterpretation\x12\x1d\n" +
 	"\n" +
 	"public_key\x18\x04 \x01(\tR\tpublicKey\x12?\n" +
-	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\"\x1f\n" +
+	"\x0euser_signature\x18\x05 \x01(\v2\x18.metacensus.v1.SignatureR\ruserSignature\"c\n" +
 	"\aSession\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x0f\n" +
-	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse2\x89\x02\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x02 \x01(\x05R\texpiresIn\x12#\n" +
+	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\"5\n" +
+	"\x0eRefreshRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"4\n" +
+	"\rLogoutRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
+	"\x0eLogoutResponse2\xe3\x02\n" +
 	"\n" +
 	"AuthRoutes\x12O\n" +
 	"\x05Login\x12\x1b.metacensus.v1.LoginRequest\x1a\x16.metacensus.v1.Session\"\x11\x82\xd3\xe4\x93\x02\v:\x01*\"\x06/login\x12R\n" +
-	"\x06SignUp\x12\x1c.metacensus.v1.SignUpRequest\x1a\x16.metacensus.v1.Session\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/signup\x12V\n" +
-	"\x06Logout\x12\x1c.metacensus.v1.LogoutRequest\x1a\x1d.metacensus.v1.LogoutResponse\"\x0f\x82\xd3\xe4\x93\x02\t\"\a/logoutB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
+	"\x06SignUp\x12\x1c.metacensus.v1.SignUpRequest\x1a\x16.metacensus.v1.Session\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/signup\x12U\n" +
+	"\aRefresh\x12\x1d.metacensus.v1.RefreshRequest\x1a\x16.metacensus.v1.Session\"\x13\x82\xd3\xe4\x93\x02\r:\x01*\"\b/refresh\x12Y\n" +
+	"\x06Logout\x12\x1c.metacensus.v1.LogoutRequest\x1a\x1d.metacensus.v1.LogoutResponse\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\"\a/logoutB9Z7github.com/metacensus/api/go/metacensus/v1;metacensusv1b\x06proto3"
 
 var (
 	file_metacensus_v1_auth_proto_rawDescOnce sync.Once
@@ -322,29 +413,32 @@ func file_metacensus_v1_auth_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_auth_proto_rawDescData
 }
 
-var file_metacensus_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_metacensus_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_metacensus_v1_auth_proto_goTypes = []any{
 	(*LoginRequest)(nil),   // 0: metacensus.v1.LoginRequest
 	(*SignUpRequest)(nil),  // 1: metacensus.v1.SignUpRequest
 	(*Session)(nil),        // 2: metacensus.v1.Session
-	(*LogoutRequest)(nil),  // 3: metacensus.v1.LogoutRequest
-	(*LogoutResponse)(nil), // 4: metacensus.v1.LogoutResponse
-	(*User)(nil),           // 5: metacensus.v1.User
-	(*Interpretation)(nil), // 6: metacensus.v1.Interpretation
-	(*Signature)(nil),      // 7: metacensus.v1.Signature
+	(*RefreshRequest)(nil), // 3: metacensus.v1.RefreshRequest
+	(*LogoutRequest)(nil),  // 4: metacensus.v1.LogoutRequest
+	(*LogoutResponse)(nil), // 5: metacensus.v1.LogoutResponse
+	(*User)(nil),           // 6: metacensus.v1.User
+	(*Interpretation)(nil), // 7: metacensus.v1.Interpretation
+	(*Signature)(nil),      // 8: metacensus.v1.Signature
 }
 var file_metacensus_v1_auth_proto_depIdxs = []int32{
-	5, // 0: metacensus.v1.SignUpRequest.content:type_name -> metacensus.v1.User
-	6, // 1: metacensus.v1.SignUpRequest.interpretation:type_name -> metacensus.v1.Interpretation
-	7, // 2: metacensus.v1.SignUpRequest.user_signature:type_name -> metacensus.v1.Signature
+	6, // 0: metacensus.v1.SignUpRequest.content:type_name -> metacensus.v1.User
+	7, // 1: metacensus.v1.SignUpRequest.interpretation:type_name -> metacensus.v1.Interpretation
+	8, // 2: metacensus.v1.SignUpRequest.user_signature:type_name -> metacensus.v1.Signature
 	0, // 3: metacensus.v1.AuthRoutes.Login:input_type -> metacensus.v1.LoginRequest
 	1, // 4: metacensus.v1.AuthRoutes.SignUp:input_type -> metacensus.v1.SignUpRequest
-	3, // 5: metacensus.v1.AuthRoutes.Logout:input_type -> metacensus.v1.LogoutRequest
-	2, // 6: metacensus.v1.AuthRoutes.Login:output_type -> metacensus.v1.Session
-	2, // 7: metacensus.v1.AuthRoutes.SignUp:output_type -> metacensus.v1.Session
-	4, // 8: metacensus.v1.AuthRoutes.Logout:output_type -> metacensus.v1.LogoutResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
+	3, // 5: metacensus.v1.AuthRoutes.Refresh:input_type -> metacensus.v1.RefreshRequest
+	4, // 6: metacensus.v1.AuthRoutes.Logout:input_type -> metacensus.v1.LogoutRequest
+	2, // 7: metacensus.v1.AuthRoutes.Login:output_type -> metacensus.v1.Session
+	2, // 8: metacensus.v1.AuthRoutes.SignUp:output_type -> metacensus.v1.Session
+	2, // 9: metacensus.v1.AuthRoutes.Refresh:output_type -> metacensus.v1.Session
+	5, // 10: metacensus.v1.AuthRoutes.Logout:output_type -> metacensus.v1.LogoutResponse
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -362,7 +456,7 @@ func file_metacensus_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_auth_proto_rawDesc), len(file_metacensus_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -38,7 +38,8 @@ export interface Route {
 export const routes: readonly Route[] = [
   { prefix: apiPrefix, service: "AuthRoutes", rpc: "Login", method: "POST", path: "/login", params: [], query: [], body: "*", signed: false, request: "LoginRequest", response: "Session" },
   { prefix: apiPrefix, service: "AuthRoutes", rpc: "SignUp", method: "POST", path: "/signup", params: [], query: [], body: "*", signed: true, request: "SignUpRequest", response: "Session" },
-  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "", signed: false, request: "LogoutRequest", response: "LogoutResponse" },
+  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Refresh", method: "POST", path: "/refresh", params: [], query: [], body: "*", signed: false, request: "RefreshRequest", response: "Session" },
+  { prefix: apiPrefix, service: "AuthRoutes", rpc: "Logout", method: "POST", path: "/logout", params: [], query: [], body: "*", signed: false, request: "LogoutRequest", response: "LogoutResponse" },
   { prefix: apiPrefix, service: "HealthRoutes", rpc: "Healthcheck", method: "GET", path: "/healthcheck", params: [], query: [], body: "", signed: false, request: "HealthcheckRequest", response: "HealthcheckResponse" },
   { prefix: apiPrefix, service: "PropRoutes", rpc: "ListProps", method: "GET", path: "/topic/{topicId}/prop", params: ["topicId"], query: [], body: "", signed: false, request: "PropListRequest", response: "PropList" },
   { prefix: apiPrefix, service: "PropRoutes", rpc: "GetProp", method: "GET", path: "/topic/{topicId}/prop/{propId}", params: ["topicId", "propId"], query: [], body: "", signed: false, request: "PropGetRequest", response: "PropSigned" },

@@ -53,11 +53,44 @@ export interface SignUpRequest {
 }
 
 export interface Session {
-  /** Bearer token, sent back as `Authorization: Bearer <token>`. */
+  /**
+   * Short-lived access token, sent back as `Authorization: Bearer <token>`.
+   * Opaque; the client cannot read an expiry out of it, which is what
+   * `expires_in` is for.
+   */
   token: string;
+  /**
+   * Seconds until `token` expires, measured from when this response was
+   * issued. The client refreshes at or before that horizon (see `/refresh`);
+   * it is the only expiry signal, since the token is opaque.
+   */
+  expiresIn: number;
+  /**
+   * Long-lived credential that mints a fresh access token at `/refresh`,
+   * rotated on every use and revoked at logout. In the browser posture it
+   * never travels here: the server lifts it into an `HttpOnly` cookie and
+   * blanks this field, so JavaScript never holds it. A non-browser caller (a
+   * proxy or another server) reads it here instead. See ts/README.md, "Auth
+   * and the session token".
+   */
+  refreshToken: string;
+}
+
+/**
+ * Exchanges a refresh token for a fresh session. Cookie or body delivery is as
+ * on `Session.refresh_token`; a request that carries neither is rejected.
+ */
+export interface RefreshRequest {
+  refreshToken: string;
 }
 
 export interface LogoutRequest {
+  /**
+   * The refresh token whose session to end — its rotation lineage and its
+   * access tokens with it. Cookie or body delivery is as on
+   * `Session.refresh_token`.
+   */
+  refreshToken: string;
 }
 
 export interface LogoutResponse {

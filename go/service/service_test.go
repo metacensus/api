@@ -41,6 +41,38 @@ func newTestServer(t *testing.T) (*fakeStore, http.Handler) {
 	return fake, mux
 }
 
+// TestRefreshTTLDrivesCookieMaxAge: Config.RefreshTTL sets the refresh cookie's
+// Max-Age, so it cannot fall back to a hardcoded default and drift from the
+// TTL the store actually enforces.
+func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
+	const ttl = 3 * time.Hour
+	fake := newFakeStore()
+	var n int64
+	h := New(Config{
+		Store:      fake,
+		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
+		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
+		BcryptCost: 4,
+		RefreshTTL: ttl,
+	})
+	mux := http.NewServeMux()
+	h.Register(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix: routes.Prefix})
+
+	c := newClient(t, mux)
+	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
+	suInterp, suSig := c.sign(user)
+	signup := c.do("POST", "/signup", &v1.SignUpRequest{
+		Content: user, Password: "pw", Interpretation: suInterp, PublicKey: c.publicKey(), UserSignature: suSig,
+	})
+	cookie := refreshCookie(signup)
+	if cookie == nil {
+		t.Fatal("sign-up set no refresh cookie")
+	}
+	if want := int(ttl / time.Second); cookie.MaxAge != want {
+		t.Errorf("cookie Max-Age = %d, want %d (Config.RefreshTTL)", cookie.MaxAge, want)
+	}
+}
+
 // client is a signing API client over an in-process handler.
 type client struct {
 	t     *testing.T
