@@ -53,6 +53,14 @@ type Config struct {
 	// boundary (see go/auth).
 	Sessions auth.Sessions
 
+	// RefreshTTL is how long a refresh token — and the browser cookie that
+	// carries it — lives. Defaults to auth.DefaultRefreshTTL. It sets the cookie
+	// Max-Age and, when Sessions is left to default, the store's refresh lifetime,
+	// so the two cannot drift. A caller supplying its own Sessions must set this
+	// to that backend's refresh TTL, or the cookie and the server-side token will
+	// disagree on how long the session lasts.
+	RefreshTTL time.Duration
+
 	// Now mints the recorded timestamp. Defaults to time.Now. Injectable so a
 	// test controls the one clock the server stamps records with.
 	Now func() time.Time
@@ -92,6 +100,7 @@ type Handlers struct {
 	bcryptCost   int
 	cookieName   string
 	cookieSecure bool
+	refreshTTL   time.Duration
 
 	// dummyHash is compared against on a login for an unknown email, so a miss
 	// costs the same bcrypt work as a wrong password and cannot be timed apart.
@@ -112,12 +121,18 @@ func New(cfg Config) *Handlers {
 	if newID == nil {
 		newID = randomID
 	}
+	refreshTTL := cfg.RefreshTTL
+	if refreshTTL == 0 {
+		refreshTTL = auth.DefaultRefreshTTL
+	}
 	sessions := cfg.Sessions
 	if sessions == nil {
-		// Share the service's clock: expires_in is the access token's expiry
-		// (minted by Sessions) minus now (read here), so the two must agree. A
-		// caller supplying its own Sessions must align it with Config.Now.
-		sessions = auth.NewMemorySessionsWith(auth.MemoryConfig{Now: now})
+		// Share the service's clock and refresh TTL: expires_in is the access
+		// token's expiry (minted by Sessions) minus now (read here), so the two
+		// must agree, and the cookie Max-Age is this same refreshTTL. A caller
+		// supplying its own Sessions must align it with Config.Now and
+		// Config.RefreshTTL.
+		sessions = auth.NewMemorySessionsWith(auth.MemoryConfig{Now: now, RefreshTTL: refreshTTL})
 	}
 	cost := cfg.BcryptCost
 	if cost == 0 {
@@ -139,6 +154,7 @@ func New(cfg Config) *Handlers {
 		bcryptCost:   cost,
 		cookieName:   cookieName,
 		cookieSecure: !cfg.InsecureCookies,
+		refreshTTL:   refreshTTL,
 		dummyHash:    dummy,
 	}
 }
@@ -182,7 +198,7 @@ func (h *Handlers) cookieConfig(rt *server.Runtime) auth.CookieConfig {
 	return auth.CookieConfig{
 		Name:     h.cookieName,
 		Path:     path,
-		MaxAge:   auth.DefaultRefreshTTL,
+		MaxAge:   h.refreshTTL,
 		Secure:   h.cookieSecure,
 		SameSite: http.SameSiteStrictMode,
 	}

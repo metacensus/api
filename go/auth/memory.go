@@ -168,7 +168,7 @@ func (m *MemorySessions) mint(caller, session string) (Tokens, error) {
 	refreshExp := now.Add(m.refreshTTL)
 	m.access[access] = record{caller: caller, session: session, expiry: accessExp}
 	m.refresh[refresh] = record{caller: caller, session: session, expiry: refreshExp}
-	return Tokens{Access: access, AccessExpiry: accessExp, Refresh: refresh, RefreshExpiry: refreshExp}, nil
+	return Tokens{Access: access, AccessExpiry: accessExp, Refresh: refresh}, nil
 }
 
 // randomToken is 32 bytes of crypto/rand as base64url, unpadded — the same

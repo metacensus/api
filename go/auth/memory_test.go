@@ -20,7 +20,7 @@ func newTestSessions(clk *fixedClock) *MemorySessions {
 }
 
 // TestIssueAndResolve: a freshly issued access token resolves to its caller,
-// and the reported expiries sit one TTL ahead of the issuing instant.
+// and its reported expiry sits one access TTL ahead of the issuing instant.
 func TestIssueAndResolve(t *testing.T) {
 	clk := &fixedClock{t: time.Unix(1_700_000_000, 0).UTC()}
 	s := newTestSessions(clk)
@@ -31,9 +31,6 @@ func TestIssueAndResolve(t *testing.T) {
 	}
 	if got := tok.AccessExpiry.Sub(clk.now()); got != 15*time.Minute {
 		t.Errorf("access expiry %v ahead, want 15m", got)
-	}
-	if got := tok.RefreshExpiry.Sub(clk.now()); got != 24*time.Hour {
-		t.Errorf("refresh expiry %v ahead, want 24h", got)
 	}
 	caller, err := s.Resolve(tok.Access)
 	if err != nil {

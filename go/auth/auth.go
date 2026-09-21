@@ -38,17 +38,13 @@ import (
 	"github.com/metacensus/api/go/server"
 )
 
-// Tokens is one freshly minted access+refresh pair and the expiries that go
-// with them. The service maps AccessExpiry to the wire's expires_in.
-// RefreshExpiry is the refresh token's own server-side horizon; the cookie's
-// Max-Age is set from CookieConfig.MaxAge instead (the adapter never sees a
-// Tokens), so a deployment must keep that config in step with the Sessions
-// refresh TTL — see service.Config.
+// Tokens is one freshly minted access+refresh pair and the access token's
+// expiry. The service maps AccessExpiry to the wire's expires_in; the refresh
+// token's lifetime is the Sessions implementation's own, held in its store.
 type Tokens struct {
-	Access        string
-	AccessExpiry  time.Time
-	Refresh       string
-	RefreshExpiry time.Time
+	Access       string
+	AccessExpiry time.Time
+	Refresh      string
 }
 
 // Sessions is the session port. Issue mints a pair for a freshly authenticated
