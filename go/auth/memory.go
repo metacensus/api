@@ -29,8 +29,8 @@ type MemorySessions struct {
 	now        func() time.Time
 	accessTTL  time.Duration
 	refreshTTL time.Duration
-	access     map[string]record // access token -> caller + lineage + expiry
-	refresh    map[string]record // refresh token -> caller + lineage + expiry
+	access     map[string]record // by access token
+	refresh    map[string]record // by refresh token
 }
 
 // record is one stored token: whose it is, which login lineage it belongs to

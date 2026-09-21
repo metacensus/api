@@ -11,20 +11,18 @@ import (
 // CookieConfig configures the HttpOnly refresh cookie the CookieAdapter keeps.
 // The zero value is not usable; the service fills it (see service.Config).
 type CookieConfig struct {
-	// Name is the cookie name, e.g. "mc_refresh".
 	Name string
 	// Path scopes which requests the browser attaches the cookie to. Both routes
 	// that read it, refresh and logout, must fall under it (an RFC 6265 path only
 	// matches requests at or below it), so set it to the shared API prefix rather
 	// than one route's full path.
 	Path string
-	// MaxAge is how long the cookie persists; match it to the refresh-token TTL.
+	// Match it to the refresh-token TTL.
 	MaxAge time.Duration
 	// Secure gates the cookie to https. True in production; a plain-http test
 	// sets it false so the token round-trips.
 	Secure bool
-	// SameSite is the cross-site policy; http.SameSiteStrictMode suits a
-	// same-origin refresh.
+	// http.SameSiteStrictMode suits a same-origin refresh.
 	SameSite http.SameSite
 }
 
