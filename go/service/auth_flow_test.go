@@ -88,9 +88,8 @@ func TestAuthTokenLifecycle(t *testing.T) {
 	if cookie == nil || cookie.Value == "" {
 		t.Fatal("sign-up set no refresh cookie")
 	}
-	// The cookie must be scoped so a browser attaches it to both routes that
-	// consume it — /refresh and /logout — not to /refresh alone, which by RFC
-	// 6265 path-matching would leave logout unable to revoke the lineage.
+	// A browser must attach the cookie to both routes that consume it, not to
+	// /refresh alone; cookiePathMatches holds the rule.
 	if !cookie.HttpOnly {
 		t.Errorf("refresh cookie is not HttpOnly")
 	}

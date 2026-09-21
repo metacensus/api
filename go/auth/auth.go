@@ -92,10 +92,9 @@ func RefreshCookieFrom(ctx context.Context) (string, bool) {
 // Middleware resolves the bearer access token against s and, on success,
 // carries the callerID onto the request context for the handler beneath it. A
 // missing or unresolvable token is a 401 in the contract's error envelope, and
-// the handler never runs. The service layer wraps the authenticated content
-// routes with this; the auth routes (login, sign-up, refresh, logout) and the
-// health check are mounted without it — each establishes or ends a session, so
-// none can require a live one.
+// the handler never runs. The service layer chooses which routes it wraps — the
+// authenticated content routes, not the session-establishing ones, which cannot
+// require a live token to establish one. See Handlers.Register.
 func Middleware(s Sessions) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -12,10 +12,8 @@ import (
 // The zero value is not usable; the service fills it (see service.Config).
 type CookieConfig struct {
 	Name string
-	// Path scopes which requests the browser attaches the cookie to. Both routes
-	// that read it, refresh and logout, must fall under it (an RFC 6265 path only
-	// matches requests at or below it), so set it to the shared API prefix rather
-	// than one route's full path.
+	// Both routes that read it, refresh and logout, must fall under it; set it to
+	// the shared API prefix, not one route's full path. See service.cookieConfig.
 	Path string
 	// Match it to the refresh-token TTL.
 	MaxAge time.Duration
