@@ -110,5 +110,4 @@ Until that lands: file plainly, state the type and the parent in the body where 
 | `area:store` | `go/store/`, `go/auth/` | [AGENTS.md § What the public contract does and does not mechanise](../../../AGENTS.md) |
 | `area:client` | `ts/` (the npm package) | [ts/README.md](../../../ts/README.md), [README.md § The generated client](../../../README.md) |
 | `area:routegen` | `routegen/`, `internal/protoscan/` | [README.md § Layout](../../../README.md), [AGENTS.md § Two one-way doors in the layout](../../../AGENTS.md) |
-| `area:migration` | request-standard adoption work | [MIGRATION_STANDARDS.md](../../../MIGRATION_STANDARDS.md) |
 | `area:repo` | hygiene, agents, direction | [AGENTS.md](../../../AGENTS.md), `.claude/skills/`, [README.md](../../../README.md) |
