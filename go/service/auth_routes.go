@@ -30,7 +30,7 @@ func (h *Handlers) Login(ctx context.Context, req *v1.LoginRequest) (*v1.Session
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.GetPassword())) != nil {
 		return nil, unauthenticated("authentication required")
 	}
-	return h.issue(id)
+	return h.issue(ctx, id)
 }
 
 // SignUp enrolls a user and returns a session for the new id. The enrolling key
@@ -58,7 +58,7 @@ func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Sessi
 	if err := h.store.EnrollUser(ctx, record, req.GetPublicKey(), string(hash)); err != nil {
 		return nil, mapErr(err)
 	}
-	return h.issue(record.Id)
+	return h.issue(ctx, record.Id)
 }
 
 // Refresh rotates the refresh token, minting a fresh session. It prefers the
@@ -72,7 +72,7 @@ func (h *Handlers) Refresh(ctx context.Context, req *v1.RefreshRequest) (*v1.Ses
 	if token == "" {
 		return nil, unauthenticated("authentication required")
 	}
-	_, t, err := h.sessions.Refresh(token)
+	_, t, err := h.sessions.Refresh(ctx, token)
 	if err != nil {
 		return nil, unauthenticated("authentication required")
 	}
@@ -89,16 +89,15 @@ func (h *Handlers) Logout(ctx context.Context, req *v1.LogoutRequest) (*v1.Logou
 		token = c
 	}
 	if token != "" {
-		if err := h.sessions.Revoke(token); err != nil {
+		if err := h.sessions.Revoke(ctx, token); err != nil {
 			return nil, internal(err)
 		}
 	}
 	return &v1.LogoutResponse{}, nil
 }
 
-// issue mints a fresh session for id, the shared tail of Login and SignUp.
-func (h *Handlers) issue(id string) (*v1.Session, error) {
-	t, err := h.sessions.Issue(id)
+func (h *Handlers) issue(ctx context.Context, id string) (*v1.Session, error) {
+	t, err := h.sessions.Issue(ctx, id)
 	if err != nil {
 		return nil, internal(err)
 	}
