@@ -18,27 +18,28 @@ import (
 	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/signing"
 	"github.com/metacensus/api/go/store"
+	"github.com/metacensus/api/internal/memstore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // --- test harness -----------------------------------------------------------
 
-// newTestServer wires a Handlers over a fresh fakeStore onto a StdMux, with a
+// newTestServer wires a Handlers over a fresh memstore onto a StdMux, with a
 // deterministic id minter and clock so a test can assert the minted fields.
-func newTestServer(t *testing.T) (*fakeStore, http.Handler) {
+func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
-	fake := newFakeStore()
+	mem := memstore.New(nil)
 	var n int64
 	h := New(Config{
-		Store:      fake,
+		Store:      mem,
 		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
 		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
 		BcryptCost: 4, // bcrypt.MinCost: fast, this is a test
 	})
 	mux := http.NewServeMux()
 	h.Register(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix: routes.Prefix})
-	return fake, mux
+	return mem, mux
 }
 
 // TestRefreshTTLDrivesCookieMaxAge: Config.RefreshTTL sets the refresh cookie's
@@ -46,10 +47,10 @@ func newTestServer(t *testing.T) (*fakeStore, http.Handler) {
 // TTL the store actually enforces.
 func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
 	const ttl = 3 * time.Hour
-	fake := newFakeStore()
+	mem := memstore.New(nil)
 	var n int64
 	h := New(Config{
-		Store:      fake,
+		Store:      mem,
 		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
 		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
 		BcryptCost: 4,
@@ -259,7 +260,7 @@ func TestJourney(t *testing.T) {
 // the server mints sit outside the {content, signature} the client hashed, so a
 // signature that stood before assembly still verifies after it.
 func TestMintingPreservesSignature(t *testing.T) {
-	fake, mux := newTestServer(t)
+	mem, mux := newTestServer(t)
 	c := newClient(t, mux)
 
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
@@ -280,7 +281,10 @@ func TestMintingPreservesSignature(t *testing.T) {
 	if rec.GetId() == "" || rec.GetRecorded() == nil {
 		t.Fatal("server did not mint id/recorded")
 	}
-	stored := fake.topics[rec.GetId()]
+	stored, err := mem.GetTopic(t.Context(), rec.GetId())
+	if err != nil {
+		t.Fatalf("read back the topic: %v", err)
+	}
 	if err := signing.VerifyUser(&c.priv.PublicKey, stored.GetContent(), stored.GetInterpretation(), stored.GetUserSignature(), signing.ParticipantPolicy(testOrigin)); err != nil {
 		t.Fatalf("signature broke across assembly: %v", err)
 	}

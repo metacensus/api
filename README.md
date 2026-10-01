@@ -104,7 +104,7 @@ go/auth/          the session port + a development placeholder
 go/service/       the handlers: store + auth + minting, behind the server interfaces
 ts/               the contract in TypeScript — the npm package
                   (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
-internal/         protoscan, the .proto tree scan both modules check against
+internal/         protoscan (the .proto tree scan both modules check against), memstore (an in-memory store.Store)
 routegen/         module 2: the generator, renderers, templates, pinned tools,
                   and the suites that exercise what it emits (chitest, wireserver)
 scripts/          version.sh, which make release uses to mint tags
@@ -178,7 +178,7 @@ On a `chi.Router`, set `PathValue: server.EscapedPathValue` and register inside 
 
 `go/service` implements those handler interfaces over two ports, so a backend supplies persistence and nothing else — no routing, no request handling. `service.New(service.Config{Store: …})` returns the handlers; `h.Register(mux, rt)` mounts every service, wrapping the content routes in the bearer middleware and the auth routes (login, sign-up, refresh, logout) in the refresh-cookie adapter — none of the auth routes can require a live session, since each establishes or ends one.
 
-- **`go/store`** is the persistence port: a write takes a fully-minted `*v1.XSigned` and returns only an error, in a closed vocabulary (`store.KindOf`) the service maps to an HTTP status. `metacensus/demo` (Postgres) and `metacensus/infra` (Fabric) each implement it; the service's tests run against an in-memory fake.
+- **`go/store`** is the persistence port: a write takes a fully-minted `*v1.XSigned` and returns only an error, in a closed vocabulary (`store.KindOf`) the service maps to an HTTP status. `service-api-standard` (Postgres) and `service-api-chain` (Fabric) each implement it, and prove it with [`go/store/storetest`](go/store/storetest/storetest.go); the service's tests run against an in-memory store, `internal/memstore`, that passes the same suite.
 - **`go/auth`** is the session port: a short-lived access token the bearer middleware resolves to a `callerID` per request, and a long-lived, rotating refresh token that mints a fresh one at `/refresh` and is revoked at logout. The token model is now settled; `MemorySessions` is its in-memory storage placeholder — swap it before this is anything but a demo. How the refresh token stays out of a browser's JavaScript, and how that lifts out to a reverse proxy unchanged, is in the package doc.
 
 Per request it resolves the caller, mints the `id` and `recorded` (record-level, outside the signed content, so a signature survives assembly), hashes the password above the seam, calls the store once, and maps its `Kind` to a status. It verifies no signature, and fails fast only on checks the store re-enforces — a caller is present, and a vote's `user_id` is that caller. Binding the author to the caller (the key `keyId` resolves to must be the caller's) needs the key history, so it is the store's, below the seam; no record carries a signer id for the edge to shortcut with. `go/service`'s package comment is the account of itself.

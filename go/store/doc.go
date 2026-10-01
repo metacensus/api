@@ -1,10 +1,12 @@
 // Package store is the persistence seam of the MetaCensus API: the Go interface
-// the shared server layer calls, and the two backends — metacensus/demo over
-// Postgres, metacensus/infra over Hyperledger Fabric — implement. It replaces
-// infra's DataSource prototype (core/api/server/server.go), which was
+// the shared server layer calls, and the two backends — service-api-standard
+// over Postgres, service-api-chain over Hyperledger Fabric — implement. It
+// replaces infra's DataSource prototype (core/api/server/server.go), which was
 // Fabric-shaped (it leaked chaincode/tx into the seam and typed its arguments
-// from a package that imports the Fabric SDK) and error-flat (every application
-// failure reached the client as HTTP 500 with the raw backend string).
+// from a package that imports the Fabric SDK) and error-flat (every
+// application failure reached the client as HTTP 500 with the raw backend
+// string). Every implementation runs go/store/storetest to prove it honours
+// this contract.
 //
 // The seam lives here, in metacensus/api, beside go/server and go/signing,
 // because it is defined entirely in terms of the contract types and shares
