@@ -6,9 +6,8 @@ import (
 )
 
 var setVoteCases = []storeCase{
-	// Refused before any state is consulted.
 	{
-		name:    "error - InvalidContent: topic_id absent",
+		name:    "topic_id absent",
 		promise: "InvalidContent if any of the three ids is absent",
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaDraftsVoteWithoutTopic},
 		call:    adaSubmitsVote,
@@ -16,7 +15,7 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "error - InvalidContent: prop_id absent",
+		name:    "prop_id absent",
 		promise: "InvalidContent if any of the three ids is absent",
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaDraftsVoteWithoutProp},
 		call:    adaSubmitsVote,
@@ -24,7 +23,7 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "error - InvalidContent: user_id absent",
+		name:    "user_id absent",
 		promise: "InvalidContent if any of the three ids is absent",
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaDraftsVoteWithoutUser},
 		call:    adaSubmitsVote,
@@ -32,7 +31,7 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "error - InvalidContent: user_id disagrees with the author",
+		name:    "user_id disagrees with the author",
 		promise: "if user_id disagrees with the author",
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicAndPropExist, adaDraftsVoteNamingBob},
 		call:    adaSubmitsVote,
@@ -40,7 +39,7 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "error - Unauthenticated: caller is not the author",
+		name:    "caller is not the author",
 		promise: "Unauthenticated if callerID is not the author",
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicAndPropExist, adaDraftsVote},
 		call:    bobSubmitsVote,
@@ -48,7 +47,7 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "error - SignatureInvalid: content altered after signing",
+		name:    "content altered after signing",
 		promise: "SignatureInvalid (Fabric) if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaDraftsVote, voteAltered},
@@ -57,25 +56,23 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 
-	// Accepted.
 	{
-		name:    "success - records the caller's position",
+		name:    "records the caller's position",
 		promise: "SetVote records the caller's position on one prop",
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaDraftsVote},
 		call:    adaSubmitsVote,
 		then:    []step{votesAreTheDraftOnly},
 	},
 	{
-		name:    "success - a second vote replaces the first",
+		name:    "a second vote replaces the first",
 		promise: "a second vote from the same user replaces the first rather than adding to it",
 		given:   []step{adaEnrolled, adasTopicAndPropExist, adaVoted, adaDraftsVoteAgainst},
 		call:    adaSubmitsVote,
 		then:    []step{votesAreTheDraftOnly},
 	},
 
-	// Refused against stored state.
 	{
-		name:    "error - InvalidContent: prop does not exist",
+		name:    "prop does not exist",
 		promise: "or if the prop does not exist",
 		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp, adaDraftsVoteOnUnstoredProp},
 		call:    adaSubmitsVote,
@@ -84,7 +81,7 @@ var setVoteCases = []storeCase{
 	// Omitted from the case above: reading the votes back — ListVotes on a prop
 	// that does not exist is unstated.
 	{
-		name:    "error - InvalidContent: a refused vote leaves the standing one",
+		name:    "a refused vote leaves the standing one",
 		promise: atomicity,
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicAndPropExist, adaVoted, adaDraftsVoteNamingBob},
 		call:    adaSubmitsVote,
@@ -95,7 +92,7 @@ var setVoteCases = []storeCase{
 
 var listVotesCases = []storeCase{
 	{
-		name:    "success - lists exactly the votes on the prop",
+		name:    "lists exactly the votes on the prop",
 		promise: "ListVotes returns every vote on one prop",
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicAndPropExist, adaVoted, bobVoted, adaVotedElsewhere},
 		call:    listVotes,
@@ -103,7 +100,6 @@ var listVotesCases = []storeCase{
 	},
 }
 
-// adasTopicAndPropExist is a prop in a topic, both Ada's: every vote case's parent.
 func adasTopicAndPropExist(sc *scene) {
 	adasTopicExists(sc)
 	adasPropExists(sc)
@@ -133,8 +129,7 @@ func adaDraftsVoteOnUnstoredProp(sc *scene) {
 	sc.vote = sc.voteBy(sc.ada, aVote(sc.prop, sc.ada, v1.Vote_For))
 }
 
-// adaDraftsVoteWith drafts Ada's vote with one field changed before signing,
-// so the change is the vote's only fault.
+// adaDraftsVoteWith drafts Ada's vote with one field changed before signing.
 func adaDraftsVoteWith(sc *scene, change func(*v1.Vote)) {
 	content := aVote(sc.storedProp, sc.ada, v1.Vote_For)
 	change(content)

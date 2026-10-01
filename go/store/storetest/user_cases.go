@@ -7,9 +7,8 @@ import (
 )
 
 var enrollUserCases = []storeCase{
-	// Refused before any state is consulted.
 	{
-		name:    "error - InvalidContent: publicKey absent",
+		name:    "publicKey absent",
 		promise: "InvalidContent if publicKey is absent",
 		given:   []step{adaDrafted, adaOffersNoKey},
 		call:    enrolAda,
@@ -17,7 +16,7 @@ var enrollUserCases = []storeCase{
 		then:    []step{adaIDUnknown, adaEmailUnknown},
 	},
 	{
-		name:    "error - InvalidContent: key_id does not thumbprint publicKey",
+		name:    "key_id does not thumbprint publicKey",
 		promise: "InvalidContent if publicKey is absent or key_id does not thumbprint it",
 		given:   []step{adaDrafted, bobDrafted, adaOffersBobsKey},
 		call:    enrolAda,
@@ -25,7 +24,7 @@ var enrollUserCases = []storeCase{
 		then:    []step{adaIDUnknown, adaEmailUnknown},
 	},
 	{
-		name:    "error - SignatureInvalid: enrolling assertion does not stand",
+		name:    "enrolling assertion does not stand",
 		promise: "SignatureInvalid (Fabric) if the enrolling assertion does not stand",
 		hard:    true,
 		given:   []step{adaDrafted, adaEnrolmentAltered},
@@ -34,18 +33,16 @@ var enrollUserCases = []storeCase{
 		then:    []step{adaIDUnknown, adaEmailUnknown},
 	},
 
-	// Accepted.
 	{
-		name:    "success - persists the user and binds their key",
+		name:    "persists the user and binds their key",
 		promise: "EnrollUser persists a new user and, with it, the signing key every later write of theirs is verified against",
 		given:   []step{adaDrafted},
 		call:    enrolAda,
 		then:    []step{adaReadsBack, adaCredentialResolves, adaKeyBound},
 	},
 
-	// Refused against stored state; nothing of the refused enrolment remains.
 	{
-		name:    "error - AlreadyExists: email taken",
+		name:    "email taken",
 		promise: "AlreadyExists if the email is taken",
 		given:   []step{bobEnrolled, adaDrafted, adaTakesBobsEmail},
 		call:    enrolAda,
@@ -53,7 +50,7 @@ var enrollUserCases = []storeCase{
 		then:    []step{bobUnchanged, adaIDUnknown, adaKeyUnbound},
 	},
 	{
-		name:    "error - AlreadyExists: id collides",
+		name:    "id collides",
 		promise: "AlreadyExists if the email is taken or the minted id collides",
 		given:   []step{bobEnrolled, adaDrafted, adaTakesBobsID},
 		call:    enrolAda,
@@ -66,14 +63,14 @@ var enrollUserCases = []storeCase{
 
 var credentialCases = []storeCase{
 	{
-		name:    "success - returns the id and the hash stored",
+		name:    "returns the id and the hash stored",
 		promise: "the store hands back only the hash it stored",
 		given:   []step{adaEnrolled},
 		call:    credentialOfAda,
 		then:    []step{credentialIsAdas},
 	},
 	{
-		name:    "error - Unauthenticated: no such email",
+		name:    "no such email",
 		promise: "Unauthenticated if no such email exists",
 		given:   []step{adaDrafted},
 		call:    credentialOfAda,
@@ -83,14 +80,14 @@ var credentialCases = []storeCase{
 
 var getUserCases = []storeCase{
 	{
-		name:    "success - returns the user as written",
+		name:    "returns the user as written",
 		promise: readsAsWritten,
 		given:   []step{adaEnrolled},
 		call:    getAda,
 		then:    []step{gotAda},
 	},
 	{
-		name:    "error - NotFound: no such id",
+		name:    "no such id",
 		promise: "NotFound if absent",
 		given:   []step{adaDrafted},
 		call:    getAda,
@@ -100,7 +97,7 @@ var getUserCases = []storeCase{
 
 var listUsersCases = []storeCase{
 	{
-		name:    "success - lists each user once",
+		name:    "lists each user once",
 		promise: "ListUsers returns every user",
 		given:   []step{adaEnrolled, bobEnrolled},
 		call:    listUsers,
@@ -192,10 +189,8 @@ func adaKeyBound(sc *scene) {
 	sc.must(sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.topicBy(sc.ada, aTopic())), "create a topic with Ada's newly enrolled key")
 }
 
-// adaKeyUnbound: a refused enrolment bound no key, so a topic signed with it is
-// refused. Either Kind the doc comments name for a key_id that resolves to no
-// one is accepted here — store.go says Unauthenticated, errors.go says
-// SignatureInvalid — since the two disagree.
+// adaKeyUnbound: a refused enrolment bound no key; either disputed Kind is
+// accepted (see createTopicCases).
 func adaKeyUnbound(sc *scene) {
 	sc.t.Helper()
 	err := sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.topicBy(sc.ada, aTopic()))

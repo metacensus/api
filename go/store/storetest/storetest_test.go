@@ -80,9 +80,6 @@ func TestSuiteCoversEveryStoreMethod(t *testing.T) {
 	}
 }
 
-// Every assertion the suite makes is contract, so every case must quote the
-// doc comment it enforces. A promise not found in go/store's sources is either
-// a misquote or an assertion the doc comments never made.
 func TestEveryPromiseIsQuoted(t *testing.T) {
 	var doc strings.Builder
 	for _, f := range []string{"doc.go", "store.go", "errors.go"} {
@@ -109,32 +106,6 @@ func TestEveryPromiseIsQuoted(t *testing.T) {
 			t.Errorf("promise %q is not quoted from go/store's doc comments", p)
 		}
 	}
-}
-
-// A failure line is read before the table is: a case's name says whether it
-// succeeds and, if not, which Kind it wants.
-func TestCaseNamesCarryTheirKind(t *testing.T) {
-	for method, cases := range suite {
-		for _, c := range cases {
-			want := "success - "
-			if c.want != "" {
-				want = "error - " + kindName[c.want] + ": "
-			}
-			if !strings.HasPrefix(c.name, want) {
-				t.Errorf("%s: case %q should begin %q", method, c.name, want)
-			}
-		}
-	}
-}
-
-// kindName spells each Kind as its Go identifier, the way a reader finds it.
-var kindName = map[store.Kind]string{
-	store.NotFound:         "NotFound",
-	store.AlreadyExists:    "AlreadyExists",
-	store.InvalidContent:   "InvalidContent",
-	store.SignatureInvalid: "SignatureInvalid",
-	store.Unauthenticated:  "Unauthenticated",
-	store.Unavailable:      "Unavailable",
 }
 
 func normalize(s string) string { return strings.Join(strings.Fields(s), " ") }

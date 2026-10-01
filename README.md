@@ -99,12 +99,12 @@ go/contract/      the wire encoder and the whole-contract schema tests
 go/server/        generated handler interfaces + registration, hand-written runtime
 go/server/routes/ the generated route manifest (routes.Prefix, routes.Routes)
 go/signing/       the signing chain: JCS, the digest, sign and verify
-go/store/         the persistence port the two backends implement
+go/store/         the persistence port the two backends implement, and storetest, the suite that proves them
 go/auth/          the session port + a development placeholder
 go/service/       the handlers: store + auth + minting, behind the server interfaces
 ts/               the contract in TypeScript — the npm package
                   (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
-internal/         protoscan, the .proto tree scan both modules check against
+internal/         protoscan (the .proto tree scan both modules check against), memstore (an in-memory store.Store)
 routegen/         module 2: the generator, renderers, templates, pinned tools,
                   and the suites that exercise what it emits (chitest, wireserver)
 scripts/          version.sh, which make release uses to mint tags
@@ -185,22 +185,7 @@ Per request it resolves the caller, mints the `id` and `recorded` (record-level,
 
 ### Proving a store
 
-`go/store/storetest` is the conformance suite for `store.Store`: every implementation runs it, so two backends cannot drift apart while agreeing on the interface. It is the twin, one seam down, of `ts/test/wire.test.mjs`.
-
-```go
-func TestConformance(t *testing.T) {
-	storetest.Run(t, storetest.Harness{
-		Open:       func(t *testing.T) store.Store { return openTestStore(t) },
-		Signatures: storetest.Hard, // or storetest.Soft
-	})
-}
-```
-
-- **`Open`** is called once per case and may return a fresh store or one shared by every case. The suite assumes neither: each case mints its own ids and emails, never deletes, and checks a global list only for its own records. How a backend isolates, seeds or tears down its store is that backend's business.
-- **`Signatures`** says how hard the store verifies, and has no default. `Soft` (Postgres) requires an assertion to be present; `Hard` (Fabric) requires it to stand, against a participant assertion from `storetest.Origin`. The cases that need a forged signature refused run only under `Hard`, and are listed as skipped under `Soft`.
-- **Each case quotes its promise** — the clause of `go/store`'s doc comments it enforces — and a failure prints it. The suite asserts nothing those comments do not state; where they are silent (list order, concurrent use), it is too. A gap a backend finds belongs in the doc comments, and then in the suite.
-
-The package comment lists what the suite does not cover.
+Every `store.Store` implementation runs [`go/store/storetest`](go/store/storetest/storetest.go), the twin one seam down of `ts/test/wire.test.mjs`: `storetest.Run(t, storetest.Harness{Open: …, Signatures: storetest.Soft})` from a test in the backend's own repository. How the backend isolates and tears down its store is its own; the package comment says what the suite assumes and what it does not cover.
 
 ## The generated client
 

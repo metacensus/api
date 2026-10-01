@@ -10,18 +10,16 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Clauses more than one case's checks enforce. TestEveryPromiseIsQuoted holds
-// these to the doc comments as it does each case's promise.
+// Clauses more than one case quotes.
 const (
 	atomicity      = "One method is one atomic unit of work"
 	readsAsWritten = "a read returns the record exactly as it was written"
 )
 
 // storeCase is one conformance case: build state, make the one call under
-// test, and check its Kind and what it left behind. Every field but promise
-// is a named step, so a table row reads as a sentence.
+// test, and check its Kind and what it left behind.
 type storeCase struct {
-	name    string // "success - …" or "error - <Kind>: …"
+	name    string
 	promise string // the clause of store.go/errors.go/doc.go this enforces, verbatim
 	hard    bool   // runs only against a Hard store
 
@@ -29,6 +27,25 @@ type storeCase struct {
 	call  func(*scene) error // the one call under test
 	want  store.Kind         // "" for success
 	then  []step             // observations after the call
+}
+
+// title is the subtest name: whether the case succeeds and, if not, the Kind
+// it wants, so a failure line names the promise broken.
+func (c storeCase) title() string {
+	if c.want == "" {
+		return "success - " + c.name
+	}
+	return "error - " + kindName[c.want] + ": " + c.name
+}
+
+// kindName spells each Kind as its Go identifier, the way a reader finds it.
+var kindName = map[store.Kind]string{
+	store.NotFound:         "NotFound",
+	store.AlreadyExists:    "AlreadyExists",
+	store.InvalidContent:   "InvalidContent",
+	store.SignatureInvalid: "SignatureInvalid",
+	store.Unauthenticated:  "Unauthenticated",
+	store.Unavailable:      "Unavailable",
 }
 
 // A step builds or observes state, failing the case on its own.
@@ -70,7 +87,6 @@ func (c *storeCase) run(t *testing.T, h Harness, ids *minter) {
 	}
 }
 
-// must fails the case when a step that builds state is refused.
 func (sc *scene) must(err error, what string) {
 	sc.t.Helper()
 	if err != nil {
@@ -92,7 +108,6 @@ func assertKind(sc *scene, err error, want store.Kind) {
 	sc.t.Fatalf("want Kind %q, got %v (Kind %q)\n  promise: %s", want, err, got, sc.c.promise)
 }
 
-// assertRecord holds a record read back to the one written, field for field.
 func assertRecord(sc *scene, got, want proto.Message) {
 	sc.t.Helper()
 	if !proto.Equal(got, want) {

@@ -88,8 +88,6 @@ func (sc *scene) voteBy(p *participant, content *v1.Vote) *v1.VoteSigned {
 	return &v1.VoteSigned{Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
 }
 
-// Content builders: the ordinary content of each record, for the drafts above.
-
 func aTopic() *v1.Topic {
 	return &v1.Topic{Name: "Conformance", Description: "A topic the conformance suite drafted."}
 }
@@ -102,9 +100,7 @@ func aVote(prop *v1.PropSigned, voter *participant, pos v1.Vote_Position) *v1.Vo
 	return &v1.Vote{TopicId: prop.GetContent().GetTopicId(), PropId: prop.GetId(), UserId: voter.user.GetId(), Position: pos}
 }
 
-// countersign adds an institutional signature over a record's user signature,
-// made with a throwaway institution key: the store persists it as given and,
-// this pass, verifies it no harder than a user signature.
+// countersign adds an institutional signature made with a throwaway key.
 func (sc *scene) countersign(userSig *v1.Signature, interp *v1.Interpretation) *v1.Signature {
 	sc.t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

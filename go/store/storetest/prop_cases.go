@@ -6,9 +6,8 @@ import (
 )
 
 var createPropCases = []storeCase{
-	// Refused before any state is consulted.
 	{
-		name:    "error - InvalidContent: topic_id absent",
+		name:    "topic_id absent",
 		promise: "InvalidContent if topic_id is absent",
 		given:   []step{adaEnrolled, adaDraftsPropWithoutTopic},
 		call:    adaSubmitsProp,
@@ -16,7 +15,7 @@ var createPropCases = []storeCase{
 		then:    []step{propUnknown},
 	},
 	{
-		name:    "error - Unauthenticated: caller is not the author",
+		name:    "caller is not the author",
 		promise: "Unauthenticated if callerID is not the author",
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicExists, adaDraftsProp},
 		call:    bobSubmitsProp,
@@ -24,7 +23,7 @@ var createPropCases = []storeCase{
 		then:    []step{propUnknown},
 	},
 	{
-		name:    "error - SignatureInvalid: content altered after signing",
+		name:    "content altered after signing",
 		promise: "SignatureInvalid (Fabric) if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp, propAltered},
@@ -33,18 +32,16 @@ var createPropCases = []storeCase{
 		then:    []step{propUnknown},
 	},
 
-	// Accepted.
 	{
-		name:    "success - persists the prop under its topic",
+		name:    "persists the prop under its topic",
 		promise: "CreateProp persists a new prop under its content.topic_id; the record is fully minted.",
 		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp},
 		call:    adaSubmitsProp,
 		then:    []step{propReadsBack},
 	},
 
-	// Refused against stored state.
 	{
-		name:    "error - InvalidContent: topic does not exist",
+		name:    "topic does not exist",
 		promise: "InvalidContent if topic_id is absent or names a topic that does not exist",
 		given:   []step{adaEnrolled, adaDraftsTopic, adaDraftsPropInUnstoredTopic},
 		call:    adaSubmitsProp,
@@ -52,7 +49,7 @@ var createPropCases = []storeCase{
 		then:    []step{propUnknown},
 	},
 	{
-		name:    "error - AlreadyExists: id collides within its topic",
+		name:    "id collides within its topic",
 		promise: "AlreadyExists on id collision",
 		given:   []step{adaEnrolled, adasTopicExists, adasPropExists, adaRedraftsPropUnderSameID},
 		call:    adaSubmitsProp,
@@ -65,21 +62,21 @@ var createPropCases = []storeCase{
 
 var getPropCases = []storeCase{
 	{
-		name:    "success - returns the prop as written",
+		name:    "returns the prop as written",
 		promise: readsAsWritten,
 		given:   []step{adaEnrolled, adasTopicExists, adasPropExists},
 		call:    getProp,
 		then:    []step{gotProp},
 	},
 	{
-		name:    "error - NotFound: no such prop",
+		name:    "no such prop",
 		promise: "NotFound if absent",
 		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp},
 		call:    getProp,
 		want:    store.NotFound,
 	},
 	{
-		name:    "error - NotFound: the prop's id under another topic",
+		name:    "the prop's id under another topic",
 		promise: "GetProp returns one prop, addressed by the (topic, prop) tuple",
 		given:   []step{adaEnrolled, adasTopicExists, adasPropExists, adasOtherTopicExists},
 		call:    getPropUnderOtherTopic,
@@ -89,7 +86,7 @@ var getPropCases = []storeCase{
 
 var listPropsCases = []storeCase{
 	{
-		name:    "success - lists exactly the props in the topic",
+		name:    "lists exactly the props in the topic",
 		promise: "ListProps returns every prop in one topic.",
 		given:   []step{adaEnrolled, adasTopicExists, adasPropExists, adasSecondPropExists, adasPropElsewhereExists},
 		call:    listProps,
@@ -123,8 +120,6 @@ func adasSecondPropExists(sc *scene) {
 	sc.must(sc.s.CreateProp(sc.ctx, sc.ada.user.GetId(), sc.secondProp), "create Ada's second prop")
 }
 
-// adasPropElsewhereExists puts a prop in a different topic, which listing the
-// first topic must not return.
 func adasPropElsewhereExists(sc *scene) {
 	adasOtherTopicExists(sc)
 	elsewhere := sc.propBy(sc.ada, aPropIn(sc.otherTopic))

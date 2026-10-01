@@ -6,9 +6,8 @@ import (
 )
 
 var createTopicCases = []storeCase{
-	// Refused before any state is consulted.
 	{
-		name:    "error - Unauthenticated: caller is not the author",
+		name:    "caller is not the author",
 		promise: "Unauthenticated if callerID is not the author",
 		given:   []step{adaEnrolled, bobEnrolled, adaDraftsTopic},
 		call:    bobSubmitsTopic,
@@ -18,7 +17,7 @@ var createTopicCases = []storeCase{
 	// Omitted: a key_id that resolves to no enrolled key — store.go says
 	// Unauthenticated, errors.go says SignatureInvalid.
 	{
-		name:    "error - SignatureInvalid: content altered after signing",
+		name:    "content altered after signing",
 		promise: "SignatureInvalid (Fabric) if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adaDraftsTopic, topicAltered},
@@ -27,7 +26,7 @@ var createTopicCases = []storeCase{
 		then:    []step{topicUnknown},
 	},
 	{
-		name:    "error - SignatureInvalid: asserted by a key other than the one key_id names",
+		name:    "asserted by a key other than the one key_id names",
 		promise: "SignatureInvalid (Fabric) if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, bobDrafted, adaDraftsTopic, topicAssertedByBobsKey},
@@ -36,25 +35,23 @@ var createTopicCases = []storeCase{
 		then:    []step{topicUnknown},
 	},
 
-	// Accepted.
 	{
-		name:    "success - persists the topic",
+		name:    "persists the topic",
 		promise: "CreateTopic persists a new topic; the record is fully minted.",
 		given:   []step{adaEnrolled, adaDraftsTopic},
 		call:    adaSubmitsTopic,
 		then:    []step{topicReadsBack},
 	},
 	{
-		name:    "success - persists an institutional signature as given",
+		name:    "persists an institutional signature as given",
 		promise: "The store persists the field as given",
 		given:   []step{adaEnrolled, adaDraftsTopic, topicCountersigned},
 		call:    adaSubmitsTopic,
 		then:    []step{topicReadsBack},
 	},
 
-	// Refused against stored state.
 	{
-		name:    "error - AlreadyExists: id collides",
+		name:    "id collides",
 		promise: "AlreadyExists on id collision",
 		given:   []step{adaEnrolled, adasTopicExists, adaRedraftsTopicUnderSameID},
 		call:    adaSubmitsTopic,
@@ -66,14 +63,14 @@ var createTopicCases = []storeCase{
 
 var getTopicCases = []storeCase{
 	{
-		name:    "success - returns the topic as written",
+		name:    "returns the topic as written",
 		promise: readsAsWritten,
 		given:   []step{adaEnrolled, adasTopicExists},
 		call:    getTopic,
 		then:    []step{gotTopic},
 	},
 	{
-		name:    "error - NotFound: no such id",
+		name:    "no such id",
 		promise: "GetTopic returns one topic by id. NotFound if absent.",
 		given:   []step{adaEnrolled, adaDraftsTopic},
 		call:    getTopic,
@@ -83,7 +80,7 @@ var getTopicCases = []storeCase{
 
 var listTopicsCases = []storeCase{
 	{
-		name:    "success - lists each topic once",
+		name:    "lists each topic once",
 		promise: "ListTopics returns every topic, as ListUsers does.",
 		given:   []step{adaEnrolled, adasTopicExists, adasOtherTopicExists},
 		call:    listTopics,

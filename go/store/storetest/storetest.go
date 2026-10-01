@@ -1,6 +1,5 @@
 // Package storetest is the conformance suite for store.Store: every
-// implementation of the persistence seam runs it to prove it honours the
-// contract store.go's doc comments state.
+// implementation runs it to prove it honours go/store's doc comments.
 //
 //	func TestConformance(t *testing.T) {
 //		storetest.Run(t, storetest.Harness{
@@ -9,55 +8,27 @@
 //		})
 //	}
 //
-// # What it asserts
+// It asserts only what those comments promise: each case quotes its clause,
+// and TestEveryPromiseIsQuoted fails on a quote they do not contain. Where they
+// are silent or disagree, the case is omitted and marked where it would sit.
 //
-// Only what store.go, errors.go and doc.go promise. Each case quotes the clause
-// it enforces as its promise, and a self-test fails if any promise is not
-// found in those sources — an assertion the doc comments do not make would
-// otherwise become contract by being tested. Where the comments are silent or
-// disagree (list order, concurrency, which Kind an unresolvable key_id earns),
-// the suite asserts nothing, and the omission is marked where the case would
-// sit.
-//
-// # Isolation
-//
-// Harness.Open is called once per case, and may return a fresh store or the
-// same shared one: the suite assumes neither. Every case mints its own ids and
-// emails under a per-Run random prefix, never deletes, and checks a global list
-// (ListUsers, ListTopics) only for its own records. A list scoped to a parent
-// the case created (ListProps, ListVotes) is the case's alone, and is checked
-// exactly. How a backend isolates or tears down is the backend's.
-//
-// # Signatures
-//
-// Every fixture is correctly signed, under Origin and RPID. A store declares
-// how hard it verifies: Soft (the Postgres backend: an assertion must be
-// present, not stand) or Hard (inside the Fabric boundary). Cases that need a
-// cryptographic failure refused run only under Hard and are skipped, by name,
-// under Soft; they never assert that a Soft store accepts a bad signature. A
-// Hard store's test verifier must accept a participant assertion from Origin.
-//
-// # Where this sits
+// Every case mints its own ids and emails, never deletes, and checks a global
+// list only for its own records, so a store may be fresh or shared.
 //
 // go/service tests the API over an in-memory store, and is only as true as
 // that store; this suite is what makes it true, and the only layer that
 // reaches states the API never produces — id collisions, a key enrolled to
-// someone else, a tampered record. The third layer, the API over a real store,
-// is each backend's own: whatever it catches that these two miss is behaviour
-// the doc comments do not state, and belongs back in them.
+// someone else, a tampered record. The API over a real store is each
+// backend's own test; what it catches that these two miss is unstated
+// contract, and belongs in go/store's doc comments.
 //
-// # Not covered
-//
-// Atomicity is checked only as "a refused write leaves no trace". Not covered:
-// MVCC conflicts and Unavailable (not provokable generically), concurrent use,
-// a failure partway through a commit, agreement between endorsing peers,
-// context cancellation, key rotation, and the institutional signature's
-// verification (undesigned; the suite checks only that it is persisted).
+// Not covered, as not provokable through the interface: a failure partway
+// through a commit, Unavailable, agreement between endorsing peers, and
+// context cancellation.
 package storetest
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -87,7 +58,8 @@ const (
 	Soft
 
 	// Hard: an assertion must stand against the enrolled key — inside the
-	// Fabric boundary.
+	// Fabric boundary. Cases that need a forged signature refused run only
+	// against a Hard store, and are skipped by name against a Soft one.
 	Hard
 )
 
@@ -108,7 +80,6 @@ type Harness struct {
 	// return a fresh store or a shared one.
 	Open func(t *testing.T) store.Store
 
-	// Signatures declares how hard the store verifies.
 	Signatures Verification
 }
 
@@ -129,7 +100,7 @@ func Run(t *testing.T, h Harness) {
 	if err := h.validate(); err != nil {
 		t.Fatal(err)
 	}
-	ids := newMinter(t)
+	ids := newMinter()
 	for _, method := range storeMethods() {
 		cases, ok := suite[method]
 		if !ok {
@@ -138,14 +109,13 @@ func Run(t *testing.T, h Harness) {
 		}
 		t.Run(method, func(t *testing.T) {
 			for _, c := range cases {
-				t.Run(c.name, func(t *testing.T) { c.run(t, h, ids) })
+				t.Run(c.title(), func(t *testing.T) { c.run(t, h, ids) })
 			}
 		})
 	}
 }
 
-// suite is every case, keyed by the store.Store method it covers;
-// TestSuiteCoversEveryStoreMethod holds the keys to the interface.
+// suite is every case, keyed by the store.Store method it covers.
 var suite = map[string][]storeCase{
 	"EnrollUser":  enrollUserCases,
 	"Credential":  credentialCases,
@@ -161,7 +131,6 @@ var suite = map[string][]storeCase{
 	"ListVotes":   listVotesCases,
 }
 
-// storeMethods names the methods of store.Store.
 func storeMethods() []string {
 	iface := reflect.TypeFor[store.Store]()
 	out := make([]string, iface.NumMethod())
@@ -178,14 +147,7 @@ type minter struct {
 	n      atomic.Int64
 }
 
-func newMinter(t *testing.T) *minter {
-	t.Helper()
-	b := make([]byte, 6)
-	if _, err := rand.Read(b); err != nil {
-		t.Fatalf("storetest: mint a run prefix: %v", err)
-	}
-	return &minter{prefix: "conformance-" + hex.EncodeToString(b)}
-}
+func newMinter() *minter { return &minter{prefix: "conformance-" + rand.Text()} }
 
 func (m *minter) id(kind string) string {
 	return fmt.Sprintf("%s-%s-%d", m.prefix, kind, m.n.Add(1))

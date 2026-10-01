@@ -1,15 +1,8 @@
-// Package memstore is an in-memory store.Store: the double go/service's tests
-// run against, and the implementation go/store/storetest validates itself on.
-// It enforces the invariants the seam promises — uniqueness, parent existence,
-// and that the author key resolves to the caller — and verifies signatures
-// softly by default, as the Postgres backend does: an assertion is required to
-// be present, not to stand. Config.Verify switches it to hard verification, as
-// inside the Fabric boundary, so the conformance suite's Hard-only cases have
-// an implementation in this repository to run against.
+// Package memstore is an in-memory store.Store, for go/service's tests and
+// storetest's own; it passes storetest under both Soft and Hard.
 //
-// It is internal deliberately: the shipped backends are service-api-standard
-// and service-api-chain, and exporting a store from the published module is a
-// decision to take when a consumer asks, not one an import would take for it.
+// It is internal so that exporting a store from the published module is
+// decided when a consumer asks, not by an import.
 package memstore
 
 import (
@@ -63,7 +56,7 @@ func New(cfg Config) *Store {
 var _ store.Store = (*Store)(nil)
 
 // authored resolves sig's key_id through the key history and reports whether
-// it belongs to callerID — the binding that replaces a self-claimed signer id.
+// it belongs to callerID.
 func (s *Store) authored(sig *v1.Signature, callerID string) (enrolledKey, bool) {
 	k, ok := s.keys[sig.GetKeyId()]
 	return k, ok && k.owner == callerID
@@ -84,8 +77,6 @@ func clone[M proto.Message](m M) M { return proto.Clone(m).(M) }
 
 func (s *Store) EnrollUser(_ context.Context, record *v1.UserSigned, publicKey, passwordHash string) error {
 	sig := record.GetUserSignature()
-	// Trust on first use: bind the enrolling key, but only if key_id
-	// thumbprints the key offered.
 	pub, err := signing.EnrolledKey(publicKey, sig.GetKeyId())
 	if err != nil {
 		return store.InvalidContent
