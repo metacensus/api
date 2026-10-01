@@ -26,6 +26,9 @@ import (
 //
 //   - Verification is inherited. A value checked at the write boundary is
 //     trusted by every later read; reads resolve state, they do not re-verify.
+//     So a read returns the record exactly as it was written — every field,
+//     every timestamp to the nanosecond — or a signature over it (whose time
+//     is inside the digest) would no longer verify.
 //
 // A write's callerID is the session's authenticated user, resolved above this
 // seam and never a body field; it must equal the owner the author signature's
