@@ -52,11 +52,11 @@ type Store interface {
 	// never crosses the seam, so it is never an invocation argument and never
 	// sits inside a signed, stored document.
 	//
-	// AlreadyExists if the email is taken, the minted id collides, or key_id is
-	// already bound — rebinding it would hand its owner's later writes to the
-	// new user. InvalidContent if publicKey is absent or key_id does not
-	// thumbprint it. SignatureInvalid (Fabric) if the enrolling assertion does
-	// not stand.
+	// AlreadyExists if the email is taken (compared byte-exact: no case folding
+	// or normalization), the minted id collides, or key_id is already bound —
+	// rebinding it would hand its owner's later writes to the new user.
+	// InvalidContent if publicKey is absent or key_id does not thumbprint it.
+	// SignatureInvalid (Fabric) if the enrolling assertion does not stand.
 	//
 	// Email and key_id uniqueness are the store's, not a backend's: Postgres
 	// gets them from unique indexes, but Fabric world state is addressed by id
