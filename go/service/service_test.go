@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -18,17 +19,18 @@ import (
 	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/signing"
 	"github.com/metacensus/api/go/store"
+	"github.com/metacensus/api/internal/memstore"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // --- test harness -----------------------------------------------------------
 
-// newTestServer wires a Handlers over a fresh fakeStore onto a StdMux, with a
+// newTestServer wires a Handlers over a fresh memstore onto a StdMux, with a
 // deterministic id minter and clock so a test can assert the minted fields.
-func newTestServer(t *testing.T) (*fakeStore, http.Handler) {
+func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
-	fake := newFakeStore()
+	fake := memstore.New(memstore.Config{})
 	var n int64
 	h := New(Config{
 		Store:      fake,
@@ -46,7 +48,7 @@ func newTestServer(t *testing.T) (*fakeStore, http.Handler) {
 // TTL the store actually enforces.
 func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
 	const ttl = 3 * time.Hour
-	fake := newFakeStore()
+	fake := memstore.New(memstore.Config{})
 	var n int64
 	h := New(Config{
 		Store:      fake,
@@ -280,7 +282,10 @@ func TestMintingPreservesSignature(t *testing.T) {
 	if rec.GetId() == "" || rec.GetRecorded() == nil {
 		t.Fatal("server did not mint id/recorded")
 	}
-	stored := fake.topics[rec.GetId()]
+	stored, err := fake.GetTopic(context.Background(), rec.GetId())
+	if err != nil {
+		t.Fatalf("read back the topic: %v", err)
+	}
 	if err := signing.VerifyUser(&c.priv.PublicKey, stored.GetContent(), stored.GetInterpretation(), stored.GetUserSignature(), signing.ParticipantPolicy(testOrigin)); err != nil {
 		t.Fatalf("signature broke across assembly: %v", err)
 	}
