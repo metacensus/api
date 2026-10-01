@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	contract "github.com/metacensus/api/go/contract"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/server"
 	"github.com/metacensus/api/go/server/routes"
 	"github.com/metacensus/api/go/signing"
 	"github.com/metacensus/api/go/store"
@@ -24,6 +24,14 @@ import (
 )
 
 // --- test harness -----------------------------------------------------------
+
+// mount serves h's routes alone, without the middleware serve_test.go covers,
+// so a handler panic fails the test at its site.
+func mount(h *Handlers) http.Handler {
+	mux := http.NewServeMux()
+	h.Register(server.StdMux{ServeMux: mux}, &server.Runtime{Prefix: routes.Prefix})
+	return mux
+}
 
 func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
@@ -35,7 +43,7 @@ func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
 		BcryptCost: 4, // bcrypt.MinCost: fast, this is a test
 	})
-	return mem, h.handler(slog.New(slog.DiscardHandler))
+	return mem, mount(h)
 }
 
 // TestRefreshTTLDrivesCookieMaxAge: Config.RefreshTTL sets the refresh cookie's
@@ -53,7 +61,7 @@ func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
 		RefreshTTL: ttl,
 	})
 
-	c := newClient(t, h.handler(slog.New(slog.DiscardHandler)))
+	c := newClient(t, mount(h))
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
 	suInterp, suSig := c.sign(user)
 	signup := c.do("POST", "/signup", &v1.SignUpRequest{
