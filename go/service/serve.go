@@ -16,14 +16,21 @@ import (
 
 const shutdownGrace = 10 * time.Second
 
-// Serve serves the handlers on port until ctx is cancelled, then drains
-// in-flight requests for up to shutdownGrace before returning.
+// Serve is a backend's whole HTTP process on port: the API under
+// routes.Prefix, GET /healthz outside it, request logging, panic recovery and
+// timeouts. Cancelling ctx drains in-flight requests for up to 10s.
 func (h *Handlers) Serve(ctx context.Context, port int, logger *slog.Logger) error {
 	addr := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
+	logger.Info("listening", slog.String("event", "listening"),
+		slog.Int("port", port), slog.String("prefix", routes.Prefix))
+	return h.serve(ctx, listener, logger)
+}
+
+func (h *Handlers) serve(ctx context.Context, listener net.Listener, logger *slog.Logger) error {
 	srv := &http.Server{
 		Handler:           h.handler(logger),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -31,8 +38,6 @@ func (h *Handlers) Serve(ctx context.Context, port int, logger *slog.Logger) err
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	logger.Info("listening", slog.String("event", "listening"),
-		slog.Int("port", port), slog.String("prefix", routes.Prefix))
 
 	served := make(chan error, 1)
 	go func() {
@@ -60,10 +65,9 @@ func (h *Handlers) Serve(ctx context.Context, port int, logger *slog.Logger) err
 	return <-served
 }
 
-// /healthz sits outside the prefix and touches nothing, so a backend outage
-// cannot fail the process's liveness.
 func (h *Handlers) handler(logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
+	// Liveness only: it touches no store, so a backend outage cannot fail it.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -94,6 +98,8 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return n, err
 }
 
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 func logRequests(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
@@ -112,9 +118,6 @@ func logRequests(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// recoverPanics turns a panicking handler into a 500 that carries nothing of
-// the panic, and logs the panic with its stack. http.ErrAbortHandler is
-// re-raised: it is net/http's signal to abort the response, not a fault.
 func recoverPanics(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -122,7 +125,7 @@ func recoverPanics(logger *slog.Logger, next http.Handler) http.Handler {
 			if recovered == nil {
 				return
 			}
-			if recovered == http.ErrAbortHandler {
+			if recovered == http.ErrAbortHandler { // net/http's abort signal, not a fault
 				panic(recovered)
 			}
 			logger.Error("request panicked",
