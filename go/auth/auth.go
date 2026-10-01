@@ -47,17 +47,30 @@ type Tokens struct {
 	Refresh      string
 }
 
-// Sessions is the session port. Issue mints a pair for a freshly authenticated
-// caller (login, sign-up); Resolve turns an access token back into its caller
-// on every authenticated request, rejecting an expired or unknown one; Refresh
-// consumes a refresh token and mints a new pair for the same caller, rotating
-// it; Revoke ends the lineage a refresh token belongs to (logout). A real
-// implementation decides storage and expiry; the service sees only this port.
+// Sessions is the session port; go/auth/sessiontest checks an implementation
+// against these promises. A refused token is a non-nil error.
+//
+// Issue opens a new session lineage for a freshly authenticated caller (login,
+// sign-up) and mints its first pair; it refuses an empty callerID.
+//
+// Resolve returns the caller a live access token belongs to. An access token
+// resolves until its AccessExpiry and is refused from that instant on; an
+// unknown access token is refused.
+//
+// Refresh consumes a refresh token and mints a new pair for the same caller on
+// the same lineage. A refresh token is single-use: once consumed it is refused.
+// It is refused too once the refresh lifetime has passed since it was minted,
+// and when it is unknown.
+//
+// Revoke ends the lineage a refresh token belongs to (logout): every access and
+// refresh token minted on it is refused from then on, and every other lineage,
+// the same caller's included, is untouched. Revoking a token it does not hold
+// is not an error, so a double logout is idempotent.
 type Sessions interface {
-	Issue(callerID string) (Tokens, error)
-	Resolve(access string) (callerID string, err error)
-	Refresh(refresh string) (callerID string, t Tokens, err error)
-	Revoke(refresh string) error
+	Issue(ctx context.Context, callerID string) (Tokens, error)
+	Resolve(ctx context.Context, access string) (callerID string, err error)
+	Refresh(ctx context.Context, refresh string) (callerID string, t Tokens, err error)
+	Revoke(ctx context.Context, refresh string) error
 }
 
 // ctxKey is unexported so only this package can put a value on a context; a
@@ -99,7 +112,7 @@ func Middleware(s Sessions) func(http.Handler) http.Handler {
 				server.WriteError(w, unauthorized("no bearer token"))
 				return
 			}
-			callerID, err := s.Resolve(token)
+			callerID, err := s.Resolve(r.Context(), token)
 			if err != nil {
 				server.WriteError(w, unauthorized("token does not resolve to a caller"))
 				return

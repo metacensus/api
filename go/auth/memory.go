@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -9,7 +10,7 @@ import (
 )
 
 // Default token lifetimes: a short access token, a long refresh token. The
-// access TTL bounds how long a revoked-but-unexpired token lingers; the refresh
+// access TTL bounds how long a leaked access token is good for; the refresh
 // TTL is how long a session survives without re-authenticating.
 const (
 	DefaultAccessTTL  = 15 * time.Minute
@@ -76,9 +77,7 @@ func NewMemorySessionsWith(cfg MemoryConfig) *MemorySessions {
 	}
 }
 
-// Issue opens a new session lineage for callerID and mints its first token
-// pair.
-func (m *MemorySessions) Issue(callerID string) (Tokens, error) {
+func (m *MemorySessions) Issue(_ context.Context, callerID string) (Tokens, error) {
 	if callerID == "" {
 		return Tokens{}, errors.New("auth: cannot issue tokens for an empty callerID")
 	}
@@ -91,9 +90,7 @@ func (m *MemorySessions) Issue(callerID string) (Tokens, error) {
 	return m.mint(callerID, session)
 }
 
-// Resolve returns the caller a live access token belongs to. An unknown or
-// expired token is an error; an expired one is dropped on the way out.
-func (m *MemorySessions) Resolve(access string) (string, error) {
+func (m *MemorySessions) Resolve(_ context.Context, access string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	rec, ok := m.access[access]
@@ -107,10 +104,7 @@ func (m *MemorySessions) Resolve(access string) (string, error) {
 	return rec.caller, nil
 }
 
-// Refresh consumes a refresh token and mints a fresh pair on the same lineage.
-// The presented token is single-use: it is deleted here, so a replay finds
-// nothing and is refused. An unknown or expired token is an error.
-func (m *MemorySessions) Refresh(refresh string) (string, Tokens, error) {
+func (m *MemorySessions) Refresh(_ context.Context, refresh string) (string, Tokens, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	rec, ok := m.refresh[refresh]
@@ -128,12 +122,9 @@ func (m *MemorySessions) Refresh(refresh string) (string, Tokens, error) {
 	return rec.caller, t, nil
 }
 
-// Revoke ends the lineage a refresh token names — every access and refresh
-// token on it. Revoking one already gone is not an error, so a double logout is
-// idempotent; the trade-off is that a stale, already-rotated token can no
-// longer name its lineage, so logout is driven by the current refresh token
-// (the one the cookie holds).
-func (m *MemorySessions) Revoke(refresh string) error {
+// Revoke cannot name a lineage from a refresh token already rotated away, so
+// logout is driven by the current one (the one the cookie holds).
+func (m *MemorySessions) Revoke(_ context.Context, refresh string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	rec, ok := m.refresh[refresh]
