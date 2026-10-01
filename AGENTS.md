@@ -18,7 +18,7 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 
 ## Why /healthz is not in the contract
 
-`service-public-api` answers `GET /healthz`, and it is not here: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. The container runtime probes the service directly rather than through the proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
+`Serve` and `service-public-api` answer `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. The container runtime probes the service directly rather than through the proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
 
 ## What the public contract does and does not mechanise
 

@@ -2,7 +2,8 @@
 // generated handler interfaces (go/server) in terms of the persistence port
 // (go/store) and the session port (go/auth). It is what service-api-standard
 // and service-api-chain import; each supplies only its own store (and, later,
-// its own real auth), and mounts the handlers on its own mux.
+// its own real auth), and either serves the handlers (Serve) or mounts them on
+// its own mux (Register).
 //
 // Its job is everything that is neither routing nor persistence:
 //
