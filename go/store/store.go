@@ -7,9 +7,9 @@ import (
 )
 
 // Store is the seam between the shared API layer and whichever backend holds
-// the data: metacensus/demo over Postgres, metacensus/infra over Hyperledger
-// Fabric. It is the whole contract between them; nothing Fabric- or
-// Postgres-shaped crosses it.
+// the data: service-api-standard over Postgres, service-api-chain over
+// Hyperledger Fabric. It is the whole contract between them; nothing Fabric-
+// or Postgres-shaped crosses it.
 //
 // Three rules fix its shape, and every method's contract is read against them:
 //
