@@ -1,6 +1,8 @@
 package storetest
 
 import (
+	"strings"
+
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"github.com/metacensus/api/go/store"
 	"google.golang.org/protobuf/proto"
@@ -65,8 +67,14 @@ var enrollUserCases = []storeCase{
 		want:    store.AlreadyExists,
 		then:    []step{bobUnchanged, bobKeyBound, adaIDUnknown, adaEmailUnknown},
 	},
+	{
+		name:    "email differs only in case",
+		promise: "compared byte-exact: no case folding or normalization",
+		given:   []step{bobEnrolled, adaDrafted, adaTakesBobsEmailUpperCased},
+		call:    enrolAda,
+		then:    []step{adaReadsBack, adaCredentialResolves, bobUnchanged},
+	},
 	// Omitted: an empty id or email has no Kind stated.
-	// Omitted: whether emails differing only in case collide is unstated.
 }
 
 var credentialCases = []storeCase{
@@ -135,9 +143,15 @@ func adaOffersBobsEnrolledKey(sc *scene) {
 	sc.ada.user.Interpretation, sc.ada.user.UserSignature = sc.sign(sc.ada.key, sc.ada.keyID, sc.ada.user.GetContent())
 }
 
-func adaTakesBobsEmail(sc *scene) {
+func adaTakesBobsEmail(sc *scene) { adaTakesEmail(sc, sc.bob.user.GetContent().GetEmail()) }
+
+func adaTakesBobsEmailUpperCased(sc *scene) {
+	adaTakesEmail(sc, strings.ToUpper(sc.bob.user.GetContent().GetEmail()))
+}
+
+func adaTakesEmail(sc *scene, email string) {
 	content := proto.Clone(sc.ada.user.GetContent()).(*v1.User)
-	content.Email = sc.bob.user.GetContent().GetEmail()
+	content.Email = email
 	sc.ada.user.Content = content
 	sc.ada.user.Interpretation, sc.ada.user.UserSignature = sc.sign(sc.ada.key, sc.ada.keyID, content)
 }
