@@ -29,7 +29,7 @@ import (
 // deterministic id minter and clock so a test can assert the minted fields.
 func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
-	mem := memstore.New(memstore.Config{})
+	mem := memstore.New(nil)
 	var n int64
 	h := New(Config{
 		Store:      mem,
@@ -47,7 +47,7 @@ func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 // TTL the store actually enforces.
 func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
 	const ttl = 3 * time.Hour
-	mem := memstore.New(memstore.Config{})
+	mem := memstore.New(nil)
 	var n int64
 	h := New(Config{
 		Store:      mem,

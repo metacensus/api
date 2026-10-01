@@ -32,8 +32,9 @@ import (
 //
 // A write's callerID is the session's authenticated user, resolved above this
 // seam and never a body field; it must equal the owner the author signature's
-// key_id resolves to, or the write is refused (Unauthenticated). That
-// resolution is the store's — no record carries a verification key.
+// key_id resolves to, or the write is refused (Unauthenticated) whatever else
+// is wrong with it. That resolution is the store's — no record carries a
+// verification key.
 //
 // What this seam deliberately omits is in doc.go.
 type Store interface {
@@ -51,13 +52,16 @@ type Store interface {
 	// never crosses the seam, so it is never an invocation argument and never
 	// sits inside a signed, stored document.
 	//
-	// AlreadyExists if the email is taken or the minted id collides.
-	// InvalidContent if publicKey is absent or key_id does not thumbprint it.
-	// SignatureInvalid (Fabric) if the enrolling assertion does not stand.
+	// AlreadyExists if the email is taken, the minted id collides, or key_id is
+	// already bound — rebinding it would hand its owner's later writes to the
+	// new user. InvalidContent if publicKey is absent or key_id does not
+	// thumbprint it. SignatureInvalid (Fabric) if the enrolling assertion does
+	// not stand.
 	//
-	// Email uniqueness is the store's, not a backend's: Postgres gets it from a
-	// unique index, but Fabric world state is addressed by id alone and needs a
-	// separate email→id key written in the same invocation.
+	// Email and key_id uniqueness are the store's, not a backend's: Postgres
+	// gets them from unique indexes, but Fabric world state is addressed by id
+	// alone and needs separate email→id and key_id→owner keys written in the
+	// same invocation.
 	EnrollUser(ctx context.Context, record *v1.UserSigned, publicKey, passwordHash string) error
 
 	// Credential returns the id and stored password hash of the user an email

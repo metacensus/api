@@ -1,8 +1,11 @@
 package storetest
 
 import (
+	"time"
+
 	"github.com/metacensus/api/go/store"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var createTopicCases = []storeCase{
@@ -21,6 +24,24 @@ var createTopicCases = []storeCase{
 		promise: "SignatureInvalid (Fabric) if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adaDraftsTopic, topicAltered},
+		call:    adaSubmitsTopic,
+		want:    store.SignatureInvalid,
+		then:    []step{topicUnknown},
+	},
+	{
+		name:    "signature time altered after signing",
+		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		hard:    true,
+		given:   []step{adaEnrolled, adaDraftsTopic, topicSignatureTimeAltered},
+		call:    adaSubmitsTopic,
+		want:    store.SignatureInvalid,
+		then:    []step{topicUnknown},
+	},
+	{
+		name:    "interpretation altered after signing",
+		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		hard:    true,
+		given:   []step{adaEnrolled, adaDraftsTopic, topicInterpretationAltered},
 		call:    adaSubmitsTopic,
 		want:    store.SignatureInvalid,
 		then:    []step{topicUnknown},
@@ -88,8 +109,6 @@ var listTopicsCases = []storeCase{
 	},
 }
 
-// --- drafts and stored topics -------------------------------------------------
-
 func adaDraftsTopic(sc *scene) { sc.topic = sc.topicBy(sc.ada, aTopic()) }
 
 func adasTopicExists(sc *scene) {
@@ -103,8 +122,6 @@ func adasOtherTopicExists(sc *scene) {
 	sc.must(sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.otherTopic), "create Ada's other topic")
 }
 
-// adaRedraftsTopicUnderSameID drafts a different, correctly-signed topic that
-// reuses the stored one's id.
 func adaRedraftsTopicUnderSameID(sc *scene) {
 	content := aTopic()
 	content.Name = "Another topic, same id"
@@ -116,17 +133,22 @@ func topicCountersigned(sc *scene) {
 	sc.topic.InstitutionalSignature = sc.countersign(sc.topic.GetUserSignature(), sc.topic.GetInterpretation())
 }
 
-// --- faults in the drafted topic ----------------------------------------------
-
 func topicAltered(sc *scene) { sc.topic.Content.Name += " (altered)" }
+
+func topicSignatureTimeAltered(sc *scene) {
+	sc.topic.UserSignature.Time = timestamppb.New(signedAt.Add(time.Nanosecond))
+}
+
+// topicInterpretationAltered presents the topic's signature as one over a prop.
+func topicInterpretationAltered(sc *scene) {
+	sc.topic.Interpretation.ContentType = "metacensus.v1.Prop"
+}
 
 // topicAssertedByBobsKey re-signs the topic with Bob's key while still naming
 // Ada's key_id: the key_id resolves to Ada, the assertion is not hers.
 func topicAssertedByBobsKey(sc *scene) {
 	sc.topic.Interpretation, sc.topic.UserSignature = sc.sign(sc.bob.key, sc.ada.keyID, sc.topic.GetContent())
 }
-
-// --- calls -------------------------------------------------------------------
 
 func adaSubmitsTopic(sc *scene) error {
 	return sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.topic)
@@ -146,8 +168,6 @@ func listTopics(sc *scene) error {
 	sc.gotList = messages(list)
 	return err
 }
-
-// --- observations --------------------------------------------------------------
 
 func gotTopic(sc *scene)            { assertRecord(sc, sc.got, sc.topic) }
 func listsTopicOnce(sc *scene)      { assertOnceIn(sc, sc.gotList, sc.storedTopic) }

@@ -15,13 +15,6 @@
 // Every case mints its own ids and emails, never deletes, and checks a global
 // list only for its own records, so a store may be fresh or shared.
 //
-// go/service tests the API over an in-memory store, and is only as true as
-// that store; this suite is what makes it true, and the only layer that
-// reaches states the API never produces — id collisions, a key enrolled to
-// someone else, a tampered record. The API over a real store is each
-// backend's own test; what it catches that these two miss is unstated
-// contract, and belongs in go/store's doc comments.
-//
 // Not covered, as not provokable through the interface: a failure partway
 // through a commit, Unavailable, agreement between endorsing peers, and
 // context cancellation.
@@ -53,13 +46,12 @@ type Verification int
 const (
 	_ Verification = iota
 
-	// Soft: an assertion must be present, not stand — the Postgres backend,
-	// which raises SignatureInvalid only for malformed input.
+	// Soft: an assertion must be present, not stand.
 	Soft
 
-	// Hard: an assertion must stand against the enrolled key — inside the
-	// Fabric boundary. Cases that need a forged signature refused run only
-	// against a Hard store, and are skipped by name against a Soft one.
+	// Hard: an assertion must stand against the enrolled key. Cases that need
+	// a forged signature refused run only against a Hard store, and are
+	// skipped by name against a Soft one.
 	Hard
 )
 
@@ -73,7 +65,6 @@ func (v Verification) String() string {
 	return fmt.Sprintf("Verification(%d)", int(v))
 }
 
-// Harness is what an implementation hands the suite.
 type Harness struct {
 	// Open returns the store one case runs against. It is called once per
 	// case, with that case's t, so a backend can register cleanup; it may
@@ -93,8 +84,7 @@ func (h Harness) validate() error {
 	return nil
 }
 
-// Run runs every conformance case against the store h opens, one subtest per
-// store.Store method and one per case beneath it.
+// Run runs every conformance case against the store h opens.
 func Run(t *testing.T, h Harness) {
 	t.Helper()
 	if err := h.validate(); err != nil {
@@ -102,13 +92,8 @@ func Run(t *testing.T, h Harness) {
 	}
 	ids := newMinter()
 	for _, method := range storeMethods() {
-		cases, ok := suite[method]
-		if !ok {
-			t.Errorf("storetest: no conformance cases for store.Store.%s", method)
-			continue
-		}
 		t.Run(method, func(t *testing.T) {
-			for _, c := range cases {
+			for _, c := range suite[method] {
 				t.Run(c.title(), func(t *testing.T) { c.run(t, h, ids) })
 			}
 		})

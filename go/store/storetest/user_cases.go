@@ -51,11 +51,19 @@ var enrollUserCases = []storeCase{
 	},
 	{
 		name:    "id collides",
-		promise: "AlreadyExists if the email is taken or the minted id collides",
+		promise: "the minted id collides",
 		given:   []step{bobEnrolled, adaDrafted, adaTakesBobsID},
 		call:    enrolAda,
 		want:    store.AlreadyExists,
 		then:    []step{bobUnchanged, adaEmailUnknown, adaKeyUnbound},
+	},
+	{
+		name:    "key_id already bound",
+		promise: "or key_id is already bound",
+		given:   []step{bobEnrolled, adaDrafted, adaOffersBobsEnrolledKey},
+		call:    enrolAda,
+		want:    store.AlreadyExists,
+		then:    []step{bobUnchanged, bobKeyBound, adaIDUnknown, adaEmailUnknown},
 	},
 	// Omitted: an empty id or email has no Kind stated.
 	// Omitted: whether emails differing only in case collide is unstated.
@@ -105,8 +113,6 @@ var listUsersCases = []storeCase{
 	},
 }
 
-// --- people -----------------------------------------------------------------
-
 func adaDrafted(sc *scene) { sc.ada = sc.newParticipant("Ada") }
 func bobDrafted(sc *scene) { sc.bob = sc.newParticipant("Bob") }
 
@@ -120,11 +126,14 @@ func bobEnrolled(sc *scene) {
 	sc.must(sc.s.EnrollUser(sc.ctx, sc.bob.user, sc.bob.publicKey, sc.bob.hash), "enrol Bob")
 }
 
-// --- faults in Ada's enrolment ------------------------------------------------
-
 func adaOffersNoKey(sc *scene)   { sc.ada.publicKey = "" }
 func adaOffersBobsKey(sc *scene) { sc.ada.publicKey = sc.bob.publicKey }
 func adaTakesBobsID(sc *scene)   { sc.ada.user.Id = sc.bob.user.GetId() }
+
+func adaOffersBobsEnrolledKey(sc *scene) {
+	sc.ada.key, sc.ada.keyID, sc.ada.publicKey = sc.bob.key, sc.bob.keyID, sc.bob.publicKey
+	sc.ada.user.Interpretation, sc.ada.user.UserSignature = sc.sign(sc.ada.key, sc.ada.keyID, sc.ada.user.GetContent())
+}
 
 func adaTakesBobsEmail(sc *scene) {
 	content := proto.Clone(sc.ada.user.GetContent()).(*v1.User)
@@ -133,10 +142,7 @@ func adaTakesBobsEmail(sc *scene) {
 	sc.ada.user.Interpretation, sc.ada.user.UserSignature = sc.sign(sc.ada.key, sc.ada.keyID, content)
 }
 
-// adaEnrolmentAltered changes the content after it was signed.
 func adaEnrolmentAltered(sc *scene) { sc.ada.user.Content.Name += " (altered)" }
-
-// --- calls -------------------------------------------------------------------
 
 func enrolAda(sc *scene) error {
 	return sc.s.EnrollUser(sc.ctx, sc.ada.user, sc.ada.publicKey, sc.ada.hash)
@@ -157,8 +163,6 @@ func listUsers(sc *scene) error {
 	sc.gotList = messages(list)
 	return err
 }
-
-// --- observations --------------------------------------------------------------
 
 func gotAda(sc *scene)       { assertRecord(sc, sc.got, sc.ada.user) }
 func listsAdaOnce(sc *scene) { assertOnceIn(sc, sc.gotList, sc.ada.user) }
@@ -183,10 +187,12 @@ func adaCredentialResolves(sc *scene) {
 	credentialIsAdas(sc)
 }
 
-// adaKeyBound: a topic Ada signs with her enrolling key is accepted from her.
-func adaKeyBound(sc *scene) {
+func adaKeyBound(sc *scene) { sc.keyBound(sc.ada) }
+func bobKeyBound(sc *scene) { sc.keyBound(sc.bob) }
+
+func (sc *scene) keyBound(p *participant) {
 	sc.t.Helper()
-	sc.must(sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.topicBy(sc.ada, aTopic())), "create a topic with Ada's newly enrolled key")
+	sc.must(sc.s.CreateTopic(sc.ctx, p.user.GetId(), sc.topicBy(p, aTopic())), "create a topic with "+p.user.GetContent().GetName()+"'s key")
 }
 
 // adaKeyUnbound: a refused enrolment bound no key; either disputed Kind is

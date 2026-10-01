@@ -96,8 +96,6 @@ var listPropsCases = []storeCase{
 	// unstated.
 }
 
-// --- drafts and stored props ---------------------------------------------------
-
 func adaDraftsProp(sc *scene) { sc.prop = sc.propBy(sc.ada, aPropIn(sc.storedTopic)) }
 
 func adaDraftsPropWithoutTopic(sc *scene) {
@@ -106,7 +104,6 @@ func adaDraftsPropWithoutTopic(sc *scene) {
 	sc.prop = sc.propBy(sc.ada, content)
 }
 
-// adaDraftsPropInUnstoredTopic names a topic that was drafted, never created.
 func adaDraftsPropInUnstoredTopic(sc *scene) { sc.prop = sc.propBy(sc.ada, aPropIn(sc.topic)) }
 
 func adasPropExists(sc *scene) {
@@ -126,8 +123,6 @@ func adasPropElsewhereExists(sc *scene) {
 	sc.must(sc.s.CreateProp(sc.ctx, sc.ada.user.GetId(), elsewhere), "create a prop in Ada's other topic")
 }
 
-// adaRedraftsPropUnderSameID drafts a different, correctly-signed prop in the
-// same topic that reuses the stored one's id.
 func adaRedraftsPropUnderSameID(sc *scene) {
 	content := aPropIn(sc.storedTopic)
 	content.Description = "Another prop, same id"
@@ -135,11 +130,7 @@ func adaRedraftsPropUnderSameID(sc *scene) {
 	sc.prop.Id = sc.storedProp.GetId()
 }
 
-// --- faults in the drafted prop ------------------------------------------------
-
 func propAltered(sc *scene) { sc.prop.Content.Description += " (altered)" }
-
-// --- calls -------------------------------------------------------------------
 
 func adaSubmitsProp(sc *scene) error {
 	return sc.s.CreateProp(sc.ctx, sc.ada.user.GetId(), sc.prop)
@@ -164,8 +155,6 @@ func listProps(sc *scene) error {
 	sc.gotList = messages(list)
 	return err
 }
-
-// --- observations --------------------------------------------------------------
 
 func gotProp(sc *scene)            { assertRecord(sc, sc.got, sc.prop) }
 func listsBothPropsOnly(sc *scene) { assertExactly(sc, sc.gotList, sc.storedProp, sc.secondProp) }

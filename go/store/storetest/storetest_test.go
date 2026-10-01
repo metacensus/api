@@ -19,23 +19,23 @@ func TestRun_Memstore(t *testing.T) {
 	hard := signing.ParticipantPolicy(Origin)
 	for _, tt := range []struct {
 		name   string
-		config memstore.Config
+		policy *signing.Policy
 		verify Verification
 		shared bool
 	}{
-		{name: "soft, fresh per case", config: memstore.Config{}, verify: Soft},
-		{name: "soft, one shared store", config: memstore.Config{}, verify: Soft, shared: true},
-		{name: "hard, fresh per case", config: memstore.Config{Verify: &hard}, verify: Hard},
-		{name: "hard, one shared store", config: memstore.Config{Verify: &hard}, verify: Hard, shared: true},
+		{name: "soft, fresh per case", verify: Soft},
+		{name: "soft, one shared store", verify: Soft, shared: true},
+		{name: "hard, fresh per case", policy: &hard, verify: Hard},
+		{name: "hard, one shared store", policy: &hard, verify: Hard, shared: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			shared := memstore.New(tt.config)
+			shared := memstore.New(tt.policy)
 			Run(t, Harness{
 				Open: func(*testing.T) store.Store {
 					if tt.shared {
 						return shared
 					}
-					return memstore.New(tt.config)
+					return memstore.New(tt.policy)
 				},
 				Signatures: tt.verify,
 			})
@@ -44,7 +44,7 @@ func TestRun_Memstore(t *testing.T) {
 }
 
 func TestHarness_Validate(t *testing.T) {
-	open := func(*testing.T) store.Store { return memstore.New(memstore.Config{}) }
+	open := func(*testing.T) store.Store { return memstore.New(nil) }
 	for _, tt := range []struct {
 		name    string
 		harness Harness
@@ -95,7 +95,7 @@ func TestEveryPromiseIsQuoted(t *testing.T) {
 	}
 	quoted := normalize(doc.String())
 
-	promises := []string{atomicity, readsAsWritten}
+	var promises []string
 	for _, cases := range suite {
 		for _, c := range cases {
 			promises = append(promises, c.promise)

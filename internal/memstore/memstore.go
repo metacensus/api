@@ -1,5 +1,5 @@
-// Package memstore is an in-memory store.Store, for go/service's tests and
-// storetest's own; it passes storetest under both Soft and Hard.
+// Package memstore is an in-memory store.Store; it passes storetest under both
+// Soft and Hard.
 //
 // It is internal so that exporting a store from the published module is
 // decided when a consumer asks, not by an import.
@@ -15,20 +15,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Config selects how hard the store verifies. A nil Verify verifies softly;
-// a non-nil one checks every user signature against the enrolled key under
-// that acceptance policy.
-type Config struct {
-	Verify *signing.Policy
-}
-
 // Store is the in-memory store.Store. It is not safe for concurrent use.
 type Store struct {
 	verify    *signing.Policy
 	usersByID map[string]*v1.UserSigned
 	idByEmail map[string]string
 	hashByID  map[string]string
-	keys      map[string]enrolledKey // the key history: key_id -> its owner and key
+	keys      map[string]enrolledKey // key_id -> owner and key
 	topics    map[string]*v1.TopicSigned
 	props     map[string]map[string]*v1.PropSigned            // topicID -> propID -> prop
 	votes     map[string]map[string]map[string]*v1.VoteSigned // topicID -> propID -> userID -> vote
@@ -39,10 +32,11 @@ type enrolledKey struct {
 	pub   *ecdsa.PublicKey
 }
 
-// New returns an empty Store.
-func New(cfg Config) *Store {
+// New returns an empty Store. A nil verify verifies softly; a non-nil one
+// checks every user signature against the enrolled key under that policy.
+func New(verify *signing.Policy) *Store {
 	return &Store{
-		verify:    cfg.Verify,
+		verify:    verify,
 		usersByID: map[string]*v1.UserSigned{},
 		idByEmail: map[string]string{},
 		hashByID:  map[string]string{},
@@ -55,15 +49,17 @@ func New(cfg Config) *Store {
 
 var _ store.Store = (*Store)(nil)
 
-// authored resolves sig's key_id through the key history and reports whether
-// it belongs to callerID.
-func (s *Store) authored(sig *v1.Signature, callerID string) (enrolledKey, bool) {
+func (s *Store) authorize(callerID string, content proto.Message, interp *v1.Interpretation, sig *v1.Signature) error {
 	k, ok := s.keys[sig.GetKeyId()]
-	return k, ok && k.owner == callerID
+	if !ok || k.owner != callerID {
+		return store.Unauthenticated
+	}
+	if !s.stands(k.pub, content, interp, sig) {
+		return store.SignatureInvalid
+	}
+	return nil
 }
 
-// stands reports whether a user signature stands, under hard verification;
-// soft verification accepts it unchecked.
 func (s *Store) stands(pub *ecdsa.PublicKey, content proto.Message, interp *v1.Interpretation, sig *v1.Signature) bool {
 	if s.verify == nil {
 		return true
@@ -71,8 +67,7 @@ func (s *Store) stands(pub *ecdsa.PublicKey, content proto.Message, interp *v1.I
 	return signing.VerifyUser(pub, content, interp, sig, *s.verify) == nil
 }
 
-// clone keeps a stored record from aliasing the caller's, as a real store's
-// would not: a write after the call must not reach what was persisted.
+// clone: a write after the call must not reach what was stored.
 func clone[M proto.Message](m M) M { return proto.Clone(m).(M) }
 
 func (s *Store) EnrollUser(_ context.Context, record *v1.UserSigned, publicKey, passwordHash string) error {
@@ -88,6 +83,9 @@ func (s *Store) EnrollUser(_ context.Context, record *v1.UserSigned, publicKey, 
 		return store.AlreadyExists
 	}
 	if _, taken := s.usersByID[record.GetId()]; taken {
+		return store.AlreadyExists
+	}
+	if _, taken := s.keys[sig.GetKeyId()]; taken {
 		return store.AlreadyExists
 	}
 	s.usersByID[record.GetId()] = clone(record)
@@ -122,12 +120,8 @@ func (s *Store) ListUsers(_ context.Context) ([]*v1.UserSigned, error) {
 }
 
 func (s *Store) CreateTopic(_ context.Context, callerID string, record *v1.TopicSigned) error {
-	k, ok := s.authored(record.GetUserSignature(), callerID)
-	if !ok {
-		return store.Unauthenticated
-	}
-	if !s.stands(k.pub, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()) {
-		return store.SignatureInvalid
+	if err := s.authorize(callerID, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()); err != nil {
+		return err
 	}
 	if _, taken := s.topics[record.GetId()]; taken {
 		return store.AlreadyExists
@@ -153,12 +147,8 @@ func (s *Store) ListTopics(_ context.Context) ([]*v1.TopicSigned, error) {
 }
 
 func (s *Store) CreateProp(_ context.Context, callerID string, record *v1.PropSigned) error {
-	k, ok := s.authored(record.GetUserSignature(), callerID)
-	if !ok {
-		return store.Unauthenticated
-	}
-	if !s.stands(k.pub, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()) {
-		return store.SignatureInvalid
+	if err := s.authorize(callerID, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()); err != nil {
+		return err
 	}
 	topicID := record.GetContent().GetTopicId()
 	if _, ok := s.topics[topicID]; !ok {
@@ -192,12 +182,8 @@ func (s *Store) ListProps(_ context.Context, topicID string) ([]*v1.PropSigned, 
 
 func (s *Store) SetVote(_ context.Context, callerID string, record *v1.VoteSigned) error {
 	c := record.GetContent()
-	k, ok := s.authored(record.GetUserSignature(), callerID)
-	if !ok {
-		return store.Unauthenticated
-	}
-	if !s.stands(k.pub, c, record.GetInterpretation(), record.GetUserSignature()) {
-		return store.SignatureInvalid
+	if err := s.authorize(callerID, c, record.GetInterpretation(), record.GetUserSignature()); err != nil {
+		return err
 	}
 	// The author is the caller from here, so a user_id that disagrees with one
 	// disagrees with the other.

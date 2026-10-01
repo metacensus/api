@@ -39,8 +39,8 @@ var setVoteCases = []storeCase{
 		then:    []step{noVotes},
 	},
 	{
-		name:    "caller is not the author",
-		promise: "Unauthenticated if callerID is not the author",
+		name:    "caller is not the author, so user_id is not the caller either",
+		promise: "or the write is refused (Unauthenticated) whatever else is wrong with it",
 		given:   []step{adaEnrolled, bobEnrolled, adasTopicAndPropExist, adaDraftsVote},
 		call:    bobSubmitsVote,
 		want:    store.Unauthenticated,
@@ -105,8 +105,6 @@ func adasTopicAndPropExist(sc *scene) {
 	adasPropExists(sc)
 }
 
-// --- drafts and stored votes ---------------------------------------------------
-
 func adaDraftsVote(sc *scene) {
 	sc.vote = sc.voteBy(sc.ada, aVote(sc.storedProp, sc.ada, v1.Vote_For))
 }
@@ -119,17 +117,14 @@ func adaDraftsVoteWithoutTopic(sc *scene) { adaDraftsVoteWith(sc, func(v *v1.Vot
 func adaDraftsVoteWithoutProp(sc *scene)  { adaDraftsVoteWith(sc, func(v *v1.Vote) { v.PropId = "" }) }
 func adaDraftsVoteWithoutUser(sc *scene)  { adaDraftsVoteWith(sc, func(v *v1.Vote) { v.UserId = "" }) }
 
-// adaDraftsVoteNamingBob is Ada's vote, signed by Ada, claiming to be Bob's.
 func adaDraftsVoteNamingBob(sc *scene) {
 	adaDraftsVoteWith(sc, func(v *v1.Vote) { v.UserId = sc.bob.user.GetId() })
 }
 
-// adaDraftsVoteOnUnstoredProp names a prop that was drafted, never created.
 func adaDraftsVoteOnUnstoredProp(sc *scene) {
 	sc.vote = sc.voteBy(sc.ada, aVote(sc.prop, sc.ada, v1.Vote_For))
 }
 
-// adaDraftsVoteWith drafts Ada's vote with one field changed before signing.
 func adaDraftsVoteWith(sc *scene, change func(*v1.Vote)) {
 	content := aVote(sc.storedProp, sc.ada, v1.Vote_For)
 	change(content)
@@ -155,11 +150,7 @@ func adaVotedElsewhere(sc *scene) {
 	sc.must(sc.s.SetVote(sc.ctx, sc.ada.user.GetId(), elsewhere), "record Ada's vote on her second prop")
 }
 
-// --- faults in the drafted vote ------------------------------------------------
-
 func voteAltered(sc *scene) { sc.vote.Content.Explanation += " (altered)" }
-
-// --- calls -------------------------------------------------------------------
 
 func adaSubmitsVote(sc *scene) error {
 	return sc.s.SetVote(sc.ctx, sc.ada.user.GetId(), sc.vote)
@@ -175,8 +166,6 @@ func listVotes(sc *scene) error {
 	return err
 }
 
-// --- observations --------------------------------------------------------------
-
 func listsAdasAndBobsVotesOnly(sc *scene) {
 	assertExactly(sc, sc.gotList, sc.standingVote, sc.otherVote)
 }
@@ -185,7 +174,6 @@ func votesAreTheDraftOnly(sc *scene)    { sc.votesAre(sc.vote) }
 func votesAreTheStandingOnly(sc *scene) { sc.votesAre(sc.standingVote) }
 func noVotes(sc *scene)                 { sc.votesAre() }
 
-// votesAre reads the stored prop's votes and holds them to exactly want.
 func (sc *scene) votesAre(want ...*v1.VoteSigned) {
 	sc.t.Helper()
 	sc.must(listVotes(sc), "list the prop's votes")

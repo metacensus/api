@@ -12,10 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// The two times every fixture carries. Both have nanoseconds below a
-// microsecond, so a store that truncates a timestamp reads back a different
-// record — and Signature.time sits inside the digest, so truncating it breaks
-// the signature too.
+// Nanoseconds below a microsecond: a store that truncates reads back a
+// different record.
 var (
 	recordedAt = time.Unix(1_700_000_000, 123_456_789).UTC()
 	signedAt   = time.Unix(1_699_999_999, 987_654_321).UTC()
@@ -31,7 +29,6 @@ type participant struct {
 	user      *v1.UserSigned
 }
 
-// newParticipant drafts a person and their enrolment; it enrols nothing.
 func (sc *scene) newParticipant(name string) *participant {
 	sc.t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -100,7 +97,6 @@ func aVote(prop *v1.PropSigned, voter *participant, pos v1.Vote_Position) *v1.Vo
 	return &v1.Vote{TopicId: prop.GetContent().GetTopicId(), PropId: prop.GetId(), UserId: voter.user.GetId(), Position: pos}
 }
 
-// countersign adds an institutional signature made with a throwaway key.
 func (sc *scene) countersign(userSig *v1.Signature, interp *v1.Interpretation) *v1.Signature {
 	sc.t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

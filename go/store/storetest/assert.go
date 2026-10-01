@@ -10,14 +10,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Clauses more than one case quotes.
+// Clauses more than one case or step quotes.
 const (
 	atomicity      = "One method is one atomic unit of work"
 	readsAsWritten = "a read returns the record exactly as it was written"
 )
 
-// storeCase is one conformance case: build state, make the one call under
-// test, and check its Kind and what it left behind.
 type storeCase struct {
 	name    string
 	promise string // the clause of store.go/errors.go/doc.go this enforces, verbatim
@@ -26,33 +24,19 @@ type storeCase struct {
 	given []step             // state built through the interface; each must succeed
 	call  func(*scene) error // the one call under test
 	want  store.Kind         // "" for success
-	then  []step             // observations after the call
+	then  []step
 }
 
-// title is the subtest name: whether the case succeeds and, if not, the Kind
-// it wants, so a failure line names the promise broken.
 func (c storeCase) title() string {
 	if c.want == "" {
 		return "success - " + c.name
 	}
-	return "error - " + kindName[c.want] + ": " + c.name
-}
-
-// kindName spells each Kind as its Go identifier, the way a reader finds it.
-var kindName = map[store.Kind]string{
-	store.NotFound:         "NotFound",
-	store.AlreadyExists:    "AlreadyExists",
-	store.InvalidContent:   "InvalidContent",
-	store.SignatureInvalid: "SignatureInvalid",
-	store.Unauthenticated:  "Unauthenticated",
-	store.Unavailable:      "Unavailable",
+	return "error - " + string(c.want) + ": " + c.name
 }
 
 // A step builds or observes state, failing the case on its own.
 type step func(*scene)
 
-// scene is one case's world: the store, the people in it, the records drafted
-// for the call, and what the call read back.
 type scene struct {
 	t   *testing.T
 	ctx context.Context
@@ -61,7 +45,6 @@ type scene struct {
 	c   *storeCase
 
 	ada, bob *participant
-	caller   string
 
 	// The draft the call under test submits, and what earlier steps stored.
 	topic, storedTopic, otherTopic *v1.TopicSigned
@@ -151,7 +134,6 @@ func assertExactly(sc *scene, list []proto.Message, want ...proto.Message) {
 	}
 }
 
-// messages widens a typed list for the helpers above.
 func messages[M proto.Message](list []M) []proto.Message {
 	out := make([]proto.Message, len(list))
 	for i, m := range list {
