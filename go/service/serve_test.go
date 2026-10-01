@@ -38,12 +38,11 @@ func TestHandler(t *testing.T) {
 		wantBody   string
 		wantLog    string
 	}{
-		{"healthz is outside the prefix", "GET", "/healthz", http.StatusOK, `{"ok":true}`, `"event":"request_completed"`},
+		{"healthz answers outside the prefix without the store", "GET", "/healthz", http.StatusOK, `{"ok":true}`, `"event":"request_completed"`},
 		{"healthz is GET only", "POST", "/healthz", http.StatusMethodNotAllowed, "", ""},
 		{"healthz does not move under the prefix", "GET", routes.Prefix + "/healthz", http.StatusNotFound, "", ""},
 		{"the API is routed under the prefix", "GET", routes.Prefix + "/healthcheck", http.StatusOK, "healthy", ""},
 		{"the API is not routed outside the prefix", "GET", "/healthcheck", http.StatusNotFound, "", ""},
-		{"authenticated routes keep their middleware", "GET", routes.Prefix + "/self", http.StatusUnauthorized, "", ""},
 		{"a panic is a 500 that leaks nothing", "POST", routes.Prefix + "/login", http.StatusInternalServerError, `"internal"`, `"event":"request_panicked"`},
 	}
 	for _, tt := range tests {

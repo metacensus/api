@@ -67,7 +67,6 @@ func (h *Handlers) serve(ctx context.Context, listener net.Listener, logger *slo
 
 func (h *Handlers) handler(logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	// Liveness only: it touches no store, so a backend outage cannot fail it.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -125,7 +124,7 @@ func recoverPanics(logger *slog.Logger, next http.Handler) http.Handler {
 			if recovered == nil {
 				return
 			}
-			if recovered == http.ErrAbortHandler { // net/http's abort signal, not a fault
+			if recovered == http.ErrAbortHandler {
 				panic(recovered)
 			}
 			logger.Error("request panicked",

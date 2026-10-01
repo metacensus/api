@@ -25,8 +25,6 @@ import (
 
 // --- test harness -----------------------------------------------------------
 
-// newTestServer builds a Handlers over a fresh memstore, with a deterministic
-// id minter and clock so a test can assert the minted fields.
 func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
 	mem := memstore.New(nil)
