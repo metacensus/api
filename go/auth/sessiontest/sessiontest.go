@@ -15,8 +15,7 @@
 // Time is the suite's: it starts at the wall clock and only moves forward, so
 // expiry is tested without sleeping.
 //
-// Not covered, as not provokable through the interface: a backend failure and
-// context cancellation.
+// Not covered, as not provokable through the interface: a backend failure.
 package sessiontest
 
 import (
@@ -44,8 +43,8 @@ func (h Harness) validate() error {
 	if h.Open == nil {
 		return errors.New("sessiontest: Harness.Open is nil")
 	}
-	if h.RefreshTTL <= 0 {
-		return fmt.Errorf("sessiontest: Harness.RefreshTTL is %v; declare the backend's refresh lifetime", h.RefreshTTL)
+	if h.RefreshTTL < time.Second {
+		return fmt.Errorf("sessiontest: Harness.RefreshTTL is %v; declare the backend's refresh lifetime, at least 1s", h.RefreshTTL)
 	}
 	return nil
 }

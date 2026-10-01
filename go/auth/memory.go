@@ -9,9 +9,8 @@ import (
 	"time"
 )
 
-// Default token lifetimes: a short access token, a long refresh token. The
-// access TTL bounds how long a leaked access token is good for; the refresh
-// TTL is how long a session survives without re-authenticating.
+// The access TTL bounds how long a leaked access token is good for; the refresh
+// TTL, how long an idle session survives.
 const (
 	DefaultAccessTTL  = 15 * time.Minute
 	DefaultRefreshTTL = 30 * 24 * time.Hour
@@ -122,8 +121,7 @@ func (m *MemorySessions) Refresh(_ context.Context, refresh string) (string, Tok
 	return rec.caller, t, nil
 }
 
-// Revoke cannot name a lineage from a refresh token already rotated away, so
-// logout is driven by the current one (the one the cookie holds).
+// Revoke cannot name a lineage from a refresh token already rotated away.
 func (m *MemorySessions) Revoke(_ context.Context, refresh string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

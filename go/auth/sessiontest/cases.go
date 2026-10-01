@@ -97,7 +97,7 @@ var refreshCases = []sessionsCase{
 	},
 	{
 		name:    "live within the refresh lifetime",
-		promise: "once the refresh lifetime has passed since it was minted",
+		promise: "Refresh consumes a refresh token and mints a new pair for the same caller",
 		run: func(sc *scene) {
 			ada := sc.caller()
 			minted := *sc.now

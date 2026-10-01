@@ -45,7 +45,7 @@ func TestHarness_Validate(t *testing.T) {
 	}{
 		{name: "error - no Open", harness: Harness{RefreshTTL: time.Hour}, wantErr: true},
 		{name: "error - RefreshTTL undeclared", harness: Harness{Open: open}, wantErr: true},
-		{name: "error - RefreshTTL negative", harness: Harness{Open: open, RefreshTTL: -time.Hour}, wantErr: true},
+		{name: "error - RefreshTTL under a second", harness: Harness{Open: open, RefreshTTL: time.Millisecond}, wantErr: true},
 		{name: "success", harness: Harness{Open: open, RefreshTTL: time.Hour}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -56,8 +56,6 @@ func TestHarness_Validate(t *testing.T) {
 	}
 }
 
-// An auth.Sessions method with no cases would land unchecked; a table keyed by
-// a method that no longer exists would never run.
 func TestSuiteCoversEverySessionsMethod(t *testing.T) {
 	methods := sessionsMethods()
 	for _, m := range methods {
