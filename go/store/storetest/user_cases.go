@@ -26,6 +26,14 @@ var enrollUserCases = []storeCase{
 		then:    []step{adaIDUnknown, adaEmailUnknown},
 	},
 	{
+		name:    "id is not a user id",
+		promise: "or if the id is not a user id",
+		given:   []step{adaDrafted, adaIDIsATopicID},
+		call:    enrolAda,
+		want:    store.InvalidContent,
+		then:    []step{adaEmailUnknown, adaKeyUnbound},
+	},
+	{
 		name:    "enrolling assertion does not stand",
 		promise: "SignatureInvalid (Fabric) if the enrolling assertion does not stand",
 		hard:    true,
@@ -74,7 +82,7 @@ var enrollUserCases = []storeCase{
 		call:    enrolAda,
 		then:    []step{adaReadsBack, adaCredentialResolves, bobUnchanged},
 	},
-	// Omitted: an empty id or email has no Kind stated.
+	// Omitted: an empty email has no Kind stated.
 }
 
 var credentialCases = []storeCase{
@@ -137,6 +145,7 @@ func bobEnrolled(sc *scene) {
 func adaOffersNoKey(sc *scene)   { sc.ada.publicKey = "" }
 func adaOffersBobsKey(sc *scene) { sc.ada.publicKey = sc.bob.publicKey }
 func adaTakesBobsID(sc *scene)   { sc.ada.user.Id = sc.bob.user.GetId() }
+func adaIDIsATopicID(sc *scene)  { sc.ada.user.Id = store.NewID(store.TopicID) }
 
 func adaOffersBobsEnrolledKey(sc *scene) {
 	sc.ada.key, sc.ada.keyID, sc.ada.publicKey = sc.bob.key, sc.bob.keyID, sc.bob.publicKey

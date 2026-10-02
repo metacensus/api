@@ -12,7 +12,7 @@
 // and TestEveryPromiseIsQuoted fails on a quote they do not contain. Where they
 // are silent or disagree, the case is omitted and marked where it would sit.
 //
-// Every case mints its own ids and emails, never deletes, and checks a global
+// Every case mints its own ids (store.NewID) and emails, never deletes, and checks a global
 // list only for its own records, so a store may be fresh or shared.
 //
 // Not covered, as not provokable through the interface: a failure partway
@@ -90,11 +90,11 @@ func Run(t *testing.T, h Harness) {
 	if err := h.validate(); err != nil {
 		t.Fatal(err)
 	}
-	ids := newMinter()
+	emails := newEmails()
 	for _, method := range storeMethods() {
 		t.Run(method, func(t *testing.T) {
 			for _, c := range suite[method] {
-				t.Run(c.title(), func(t *testing.T) { c.run(t, h, ids) })
+				t.Run(c.title(), func(t *testing.T) { c.run(t, h, emails) })
 			}
 		})
 	}
@@ -125,19 +125,16 @@ func storeMethods() []string {
 	return out
 }
 
-// minter issues ids and emails unique to one Run, so cases never collide with
-// each other or with whatever a shared store already holds.
-type minter struct {
+// emails issues addresses unique to one Run, so cases never collide with each
+// other or with whatever a shared store already holds. Ids need no such help:
+// store.NewID is unique on its own.
+type emails struct {
 	prefix string
 	n      atomic.Int64
 }
 
-func newMinter() *minter { return &minter{prefix: "conformance-" + rand.Text()} }
+func newEmails() *emails { return &emails{prefix: "conformance-" + rand.Text()} }
 
-func (m *minter) id(kind string) string {
-	return fmt.Sprintf("%s-%s-%d", m.prefix, kind, m.n.Add(1))
-}
-
-func (m *minter) email() string {
-	return fmt.Sprintf("%s-%d@%s", m.prefix, m.n.Add(1), RPID)
+func (e *emails) next() string {
+	return fmt.Sprintf("%s-%d@%s", e.prefix, e.n.Add(1), RPID)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/store"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -33,7 +34,7 @@ func (h *Handlers) CreateProp(ctx context.Context, req *v1.PropCreateRequest) (*
 		return nil, cerr
 	}
 	record := &v1.PropSigned{
-		Id:             h.newID(),
+		Id:             store.NewID(store.PropID),
 		Recorded:       timestamppb.New(h.now()),
 		Content:        req.GetContent(),
 		Interpretation: req.GetInterpretation(),

@@ -129,7 +129,8 @@ func TestListMetadataIsUnreferenced(t *testing.T) {
 	})
 }
 
-// The two backends mint incompatible id formats; strings ratify neither.
+// An id's shape ("<kind>:<UUIDv7>") is go/store's contract, not the schema's: on
+// the wire it is only a string.
 func TestIdsAreStrings(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		fields := md.Fields()

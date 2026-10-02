@@ -71,6 +71,9 @@ func (s *Store) stands(pub *ecdsa.PublicKey, content proto.Message, interp *v1.I
 func clone[M proto.Message](m M) M { return proto.Clone(m).(M) }
 
 func (s *Store) EnrollUser(_ context.Context, record *v1.UserSigned, publicKey, passwordHash string) error {
+	if _, err := store.ParseID(store.UserID, record.GetId()); err != nil {
+		return err
+	}
 	sig := record.GetUserSignature()
 	pub, err := signing.EnrolledKey(publicKey, sig.GetKeyId())
 	if err != nil {
@@ -123,6 +126,9 @@ func (s *Store) CreateTopic(_ context.Context, callerID string, record *v1.Topic
 	if err := s.authorize(callerID, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()); err != nil {
 		return err
 	}
+	if _, err := store.ParseID(store.TopicID, record.GetId()); err != nil {
+		return err
+	}
 	if _, taken := s.topics[record.GetId()]; taken {
 		return store.AlreadyExists
 	}
@@ -148,6 +154,9 @@ func (s *Store) ListTopics(_ context.Context) ([]*v1.TopicSigned, error) {
 
 func (s *Store) CreateProp(_ context.Context, callerID string, record *v1.PropSigned) error {
 	if err := s.authorize(callerID, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()); err != nil {
+		return err
+	}
+	if _, err := store.ParseID(store.PropID, record.GetId()); err != nil {
 		return err
 	}
 	topicID := record.GetContent().GetTopicId()

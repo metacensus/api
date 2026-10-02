@@ -6,6 +6,7 @@ import (
 
 	"github.com/metacensus/api/go/auth"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/store"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -49,7 +50,7 @@ func (h *Handlers) SignUp(ctx context.Context, req *v1.SignUpRequest) (*v1.Sessi
 	}
 
 	record := &v1.UserSigned{
-		Id:             h.newID(),
+		Id:             store.NewID(store.UserID),
 		Recorded:       timestamppb.New(h.now()),
 		Content:        req.GetContent(),
 		Interpretation: req.GetInterpretation(),
