@@ -57,6 +57,15 @@ var createTopicCases = []storeCase{
 	},
 
 	{
+		name:    "id is not a topic id",
+		promise: "InvalidContent if the id is not a topic id",
+		given:   []step{adaEnrolled, adaDraftsTopic, topicIDIsAPropID},
+		call:    adaSubmitsTopic,
+		want:    store.InvalidContent,
+		then:    []step{topicUnknown},
+	},
+
+	{
 		name:    "persists the topic",
 		promise: "CreateTopic persists a new topic; the record is fully minted.",
 		given:   []step{adaEnrolled, adaDraftsTopic},
@@ -79,7 +88,6 @@ var createTopicCases = []storeCase{
 		want:    store.AlreadyExists,
 		then:    []step{storedTopicUnchanged},
 	},
-	// Omitted: an empty id has no Kind stated.
 }
 
 var getTopicCases = []storeCase{
@@ -121,6 +129,8 @@ func adasOtherTopicExists(sc *scene) {
 	sc.otherTopic = sc.topicBy(sc.ada, aTopic())
 	sc.must(sc.s.CreateTopic(sc.ctx, sc.ada.user.GetId(), sc.otherTopic), "create Ada's other topic")
 }
+
+func topicIDIsAPropID(sc *scene) { sc.topic.Id = store.NewID(store.PropID) }
 
 func adaRedraftsTopicUnderSameID(sc *scene) {
 	content := aTopic()

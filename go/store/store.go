@@ -22,7 +22,9 @@ import (
 //     on the record; a backend that generated any of them would make two
 //     endorsing peers disagree. Writes therefore take a fully-minted
 //     *v1.XSigned and return only an error — the server already holds the
-//     record it echoes to the client.
+//     record it echoes to the client. A minted id is "<kind>:<UUIDv7>" (see
+//     IDKind); a write whose id is not of its record's kind is refused
+//     (InvalidContent), so a backend may rely on the shape.
 //
 //   - Verification is inherited. A value checked at the write boundary is
 //     trusted by every later read; reads resolve state, they do not re-verify.
@@ -55,7 +57,8 @@ type Store interface {
 	// AlreadyExists if the email is taken (compared byte-exact: no case folding
 	// or normalization), the minted id collides, or key_id is already bound —
 	// rebinding it would hand its owner's later writes to the new user.
-	// InvalidContent if publicKey is absent or key_id does not thumbprint it.
+	// InvalidContent if publicKey is absent or key_id does not thumbprint it,
+	// or if the id is not a user id.
 	// SignatureInvalid (Fabric) if the enrolling assertion does not stand.
 	//
 	// Email and key_id uniqueness are the store's, not a backend's: Postgres
@@ -86,8 +89,9 @@ type Store interface {
 
 	// CreateTopic persists a new topic; the record is fully minted.
 	//
-	// Unauthenticated if callerID is not the author. AlreadyExists on id
-	// collision. SignatureInvalid (Fabric) if the signature does not stand.
+	// InvalidContent if the id is not a topic id. Unauthenticated if callerID
+	// is not the author. AlreadyExists on id collision. SignatureInvalid
+	// (Fabric) if the signature does not stand.
 	CreateTopic(ctx context.Context, callerID string, record *v1.TopicSigned) error
 
 	// GetTopic returns one topic by id. NotFound if absent.
@@ -100,7 +104,7 @@ type Store interface {
 	// fully minted.
 	//
 	// InvalidContent if topic_id is absent or names a topic that does not
-	// exist. Unauthenticated if callerID is not the author. AlreadyExists on id
+	// exist, or if the id is not a prop id. Unauthenticated if callerID is not the author. AlreadyExists on id
 	// collision. SignatureInvalid (Fabric) if the signature does not stand.
 	CreateProp(ctx context.Context, callerID string, record *v1.PropSigned) error
 

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,11 +35,9 @@ func mount(h *Handlers) http.Handler {
 func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 	t.Helper()
 	mem := memstore.New(nil)
-	var n int64
 	h := New(Config{
 		Store:      mem,
 		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
-		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
 		BcryptCost: 4, // bcrypt.MinCost: fast, this is a test
 	})
 	return mem, mount(h)
@@ -52,11 +49,9 @@ func newTestServer(t *testing.T) (*memstore.Store, http.Handler) {
 func TestRefreshTTLDrivesCookieMaxAge(t *testing.T) {
 	const ttl = 3 * time.Hour
 	mem := memstore.New(nil)
-	var n int64
 	h := New(Config{
 		Store:      mem,
 		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
-		NewID:      func() string { return fmt.Sprintf("id-%d", atomic.AddInt64(&n, 1)) },
 		BcryptCost: 4,
 		RefreshTTL: ttl,
 	})

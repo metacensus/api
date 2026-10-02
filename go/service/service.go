@@ -29,8 +29,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"net/http"
 	"time"
 
@@ -66,10 +64,6 @@ type Config struct {
 	// test controls the one clock the server stamps records with.
 	Now func() time.Time
 
-	// NewID mints a record id. Defaults to 16 random bytes as base64url.
-	// Injectable for deterministic tests.
-	NewID func() string
-
 	// BcryptCost is the cost the password hash is minted at. Defaults to
 	// defaultBcryptCost. Tests set it low so hashing is cheap.
 	BcryptCost int
@@ -97,7 +91,6 @@ type Handlers struct {
 	store        store.Store
 	sessions     auth.Sessions
 	now          func() time.Time
-	newID        func() string
 	bcryptCost   int
 	cookieName   string
 	cookieSecure bool
@@ -117,10 +110,6 @@ func New(cfg Config) *Handlers {
 	now := cfg.Now
 	if now == nil {
 		now = time.Now
-	}
-	newID := cfg.NewID
-	if newID == nil {
-		newID = randomID
 	}
 	refreshTTL := cfg.RefreshTTL
 	if refreshTTL == 0 {
@@ -151,7 +140,6 @@ func New(cfg Config) *Handlers {
 		store:        cfg.Store,
 		sessions:     sessions,
 		now:          now,
-		newID:        newID,
 		bcryptCost:   cost,
 		cookieName:   cookieName,
 		cookieSecure: !cfg.InsecureCookies,
@@ -274,16 +262,4 @@ func internal(err error) *server.Error {
 
 func badRequest(code, msg string) *server.Error {
 	return &server.Error{Status: http.StatusBadRequest, Code: code, Message: msg}
-}
-
-// randomID is the default id minter: 16 bytes of crypto/rand as base64url,
-// unpadded — the encoding the rest of the contract uses.
-func randomID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		// crypto/rand.Read does not fail on the supported platforms; if it
-		// ever does, a panic is better than minting a predictable id.
-		panic("service: crypto/rand failed: " + err.Error())
-	}
-	return base64.RawURLEncoding.EncodeToString(b)
 }

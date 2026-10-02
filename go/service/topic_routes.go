@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
+	"github.com/metacensus/api/go/store"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -31,7 +32,7 @@ func (h *Handlers) CreateTopic(ctx context.Context, req *v1.TopicCreateRequest) 
 		return nil, cerr
 	}
 	record := &v1.TopicSigned{
-		Id:             h.newID(),
+		Id:             store.NewID(store.TopicID),
 		Recorded:       timestamppb.New(h.now()),
 		Content:        req.GetContent(),
 		Interpretation: req.GetInterpretation(),

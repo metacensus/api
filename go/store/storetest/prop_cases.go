@@ -49,6 +49,14 @@ var createPropCases = []storeCase{
 		then:    []step{propUnknown},
 	},
 	{
+		name:    "id is not a prop id",
+		promise: "or if the id is not a prop id",
+		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp, propIDIsATopicID},
+		call:    adaSubmitsProp,
+		want:    store.InvalidContent,
+		then:    []step{propUnknown},
+	},
+	{
 		name:    "id collides within its topic",
 		promise: "AlreadyExists on id collision",
 		given:   []step{adaEnrolled, adasTopicExists, adasPropExists, adaRedraftsPropUnderSameID},
@@ -122,6 +130,8 @@ func adasPropElsewhereExists(sc *scene) {
 	elsewhere := sc.propBy(sc.ada, aPropIn(sc.otherTopic))
 	sc.must(sc.s.CreateProp(sc.ctx, sc.ada.user.GetId(), elsewhere), "create a prop in Ada's other topic")
 }
+
+func propIDIsATopicID(sc *scene) { sc.prop.Id = store.NewID(store.TopicID) }
 
 func adaRedraftsPropUnderSameID(sc *scene) {
 	content := aPropIn(sc.storedTopic)

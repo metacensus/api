@@ -8,6 +8,7 @@ import (
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 	"github.com/metacensus/api/go/signing"
+	"github.com/metacensus/api/go/store"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -39,9 +40,9 @@ func (sc *scene) newParticipant(name string) *participant {
 	p.publicKey, err = signing.EncodePublicKey(&key.PublicKey)
 	sc.must(err, "encode the key")
 
-	id := sc.ids.id("user")
+	id := store.NewID(store.UserID)
 	p.hash = "opaque-hash-of-" + id
-	content := &v1.User{Name: name, Email: sc.ids.email(), Country: "GB"}
+	content := &v1.User{Name: name, Email: sc.emails.next(), Country: "GB"}
 	interp, sig := sc.sign(p.key, p.keyID, content)
 	p.user = &v1.UserSigned{Id: id, Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
 	return p
@@ -70,13 +71,13 @@ func (sc *scene) sign(key *ecdsa.PrivateKey, keyID string, content proto.Message
 func (sc *scene) topicBy(p *participant, content *v1.Topic) *v1.TopicSigned {
 	sc.t.Helper()
 	interp, sig := sc.sign(p.key, p.keyID, content)
-	return &v1.TopicSigned{Id: sc.ids.id("topic"), Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
+	return &v1.TopicSigned{Id: store.NewID(store.TopicID), Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
 }
 
 func (sc *scene) propBy(p *participant, content *v1.Prop) *v1.PropSigned {
 	sc.t.Helper()
 	interp, sig := sc.sign(p.key, p.keyID, content)
-	return &v1.PropSigned{Id: sc.ids.id("prop"), Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
+	return &v1.PropSigned{Id: store.NewID(store.PropID), Recorded: timestamppb.New(recordedAt), Content: content, Interpretation: interp, UserSignature: sig}
 }
 
 func (sc *scene) voteBy(p *participant, content *v1.Vote) *v1.VoteSigned {

@@ -38,11 +38,11 @@ func (c storeCase) title() string {
 type step func(*scene)
 
 type scene struct {
-	t   *testing.T
-	ctx context.Context
-	s   store.Store
-	ids *minter
-	c   *storeCase
+	t      *testing.T
+	ctx    context.Context
+	s      store.Store
+	emails *emails
+	c      *storeCase
 
 	ada, bob *participant
 
@@ -56,11 +56,11 @@ type scene struct {
 	gotID, gotHash string
 }
 
-func (c *storeCase) run(t *testing.T, h Harness, ids *minter) {
+func (c *storeCase) run(t *testing.T, h Harness, emails *emails) {
 	if c.hard && h.Signatures != Hard {
 		t.Skipf("runs only against a Hard store; this one declares %v", h.Signatures)
 	}
-	sc := &scene{t: t, ctx: t.Context(), s: h.Open(t), ids: ids, c: c}
+	sc := &scene{t: t, ctx: t.Context(), s: h.Open(t), emails: emails, c: c}
 	for _, given := range c.given {
 		given(sc)
 	}
