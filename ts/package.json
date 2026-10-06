@@ -2,6 +2,7 @@
   "name": "@metacensus/api",
   "version": "0.0.0",
   "description": "TypeScript for the MetaCensus API contract (/metacensus/api/v1 and /metacensus/public): generated types, a route manifest, a typed transport-agnostic client per surface, and the signing chain.",
+  "license": "BSD-3-Clause",
   "type": "module",
   "engines": {
     "node": ">=25"
