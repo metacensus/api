@@ -1,11 +1,14 @@
 {
-  "extraKnownMarketplaces": {
-    "metacensus": {
-      "source": { "source": "github", "repo": "metacensus/skills" },
-      "autoUpdate": true
-    }
-  },
   "enabledPlugins": {
     "metacensus@metacensus": true
+  },
+  "extraKnownMarketplaces": {
+    "metacensus": {
+      "source": {
+        "source": "github",
+        "repo": "metacensus/skills"
+      },
+      "autoUpdate": true
+    }
   }
 }
