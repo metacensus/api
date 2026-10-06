@@ -199,3 +199,7 @@ Written down, not tracked — the four `ui` issues that held this work were clos
 - **Session storage, not session design.** The token model is now settled — short-lived opaque access tokens, long-lived rotating refresh tokens, an `HttpOnly` refresh cookie (see `go/auth`). What is still a placeholder is where that state lives: `MemorySessions` holds it in one process's memory, so a restart forgets every session and nothing is shared across replicas. A persistent `Sessions` (the demo's Postgres, the infra's Fabric) slots in behind the port. Two deployment choices ride with it and belong to whoever operates the API, not to this contract: the credentialed-CORS configuration the browser posture needs, and whether the refresh cookie is set here or by a reverse proxy the adapter relocates to.
 - **Should the client, or a zero-valued query parameter, be split out / emitted?** No route declares a query field, and `sideEffects: false` already lets a bundler drop the client, so neither is urgent. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not the ones it could grow** — a 64-bit integer, a map, a `oneof` are untested, so the pairing in `proto/buf.gen.yaml` is only checked where a route exercises it.
+
+## License
+
+AGPL-3.0-only ([LICENSE](LICENSE)), except `ts/`, which is BSD-3-Clause ([ts/LICENSE](ts/LICENSE)).

@@ -63,4 +63,4 @@ Both are the module's public surface once a tag exists, so both are settled deli
 
 Tags are minted, never typed: `make release-patch` / `release-minor` / `release-major`, `make release VERSION=1.4.0`, `make latest`. `scripts/version.sh` validates semver, refuses an existing tag, and prompts before pushing (`YES=1` skips; no TTY refuses without it). A release can't be withdrawn — npm unpublish is limited to 72h, the Go module proxy is an immutable cache. Pushing the tag is the whole release: `release.yml` runs full CI then publishes npm; the Go module needs nothing but the tag.
 
-**No LICENSE yet** — deliberate; a licence review is planned before this is widely depended on.
+**Licensing** is in the README ("License"). v0.6.0 and earlier shipped unlicensed, and the Go proxy and npm keep them so.
