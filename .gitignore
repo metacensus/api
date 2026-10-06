@@ -2,3 +2,4 @@ bin/
 node_modules/
 ts/dist/
 .DS_Store
+.claude/settings.local.json
