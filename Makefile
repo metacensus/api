@@ -2,7 +2,7 @@
 # for the two-module layout and the GOWORK/GOTOOLCHAIN pinning.
 
 .PHONY: help all gen generated-paths lint format format-check breaking breaking-public test check clean deps hooks tools \
-        release release-major release-minor release-patch latest list delete-tag
+        release latest list delete-tag
 
 # Lists targets (from the `## name — what it does` comments below) instead of
 # running the whole suite; see `help`.
@@ -149,8 +149,8 @@ generated-paths:
 # ---------------------------------------------------------------------------
 # Release
 #
-# `set -e` and the empty-VERSION check matter: without them a failing
-# version.sh still tags and pushes `v` — the junk tag metacensus/infra shipped.
+# `set -e` matters: without it a failing version.sh still tags and pushes
+# `v` — the junk tag metacensus/infra shipped.
 # ---------------------------------------------------------------------------
 
 VERSION ?=
@@ -158,19 +158,11 @@ TYPE    ?=
 MESSAGE ?=
 
 ## release — tag and push a version; prompts, and refuses a dirty tree
-release: scripts/version.sh
+release:
 	@set -e; \
 	VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
-	if [ -z "$$VERSION" ]; then \
-		echo "Error: version.sh produced no version; refusing to tag"; \
-		exit 1; \
-	fi; \
 	TAG="v$$VERSION"; \
 	MSG=$$([ -n "$(MESSAGE)" ] && echo "$(MESSAGE)" || echo "Release $$VERSION"); \
-	if git rev-parse "$$TAG" >/dev/null 2>&1; then \
-		echo "Error: Tag $$TAG already exists"; \
-		exit 1; \
-	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
 		echo "Error: working tree is dirty; commit or clean it before releasing"; \
 		exit 1; \
@@ -200,18 +192,6 @@ release: scripts/version.sh
 	git tag -a "$$TAG" -m "$$MSG" && \
 	git push origin "$$TAG" && \
 	echo "Released: $$TAG"
-
-## release-major — release, bumping the major
-release-major:
-	@$(MAKE) release TYPE=major
-
-## release-minor — release, bumping the minor
-release-minor:
-	@$(MAKE) release TYPE=minor
-
-## release-patch — release, bumping the patch
-release-patch:
-	@$(MAKE) release TYPE=patch
 
 ## latest — print the most recent version tag
 latest:
