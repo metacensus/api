@@ -5,7 +5,7 @@
   "license": "BSD-3-Clause",
   "type": "module",
   "engines": {
-    "node": ">=25"
+    "node": ">=26"
   },
   "sideEffects": false,
   "main": "./dist/index.js",
