@@ -16,6 +16,24 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 - `make breaking` — does the schema break **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base? The published contract is what a break breaks. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)): the only tag, `v0.1.0`, exists to test the release path, so the check measured every branch against a throwaway baseline and failed on `paper.proto`'s removal. Intact for running by hand. Before the first real release there are no meaningful tags, so it no-ops; after one, an intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
 - `make breaking-public` — does it break **what is deployed**, against `origin/main` (what a browser talks to)? The only one in CI, and unaffected by a stale release, since its population never consumed a tag.
 
+## The request standard
+
+Every route in `metacensus.v1` is measured against this table, and a request brought over from the demo is reshaped to fit it. It stands with the README's "Routes", "JSON is the wire" and "The signing chain", and this file's "Errors" and "Compatibility and versioning". A rule marked review has no test yet; [#72](https://github.com/metacensus/api/issues/72) tracks each that could have one.
+
+| Rule | Enforced by |
+|---|---|
+| `List*`/`Get*`/`Lookup*` use `GET`; every write uses `POST`; no `PUT`, `PATCH` or `DELETE`. | `TestNonConformingRoutes` (reads); review (writes) |
+| Paths are resource nouns nested by ownership (`/topic/{topicId}/prop/{propId}/vote`), params `{lowerCamelCase}`, no verbs (`POST /topic`, not `POST /topic/create`); a resource scoped to the caller takes no id (`GET /self`). The session verbs on `AuthRoutes` (`/login`, `/signup`, `/refresh`, `/logout`) are the one exception. | `TestNonConformingRoutes` (verbs); review |
+| Lists are `{ items: [...] }`. No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
+| Server-minted ids are `<kind>:<UUIDv7>` (`go/store`); a numeric id brought over from the demo gets a new one. | review |
+| A path-bound id repeated in `content` equals the one in the path. | `TestPathAndSignedContentMustAgree` |
+| A composite key, like `Vote`'s `(propId, userId)`, addresses one live value per parent and actor, written with `Set*`; any other writable record gets a minted id. | review |
+| Fields the server owns (`id`, `recorded`) never go in the object the client posts. | review |
+| Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
+| Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`. | review |
+
+**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` (the Paper Files family in [#37](https://github.com/metacensus/api/issues/37)).
+
 ## Why /healthz is not in the contract
 
 `Serve` and `service-public-api` answer `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. The container runtime probes the service directly rather than through the proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.

@@ -86,7 +86,7 @@ Protobuf binary is not used, supported, or a fallback — protobuf is here for t
 
 Each resource file declares its routes (`topic.proto` → `TopicRoutes`); **to read the whole table, read the generated manifest** — [`go/server/routes`](go/server/routes/manifest.go) or `ts/src/route-manifest.ts`. `params`, `query` and `body` account for every field of a request message, so a request message models the whole request, not only its body.
 
-The prefixes (`routes.Prefix`, `routes.PublicPrefix`) are part of the contract and generated from `model.Packages`; every `path` is relative to one, and each route carries its own `prefix` so a consumer holding a `Route` needn't guess which to join. `TestPrefix` pins the invariants (each absolute, no trailing slash, none nested); `TestNonConformingRoutes` pins the conventions at zero exceptions. They are route declarations, not a gRPC commitment — nothing generates or serves gRPC.
+The prefixes (`routes.Prefix`, `routes.PublicPrefix`) are part of the contract and generated from `model.Packages`; every `path` is relative to one, and each route carries its own `prefix` so a consumer holding a `Route` needn't guess which to join. `TestPrefix` pins the invariants (each absolute, no trailing slash, none nested); `TestNonConformingRoutes` holds the route conventions of [the request standard](AGENTS.md#the-request-standard) at zero exceptions. They are route declarations, not a gRPC commitment — nothing generates or serves gRPC.
 
 ## Layout
 
