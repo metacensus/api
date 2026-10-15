@@ -41,6 +41,30 @@ var (
 	pascalCase = regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)
 )
 
+func TestLowerCamel(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		want bool
+	}{
+		{"", false},
+		{"topic_id", false},
+		{"TopicId", false},
+		{"topic-id", false},
+		{"1topic", false},
+		{"topic id", false},
+		{"topicId\n", false},
+		{"id", true},
+		{"topicId", true},
+		{"id2", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := lowerCamel.MatchString(tt.name); got != tt.want {
+				t.Errorf("lowerCamel.MatchString(%q) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
 // protojson derives JSON names from snake_case proto names, so this catches an
 // explicit json_name override or an already-camelCased field.
 func TestJSONNamesAreLowerCamelCase(t *testing.T) {

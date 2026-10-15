@@ -40,33 +40,25 @@ func declaredRPCs(t *testing.T) map[string]bool {
 // can each declare a "/partner" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
 
-var (
-	pathParamPattern      = regexp.MustCompile(`\{([^{}]+)\}`)
-	lowerCamelCasePattern = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
-)
+var pathParamPattern = regexp.MustCompile(`\{([^{}]*)\}`)
 
-func checkPathParams(t *testing.T, path string) {
-	t.Helper()
-
-	for _, match := range pathParamPattern.FindAllStringSubmatch(path, -1) {
-		param := match[1]
-
-		if !lowerCamelCasePattern.MatchString(param) {
-			t.Errorf(
-				"manifest path %q: parameter {%s} must be lowerCamelCase",
-				path,
-				param,
-			)
-		}
-	}
-}
+// routegen spells each {param} as the field's JSON name, which
+// TestJSONNamesAreLowerCamelCase already holds; this holds the manifest anyway,
+// since the manifest is what a consumer reads.
 func TestPathParamsAreLowerCamelCase(t *testing.T) {
-	for _, route := range routes.Routes {
-		path := fullPath(route)
-
-		t.Run(route.Method+" "+path, func(t *testing.T) {
-			checkPathParams(t, path)
-		})
+	for _, r := range routes.Routes {
+		key := r.Method + " " + fullPath(r)
+		var params []string
+		for _, match := range pathParamPattern.FindAllStringSubmatch(fullPath(r), -1) {
+			param := match[1]
+			params = append(params, param)
+			if !lowerCamel.MatchString(param) {
+				t.Errorf("%s: parameter {%s} must be lowerCamelCase", key, param)
+			}
+		}
+		if !slices.Equal(params, r.Params) {
+			t.Errorf("%s: path parameters %q differ from manifest Params %q", key, params, r.Params)
+		}
 	}
 }
 
