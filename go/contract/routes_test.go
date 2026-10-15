@@ -69,11 +69,12 @@ func TestRoutesAreUnique(t *testing.T) {
 	}
 }
 
-// Reads are named for what they do, so the name is what to check the route
-// against.
-func isRead(rpc string) bool {
+func isRead(r routes.Route) bool {
+	if r.Service == "HealthRoutes" && r.RPC == "Healthcheck" {
+		return true
+	}
 	for _, prefix := range []string{"List", "Get", "Lookup"} {
-		if strings.HasPrefix(rpc, prefix) {
+		if strings.HasPrefix(r.RPC, prefix) {
 			return true
 		}
 	}
@@ -90,20 +91,18 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the set of routes that break the route conventions — empty today, but
-// kept as a map (rather than the check collapsing to "no exceptions") since
-// this contract has had deliberate exceptions before (metacensus/api#8) and
-// may again.
-func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{}
-
-	// Reasons accumulate: a route can break more than one convention, and
-	// overwriting would hide the second.
+func nonConformingRoutes(routeSet []routes.Route) map[string]string {
 	reasons := map[string][]string{}
-	for _, r := range routes.Routes {
+	for _, r := range routeSet {
 		key := r.Method + " " + fullPath(r)
-		if isRead(r.RPC) && r.Method != "GET" {
+		if r.Method != "GET" && r.Method != "POST" {
+			reasons[key] = append(reasons[key], "unsupported method: "+r.Method)
+		}
+		if isRead(r) && r.Method != "GET" {
 			reasons[key] = append(reasons[key], "read over "+r.Method)
+		}
+		if !isRead(r) && r.Method == "GET" {
+			reasons[key] = append(reasons[key], "write over GET")
 		}
 		if verb := verbSegment(r.Path); verb != "" {
 			reasons[key] = append(reasons[key], "verb in path: "+verb)
@@ -114,6 +113,17 @@ func TestNonConformingRoutes(t *testing.T) {
 	for key, rs := range reasons {
 		got[key] = strings.Join(rs, "; ")
 	}
+	return got
+}
+
+// Pins the set of routes that break the route conventions — empty today, but
+// kept as a map (rather than the check collapsing to "no exceptions") since
+// this contract has had deliberate exceptions before (metacensus/api#8) and
+// may again.
+func TestNonConformingRoutes(t *testing.T) {
+	want := map[string]string{}
+
+	got := nonConformingRoutes(routes.Routes)
 
 	for _, key := range slices.Sorted(maps.Keys(got)) {
 		if reason, ok := want[key]; !ok {
