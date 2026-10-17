@@ -1,7 +1,8 @@
 name: Release
 
 # Publishes a tagged version: the Go module (nothing beyond the pushed tag)
-# and the npm package. No container image.
+# and the npm package. No container image. Then tells the two services, whose
+# bump-api.yml opens the go.mod bump (#79).
 
 on:
   push:
@@ -126,3 +127,41 @@ jobs:
             --title "${GITHUB_REF_NAME}" \
             --generate-notes \
             --verify-tag
+
+  # Last, so a service is only told about a version that has fully published.
+  # Everything above is done by the time this runs: if it fails, re-run this
+  # job alone, or run a service's bump-api.yml by hand with the version.
+  dispatch-services:
+    name: Tell the services about the release
+    needs: [github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # GITHUB_TOKEN can't send repository_dispatch to another repository.
+      - name: Mint the release-bot token
+        id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: metacensus
+          repositories: service-api-standard,service-api-chain
+
+      # Both are tried even if one fails, so one service isn't left behind
+      # by the other's outage.
+      - name: Dispatch api-release
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          failed=""
+          for repo in service-api-standard service-api-chain; do
+            if gh api "repos/metacensus/$repo/dispatches" \
+                 -f event_type=api-release \
+                 -f "client_payload[version]=${GITHUB_REF_NAME}"; then
+              echo "Dispatched api-release ${GITHUB_REF_NAME} to $repo"
+            else
+              echo "::error::could not dispatch to $repo"
+              failed="$failed $repo"
+            fi
+          done
+          [ -z "$failed" ]
