@@ -2,6 +2,7 @@ package contract_test
 
 import (
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -38,6 +39,28 @@ func declaredRPCs(t *testing.T) map[string]bool {
 // fullPath is the route's identity wherever uniqueness matters: two surfaces
 // can each declare a "/partner" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
+
+var pathParamPattern = regexp.MustCompile(`\{([^{}]*)\}`)
+
+// routegen spells each {param} as the field's JSON name, which
+// TestJSONNamesAreLowerCamelCase already holds; this holds the manifest anyway,
+// since the manifest is what a consumer reads.
+func TestPathParamsAreLowerCamelCase(t *testing.T) {
+	for _, r := range routes.Routes {
+		key := r.Method + " " + fullPath(r)
+		var params []string
+		for _, match := range pathParamPattern.FindAllStringSubmatch(fullPath(r), -1) {
+			param := match[1]
+			params = append(params, param)
+			if !lowerCamel.MatchString(param) {
+				t.Errorf("%s: parameter {%s} must be lowerCamelCase", key, param)
+			}
+		}
+		if !slices.Equal(params, r.Params) {
+			t.Errorf("%s: path parameters %q differ from manifest Params %q", key, params, r.Params)
+		}
+	}
+}
 
 // The manifest and the services disagreeing is what a silently dropped
 // annotation looks like.
