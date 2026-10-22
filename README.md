@@ -2,7 +2,7 @@
 
 Every request and response under `/metacensus/api/v1` and `/metacensus/public`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client per surface, and the signing chain. Split out of [`metacensus/ui`](https://github.com/metacensus/ui) (`contract/`); `git log` carries the derivation.
 
-**Nothing consumes this yet.** infra, demo and the SPA still carry hand-maintained types. `v0.1.0` was tagged only to exercise the release path: the Go module is live on proxy.golang.org, but `go get` resolves that throwaway tag and `npm install` resolves `ts/package.json`'s placeholder. Neither is ready to depend on.
+**`service-api-standard` and `service-api-chain` pin the Go module, and the SPA the npm package**, so a change here ends with a release and a bump in each. Not production-ready ([#87](https://github.com/metacensus/api/issues/87)).
 
 Policy and rationale for changing the contract — compatibility, versioning, dependencies, the toolchain, releasing — are in [AGENTS.md](AGENTS.md).
 
@@ -23,7 +23,7 @@ They are separate packages, not a corner of one: `TestNoMessageFieldCrossesResou
 
 ### Errors on the two surfaces
 
-**Neither surface types its failures** — the HTTP status is the machine-readable signal, the body around it is not in the contract. When to type failures, why the public surface documents a status vocabulary in `public/v1/common.proto`, and why `PartnerReceipt` still carries `ok`, are in [AGENTS.md](AGENTS.md). Whether to declare an `Error` message at all is an open question, below.
+**Neither surface types its failures** — the HTTP status is the machine-readable signal, the body around it is not in the contract. When to type failures, why the public surface documents a status vocabulary in `public/v1/common.proto`, and why `PartnerReceipt` still carries `ok`, are in [AGENTS.md](AGENTS.md).
 
 ## The signing chain
 
@@ -71,7 +71,7 @@ Two more facts reach the schema. **Every id the path binds is inside the signed 
 
 **Verification happens behind persistence, not at the API edge** — the signature travels in the body so it reaches the chaincode boundary intact; `Runtime.VerifyBody` and the `X-Signature` header are gone. **Authorship binds to the key, resolved below the store seam**: `signerId` is gone from the wire, since it is `keyId`'s owner, not a client claim; the service fast-fails only that a caller is present and that a vote's `user_id` is the caller. **Ordering uses `recorded` (the server's observation), never `time` (the participant's claim)**, or a participant could order their own writes. A stored record carries an `institutional_signature` and reserves the field after it, so the next signature layer is a pure addition (`TestSignedRecordsReserveTheNextField`).
 
-**`ts/test/wire.test.mjs` pins the wire and the cross-language chain:** protojson and ts-proto must emit the same document, and a signature Go makes must verify in TypeScript — the DER assertion Go writes, TypeScript recomputes the challenge for and verifies. The two languages signing in conjunction across the full write path waits on an integration suite over mock persistence ([#31](https://github.com/metacensus/api/issues/31)); the signing module's own behaviour is unit-tested in `ts/test/signing.test.mjs`. How to sign in each language, and the browser passkey ceremony, are in [ts/README.md](ts/README.md), "Signing", and the [`go/signing`](go/signing/signing.go) package comment.
+**`ts/test/wire.test.mjs` pins the wire and the cross-language chain:** protojson and ts-proto must emit the same document, and a signature Go makes must verify in TypeScript — the DER assertion Go writes, TypeScript recomputes the challenge for and verifies. Cross-language signing across the full write path is not tested ([#31](https://github.com/metacensus/api/issues/31)); the signing module's own behaviour is unit-tested in `ts/test/signing.test.mjs`. How to sign in each language is in [ts/README.md](ts/README.md), "Signing", and the [`go/signing`](go/signing/signing.go) package comment.
 
 ## JSON is the wire
 
@@ -189,14 +189,11 @@ The same walk writes `ts/src/client.ts`: one **batteries-included** client per s
 
 ## Open questions
 
-Written down, not tracked — the four `ui` issues that held this work were closed as not-planned on the move, and nothing replaced them. Each is a decision nobody has standing to take until the consumer that would settle it exists.
-
-- **Should the contract declare an `Error` message?** Today the server emits an ad hoc `{"error","code"}` and clients hand back the text unparsed. Exactly the schema that goes wrong when invented before a second consumer. Refs [#3](https://github.com/metacensus/api/issues/3).
-- **No write path verifies a signature yet.** `signing.VerifyUser`/`VerifyCountersign` implement the verify procedure above and the acceptance policy, but no repository calls them on a write. What that leaves to a backend, beyond the procedure: refuse a vote whose `user_id` is not the resolved author, bind `authenticatorData`'s rpId hash to the expected RP per environment (left to verifier config, not done in `signing`), and hold a `time`/`recorded` tolerance in chaincode config.
+- **No write path verifies a signature yet** ([#66](https://github.com/metacensus/api/issues/66)).
 - **Key rotation is anticipated; revocation is not designed.** Per-device and synced passkeys mean several keys per participant over time, which the key-history-by-timestamp model already allows — a record stays verifiable forever by resolving the key in force at signing time. Recovery is: regain account access, enrol a new key; the old one is retired in the history, never re-signed. But **revocation — a lost key must not attribute *new* records while the records it already signed stay valid — is undesigned**, and no route enrols a second key yet (sign-up is the only enrolment). Synced-vs-device-bound is a custody distinction readable from the assertion's `BE`/`BS` flags, recorded honestly rather than as a field.
 - **Non-interactive participant signing has no story.** A passkey assertion needs a user gesture and a browser authenticator, so curl, CI and any headless *participant* cannot produce one — deliberately (see "The signing chain"). The institutional layer is headless by design; a headless participant would need a different enrolled key type, which nothing defines. Refs [ui#55](https://github.com/metacensus/ui/issues/55).
 - **The browser passkey ceremony lives in the consumer.** `go/signing` and `ts/src/signing.ts` expose the format primitives — build the digest, verify an assertion, sign headless — but `navigator.credentials.create()/get()` is the SPA's, tracked in [ui#55](https://github.com/metacensus/ui/issues/55) (key provisioning). The generated TypeScript client's `Signer` is the seam it plugs into.
-- **Session storage, not session design.** The token model is now settled — short-lived opaque access tokens, long-lived rotating refresh tokens, an `HttpOnly` refresh cookie (see `go/auth`). What is still a placeholder is where that state lives: `MemorySessions` holds it in one process's memory, so a restart forgets every session and nothing is shared across replicas. A persistent `Sessions` (the demo's Postgres, the infra's Fabric) slots in behind the port. Two deployment choices ride with it and belong to whoever operates the API, not to this contract: the credentialed-CORS configuration the browser posture needs, and whether the refresh cookie is set here or by a reverse proxy the adapter relocates to.
+- **Session storage, not session design.** The token model is now settled — short-lived opaque access tokens, long-lived rotating refresh tokens, an `HttpOnly` refresh cookie (see `go/auth`). What is still a placeholder is where that state lives: `MemorySessions` holds it in one process's memory, so a restart forgets every session and nothing is shared across replicas. Two deployment choices ride with it and belong to whoever operates the API, not to this contract: the credentialed-CORS configuration the browser posture needs, and whether the refresh cookie is set here or by a reverse proxy the adapter relocates to.
 - **Should the client, or a zero-valued query parameter, be split out / emitted?** No route declares a query field, and `sideEffects: false` already lets a bundler drop the client, so neither is urgent. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not the ones it could grow** — a 64-bit integer, a map, a `oneof` are untested, so the pairing in `proto/buf.gen.yaml` is only checked where a route exercises it.
 
