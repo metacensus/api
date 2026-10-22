@@ -79,6 +79,6 @@ Both are the module's public surface once a tag exists, so both are settled deli
 
 ## Releasing
 
-Tags are minted, never typed: `make release TYPE=patch|minor|major` or `VERSION=1.4.0`, `make latest`. `scripts/version.sh` validates semver, refuses an existing tag, and prompts before pushing (`YES=1` skips; no TTY refuses without it). A release can't be withdrawn — npm unpublish is limited to 72h, the Go module proxy is an immutable cache. Pushing the tag is the whole release: `release.yml` runs full CI then publishes npm; the Go module needs nothing but the tag.
+Tags are minted, never typed: `make release TYPE=patch|minor|major` or `VERSION=1.4.0`, `make latest`. `scripts/version.sh` validates semver, refuses an existing tag, and prompts before pushing (`YES=1` skips; no TTY refuses without it). A release can't be withdrawn — npm unpublish is limited to 72h, the Go module proxy is an immutable cache. Pushing the tag is the whole release: `release.yml` runs full CI then publishes npm; the Go module needs nothing but the tag. Its last job dispatches `api-release` to service-api-standard and service-api-chain, whose `bump-api.yml` opens a self-merging `go.mod` bump ([#79](https://github.com/metacensus/api/issues/79)); a failed dispatch is re-run alone, since everything before it has published.
 
 **Licensing** is in the README ("License"). v0.6.0 and earlier shipped unlicensed, and the Go proxy and npm keep them so.
