@@ -94,7 +94,7 @@ const signer: Signer = async (content, contentType) => {
   const challenge = await userChallenge(content, interp, kid, time);
   const cred = await navigator.credentials.get({
     publicKey: { challenge, allowCredentials: [/* this device's passkey */] },
-  }); // ui#55 owns provisioning and RP-ID scoping
+  });
 
   const r = cred.response as AuthenticatorAssertionResponse;
   return {
@@ -121,8 +121,7 @@ the caller, and the easiest to get wrong); the signer builds the interpretation
 and the assertion. A headless signer (a server or a test) builds the same shape
 with `assert()` instead of a browser ceremony — one format, both layers. A write
 on a client built without a signer throws. **The browser ceremony above is
-sketch, not shipped: provisioning a passkey to a device, RP-ID scoping across
-environments, and recovery are [ui#55](https://github.com/metacensus/ui/issues/55).**
+sketch, not shipped ([ui#55](https://github.com/metacensus/ui/issues/55)).**
 
 ## Auth and the session token
 
@@ -212,8 +211,7 @@ need a key?" is a lookup rather than a guess.
 
 The scheme, the digest, and the verify procedure are the repository README's
 "The signing chain"; `go/signing` is the other half that computes the same digest
-and whose DER assertions this module verifies. The browser passkey ceremony
-itself is [ui#55](https://github.com/metacensus/ui/issues/55).
+and whose DER assertions this module verifies.
 
 ## Both surfaces
 
