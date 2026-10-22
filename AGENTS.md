@@ -32,7 +32,7 @@ Every route in `metacensus.v1` is measured against this table, and a request bro
 | Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
 | Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`. | review |
 
-**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` (the Paper Files family in [#37](https://github.com/metacensus/api/issues/37)).
+**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 
 ## Why /healthz is not in the contract
 
