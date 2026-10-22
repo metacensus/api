@@ -5,9 +5,7 @@
 // document.
 //
 // It signs the records it returns so the TypeScript side can verify a signature
-// Go made; the reverse direction, and every write, are cross-language
-// integration concerns deferred to the mock-persistence suite
-// (https://github.com/metacensus/api/issues/31).
+// Go made.
 //
 // It prints its own public key, then "listening <addr>" on a port the OS
 // chooses, then serves until killed.
