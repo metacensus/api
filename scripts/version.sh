@@ -39,8 +39,7 @@ determine_version() {
     if [ -z "$version" ]; then
         current=$(get_latest_version)
         if [ -z "$current" ]; then
-            # First release. The contract has no consumers yet, so it starts
-            # below 1.0 and may still break: metacensus/ui#51 adopts it.
+            # First release: starts below 1.0, so it may still break.
             echo "0.1.0"
         else
             if [ -z "$type" ]; then

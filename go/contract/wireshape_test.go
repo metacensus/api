@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// These are the conventions in contract/README.md, checked against compiled
-// descriptors rather than left as prose. TypeScript agreement is not checked
-// here (needs generated documents): metacensus/ui#49.
+// The repository README's conventions, checked against compiled descriptors
+// rather than left as prose; ts/test/wire.test.mjs checks that TypeScript
+// emits the same documents.
 
 // Every proto package these invariants govern; TestEveryPackageIsGoverned
 // makes an omission here a failure rather than a silence.

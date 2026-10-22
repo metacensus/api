@@ -115,8 +115,8 @@ func verbSegment(path string) string {
 
 // Pins the set of routes that break the route conventions — empty today, but
 // kept as a map (rather than the check collapsing to "no exceptions") since
-// this contract has had deliberate exceptions before (metacensus/api#8) and
-// may again.
+// this contract has had deliberate exceptions before (the Paper routes,
+// removed in 9edc6fe) and may again.
 func TestNonConformingRoutes(t *testing.T) {
 	want := map[string]string{}
 

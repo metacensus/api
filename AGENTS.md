@@ -1,6 +1,6 @@
 # Working on the contract
 
-Cross-cutting decisions with no single declaration to sit beside. Per-declaration detail is a comment beside the code; the [README](README.md) orients a consumer. Nothing consumes the contract yet, so these are stances, not obligations.
+Cross-cutting decisions with no single declaration to sit beside. Per-declaration detail is a comment beside the code; the [README](README.md) orients a consumer.
 
 ## Compatibility and versioning
 
@@ -13,7 +13,7 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 
 **`make breaking` and `make breaking-public` ask different questions.** The rule set is buf's `FILE` for both — the strictest there is; breaks invisible to any schema (a narrowed cap, a newly-required field, a value that changes meaning) are held by review.
 
-- `make breaking` — does the schema break **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base? The published contract is what a break breaks. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)): the only tag, `v0.1.0`, exists to test the release path, so the check measured every branch against a throwaway baseline and failed on `paper.proto`'s removal. Intact for running by hand. Before the first real release there are no meaningful tags, so it no-ops; after one, an intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
+- `make breaking` — does the schema break **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base? The published contract is what a break breaks. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)). Intact for running by hand. An intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
 - `make breaking-public` — does it break **what is deployed**, against `origin/main` (what a browser talks to)? The only one in CI, and unaffected by a stale release, since its population never consumed a tag.
 
 ## The request standard
@@ -32,7 +32,7 @@ Every route in `metacensus.v1` is measured against this table, and a request bro
 | Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
 | Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`. | review |
 
-**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` (the Paper Files family in [#37](https://github.com/metacensus/api/issues/37)).
+**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 
 ## Why /healthz is not in the contract
 
