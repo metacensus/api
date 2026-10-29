@@ -25,7 +25,7 @@ Every route in `metacensus.v1` is measured against this table, and a request bro
 | `List*`/`Get*`/`Lookup*` use `GET`; every write uses `POST`; no `PUT`, `PATCH` or `DELETE`. | `TestNonConformingRoutes` (reads); review (writes) |
 | Paths are resource nouns nested by ownership (`/topic/{topicId}/prop/{propId}/vote`), params `{lowerCamelCase}`, no verbs (`POST /topic`, not `POST /topic/create`); a resource scoped to the caller takes no id (`GET /self`). The session verbs on `AuthRoutes` (`/login`, `/signup`, `/refresh`, `/logout`) are the one exception. | `TestNonConformingRoutes` (verbs); review |
 | Lists are `{ items: [...] }`. No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
-| Server-minted ids are `<kind>:<UUIDv7>` (`go/store`); a numeric id brought over from the demo gets a new one. | review |
+| Server-minted ids are `<kind>:<UUIDv7>` (`go/store`); a numeric id brought over from the demo gets a new one. | `go/service.TestJourney`; migration: review |
 | A path-bound id repeated in `content` equals the one in the path. | `TestPathAndSignedContentMustAgree` |
 | A composite key, like `Vote`'s `(propId, userId)`, addresses one live value per parent and actor, written with `Set*`; any other writable record gets a minted id. | review |
 | Fields the server owns (`id`, `recorded`) never go in the object the client posts. | review |
