@@ -353,8 +353,7 @@ func (x *TopicCreateRequest) GetUserSignature() *Signature {
 	return nil
 }
 
-// A user's membership of a topic. No backend implements the member routes
-// yet, so it carries no signature.
+// A user's membership of a topic.
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The member's user id, not an id of the membership itself.

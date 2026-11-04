@@ -21,11 +21,12 @@ service PartnerRoutes {
 
 // One express-interest form post. The length caps below are enforced but not
 // machine-readable — ts-proto drops field options, so protovalidate can't
-// reach the client; see README.md.
+// reach the client; see AGENTS.md, "What the public contract does and does not
+// mechanise", which also says why display wording is not in the contract.
 message PartnerSubmission {
-  // The set of checkboxes is a contract; display wording lives in the SPA
-  // (see README.md). Unspecified is the proto3 zero value, not an offered
-  // choice — filter it out when building a form.
+  // The set of checkboxes is a contract; display wording is not. Unspecified
+  // is the proto3 zero value, not an offered choice — filter it out when
+  // building a form.
   enum Interest {
     Unspecified = 0;
     PartnerOrPilot = 1;

@@ -24,7 +24,7 @@ var createPropCases = []storeCase{
 	},
 	{
 		name:    "content altered after signing",
-		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		promise: "SignatureInvalid if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adasTopicExists, adaDraftsProp, propAltered},
 		call:    adaSubmitsProp,

@@ -120,8 +120,8 @@ The client supplies `content` and the exact `contentType` (the one thing left to
 the caller, and the easiest to get wrong); the signer builds the interpretation
 and the assertion. A headless signer (a server or a test) builds the same shape
 with `assert()` instead of a browser ceremony — one format, both layers. A write
-on a client built without a signer throws. **The browser ceremony above is
-sketch, not shipped ([ui#55](https://github.com/metacensus/ui/issues/55)).**
+on a client built without a signer throws. **The browser ceremony above is a
+sketch; the package ships none.**
 
 ## Auth and the session token
 
@@ -163,7 +163,7 @@ const pub = new PublicClient({ baseUrl });
 await pub.submitPartnerInterest({ name, email, interests, message, website: "" });
 ```
 
-One package because the SPA calls both surfaces from one build; an entry point
+One package because a client may call both surfaces from one build; an entry point
 per surface because a consumer of only the public surface should not acquire the
 authenticated types. `@metacensus/api/signing` is a third, splitting by concern
 rather than by surface — nothing on the public surface is ever signed.
@@ -182,8 +182,7 @@ const choices = Object.values(PartnerSubmission_Interest).filter(
 );
 ```
 
-The display labels are not in the contract; they stay in the SPA as copy. See
-the enum's comment for why.
+The display labels are not in the contract.
 
 ## Signing
 

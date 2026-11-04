@@ -188,18 +188,14 @@ func TestPrefix(t *testing.T) {
 		}
 	}
 
-	// No prefix may contain another: the reverse proxy routes by longest-
-	// prefix match, so a nested pair would move "which service answers this"
-	// into a config file in a third repository.
 	for outer := range declared {
 		for inner := range declared {
 			if outer == inner {
 				continue
 			}
 			if strings.HasPrefix(inner, outer+"/") {
-				t.Errorf("prefix %q nests inside %q. Which service answers a request "+
-					"then depends on the order of rules in the reverse proxy's config, "+
-					"which is not in this repository. Decide that deliberately before "+
+				t.Errorf("prefix %q nests inside %q, so a request's prefix no longer "+
+					"names the service that answers it. Decide that deliberately before "+
 					"relaxing this.", inner, outer)
 			}
 		}
