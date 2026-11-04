@@ -1,6 +1,6 @@
 # The MetaCensus API contract, in Protocol Buffers
 
-Every request and response under `/metacensus/api/v1` and `/metacensus/public`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client per surface, and the signing chain. Split out of [`metacensus/ui`](https://github.com/metacensus/ui) (`contract/`); `git log` carries the derivation.
+Every request and response under `/metacensus/api/v1` and `/metacensus/public`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client per surface, and the signing chain.
 
 **Consumers pin a release of the Go module or the npm package**, so a change here ends with a release and a bump in each. Not production-ready ([#87](https://github.com/metacensus/api/issues/87)).
 
