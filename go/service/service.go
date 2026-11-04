@@ -1,8 +1,7 @@
 // Package service is the middle of the MetaCensus API: it implements the
 // generated handler interfaces (go/server) in terms of the persistence port
-// (go/store) and the session port (go/auth). It is what service-api-standard
-// and service-api-chain import; each supplies only its own store (and, later,
-// its own real auth), and either serves the handlers (Serve) or mounts them on
+// (go/store) and the session port (go/auth). A backend supplies only its own
+// store and sessions, and either serves the handlers (Serve) or mounts them on
 // its own mux (Register).
 //
 // Its job is everything that is neither routing nor persistence:

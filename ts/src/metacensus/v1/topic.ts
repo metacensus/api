@@ -58,10 +58,7 @@ export interface TopicCreateRequest {
   userSignature?: Signature | undefined;
 }
 
-/**
- * A user's membership of a topic. No backend implements the member routes
- * yet, so it carries no signature.
- */
+/** A user's membership of a topic. */
 export interface Member {
   /** The member's user id, not an id of the membership itself. */
   id: string;

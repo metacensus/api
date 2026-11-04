@@ -13,7 +13,8 @@ export const protobufPackage = "metacensus.public.v1";
 /**
  * One express-interest form post. The length caps below are enforced but not
  * machine-readable — ts-proto drops field options, so protovalidate can't
- * reach the client; see README.md.
+ * reach the client; see AGENTS.md, "What the public contract does and does not
+ * mechanise", which also says why display wording is not in the contract.
  */
 export interface PartnerSubmission {
   /** Required. Whitespace-collapsed, then capped at 120 characters. */
@@ -38,9 +39,9 @@ export interface PartnerSubmission {
 }
 
 /**
- * The set of checkboxes is a contract; display wording lives in the SPA
- * (see README.md). Unspecified is the proto3 zero value, not an offered
- * choice — filter it out when building a form.
+ * The set of checkboxes is a contract; display wording is not. Unspecified
+ * is the proto3 zero value, not an offered choice — filter it out when
+ * building a form.
  */
 export enum PartnerSubmission_Interest {
   Unspecified = "Unspecified",
