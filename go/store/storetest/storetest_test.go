@@ -3,6 +3,7 @@ package storetest
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -82,7 +83,7 @@ func TestSuiteCoversEveryStoreMethod(t *testing.T) {
 
 func TestEveryPromiseIsQuoted(t *testing.T) {
 	var doc strings.Builder
-	for _, f := range []string{"doc.go", "store.go", "errors.go"} {
+	for _, f := range []string{"doc.go", "store.go", "errors.go", "draft.go"} {
 		b, err := os.ReadFile(filepath.Join("..", f))
 		if err != nil {
 			t.Fatal(err)
@@ -109,3 +110,111 @@ func TestEveryPromiseIsQuoted(t *testing.T) {
 }
 
 func normalize(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+func TestStages(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    []Stage
+		wantErr bool
+	}{
+		{value: "", want: []Stage{Stable}},
+		{value: "stable", want: []Stage{Stable}},
+		{value: "draft", want: []Stage{Draft}},
+		{value: "all", want: []Stage{Stable, Draft}},
+		{value: "Stable", wantErr: true},
+		{value: "beta", wantErr: true},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			got, err := stages(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("stages(%q) error = %v, wantErr %v", tt.value, err, tt.wantErr)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("stages(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+			for _, s := range tt.want {
+				if !got[s] {
+					t.Errorf("stages(%q) = %v, want %v", tt.value, got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+// go test -json reports each case by name, so a Draft case's name is the only
+// way its output tells the stages apart.
+func TestDraftCasesAreNamedDraft(t *testing.T) {
+	for _, c := range []storeCase{{name: "n"}, {name: "n", want: store.NotFound}} {
+		if strings.HasPrefix(c.title(), "draft") {
+			t.Errorf("Stable case titled %q", c.title())
+		}
+		c.stage = Draft
+		if !strings.HasPrefix(c.title(), "draft - ") {
+			t.Errorf("Draft case titled %q, want a draft prefix", c.title())
+		}
+	}
+}
+
+type fakeDraft interface{ FakeDraft() }
+
+type withFakeDraft struct{ store.Store }
+
+func (withFakeDraft) FakeDraft() {}
+
+func TestDraftMethodCasesSkipAgainstAStoreThatLacksIt(t *testing.T) {
+	t.Cleanup(func(old []reflect.Type) func() { return func() { drafts = old } }(drafts))
+	drafts = []reflect.Type{reflect.TypeFor[fakeDraft]()}
+
+	c := storeCase{name: "n", stage: Draft, call: func(*scene) error { return nil }}
+	for _, tt := range []struct {
+		name    string
+		s       store.Store
+		wantRun bool
+	}{
+		{name: "lacks it", s: memstore.New(nil)},
+		{name: "has it", s: withFakeDraft{memstore.New(nil)}, wantRun: true},
+	} {
+		var ran bool
+		t.Run(tt.name, func(t *testing.T) {
+			c.run(t, Harness{Open: func(*testing.T) store.Store { return tt.s }, Signatures: Soft}, newEmails(), "FakeDraft")
+			ran = true
+		})
+		if ran != tt.wantRun {
+			t.Errorf("%s: ran = %v, want %v", tt.name, ran, tt.wantRun)
+		}
+	}
+	if !slices.Contains(storeMethods(), "FakeDraft") {
+		t.Errorf("storeMethods() = %v, want it to include the Draft method", storeMethods())
+	}
+}
+
+// A Draft method is not yet one every implementation has, so no Stable case
+// may hold a store to it.
+func TestDraftMethodsHaveOnlyDraftCases(t *testing.T) {
+	for _, d := range drafts {
+		m := d.Method(0).Name
+		for _, c := range suite[m] {
+			if c.stage != Draft {
+				t.Errorf("%s is a Draft method; case %q is %v", m, c.name, c.stage)
+			}
+		}
+	}
+}
+
+// TestReleaseCheck holds a release to carrying nothing Draft. Only make
+// release-check runs it, so Draft work can sit on main between releases.
+func TestReleaseCheck(t *testing.T) {
+	if os.Getenv("STORETEST_RELEASE_CHECK") == "" {
+		t.Skip("make release-check runs this")
+	}
+	for _, d := range drafts {
+		t.Errorf("go/store/draft.go declares %s; move it into store.Store or out of the release", d.Name())
+	}
+	for m, cases := range suite {
+		for _, c := range cases {
+			if c.stage == Draft {
+				t.Errorf("%s case %q is Draft; make it Stable or drop it", m, c.name)
+			}
+		}
+	}
+}

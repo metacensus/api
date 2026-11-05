@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -20,6 +21,7 @@ type storeCase struct {
 	name    string
 	promise string // the clause of store.go/errors.go/doc.go this enforces, verbatim
 	hard    bool   // runs only against a Hard store
+	stage   Stage  // Stable unless declared
 
 	given []step             // state built through the interface; each must succeed
 	call  func(*scene) error // the one call under test
@@ -28,10 +30,14 @@ type storeCase struct {
 }
 
 func (c storeCase) title() string {
-	if c.want == "" {
-		return "success - " + c.name
+	var prefix string
+	if c.stage == Draft {
+		prefix = "draft - "
 	}
-	return "error - " + string(c.want) + ": " + c.name
+	if c.want == "" {
+		return prefix + "success - " + c.name
+	}
+	return prefix + "error - " + string(c.want) + ": " + c.name
 }
 
 // A step builds or observes state, failing the case on its own.
@@ -56,11 +62,15 @@ type scene struct {
 	gotID, gotHash string
 }
 
-func (c *storeCase) run(t *testing.T, h Harness, emails *emails) {
+func (c *storeCase) run(t *testing.T, h Harness, emails *emails, method string) {
 	if c.hard && h.Signatures != Hard {
 		t.Skipf("runs only against a Hard store; this one declares %v", h.Signatures)
 	}
-	sc := &scene{t: t, ctx: t.Context(), s: h.Open(t), emails: emails, c: c}
+	s := h.Open(t)
+	if d, ok := draftOf(method); ok && !reflect.TypeOf(s).Implements(d) {
+		t.Skipf("not implemented: %s is a Draft method this store lacks", method)
+	}
+	sc := &scene{t: t, ctx: t.Context(), s: s, emails: emails, c: c}
 	for _, given := range c.given {
 		given(sc)
 	}

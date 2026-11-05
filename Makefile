@@ -1,7 +1,7 @@
 # The MetaCensus API contract. Run from the repository root; see README.md
 # for the two-module layout and the GOWORK/GOTOOLCHAIN pinning.
 
-.PHONY: help all gen generated-paths lint format format-check breaking breaking-public test check clean deps hooks tools \
+.PHONY: help all gen generated-paths lint format format-check breaking breaking-public test release-check check clean deps hooks tools \
         release latest list delete-tag
 
 # Lists targets (from the `## name — what it does` comments below) instead of
@@ -126,6 +126,13 @@ breaking-public: $(BIN)/buf
 test:
 	go test ./...
 	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
+
+## release-check — what a release adds to test: nothing staged Draft
+#
+# No storetest case is Draft and go/store/draft.go declares no method. test
+# skips this, so Draft work can sit on main between releases.
+release-check:
+	STORETEST_RELEASE_CHECK=1 go test ./go/store/storetest -run '^TestReleaseCheck$$' -count=1
 
 ## check — everything CI runs, minus the freshness diff
 check: lint format-check breaking-public test $(TS_PLUGIN)

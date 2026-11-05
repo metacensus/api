@@ -392,3 +392,19 @@ func TestMapErr(t *testing.T) {
 		t.Errorf("unkinded error mapped to %d, want 500", got)
 	}
 }
+
+type archiveTopic interface{ ArchiveTopic() }
+
+type withArchiveTopic struct{ store.Store }
+
+func (withArchiveTopic) ArchiveTopic() {}
+
+// A route whose store method is still Draft answers 501 until the store has it.
+func TestDraftAnswers501UntilTheStoreHasIt(t *testing.T) {
+	if _, err := draft[archiveTopic](memstore.New(nil), "TopicRoutes.ArchiveTopic"); err == nil || err.Status != http.StatusNotImplemented {
+		t.Errorf("store lacking it: err = %v, want 501", err)
+	}
+	if _, err := draft[archiveTopic](withArchiveTopic{memstore.New(nil)}, "TopicRoutes.ArchiveTopic"); err != nil {
+		t.Errorf("store having it: err = %v, want nil", err)
+	}
+}

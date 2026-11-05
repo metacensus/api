@@ -251,6 +251,16 @@ func mapErr(err error) *server.Error {
 	}
 }
 
+// draft returns the store as the Draft method D (go/store/draft.go), or a 501
+// naming rpc while this store has yet to implement it.
+func draft[D any](s store.Store, rpc string) (D, *server.Error) {
+	d, ok := s.(D)
+	if !ok {
+		return d, &server.Error{Status: http.StatusNotImplemented, Code: "unimplemented", Message: rpc + " is not implemented"}
+	}
+	return d, nil
+}
+
 func unauthenticated(msg string) *server.Error {
 	return &server.Error{Status: http.StatusUnauthorized, Code: "unauthenticated", Message: msg}
 }

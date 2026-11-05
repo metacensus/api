@@ -12,6 +12,12 @@
 // and TestEveryPromiseIsQuoted fails on a quote they do not contain. Where they
 // are silent or disagree, the case is omitted and marked where it would sit.
 //
+// Each case is Stable or Draft (Stage), and STORETEST_STAGE picks which run:
+// unset or "stable" runs only Stable cases, "draft" only Draft ones, "all"
+// both. A Draft case covers a promise still joining the contract — usually a
+// method declared in go/store/draft.go, whose cases skip as not implemented
+// against a store that lacks it.
+//
 // Every case mints its own ids (store.NewID) and emails, never deletes, and checks a global
 // list only for its own records, so a store may be fresh or shared.
 //
@@ -24,6 +30,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -65,6 +72,42 @@ func (v Verification) String() string {
 	return fmt.Sprintf("Verification(%d)", int(v))
 }
 
+// Stage is how far a case's promise has come. The zero value is Stable, so a
+// case that declares no stage is one every implementation is held to.
+type Stage int
+
+const (
+	// Stable: in the released contract; every implementation passes it.
+	Stable Stage = iota
+
+	// Draft: joining the contract; an implementation adopting it runs these,
+	// and a release carries none (make release-check).
+	Draft
+)
+
+func (s Stage) String() string {
+	switch s {
+	case Stable:
+		return "Stable"
+	case Draft:
+		return "Draft"
+	}
+	return fmt.Sprintf("Stage(%d)", int(s))
+}
+
+// stages reads STORETEST_STAGE into the set of stages a Run selects.
+func stages(v string) (map[Stage]bool, error) {
+	switch v {
+	case "", "stable":
+		return map[Stage]bool{Stable: true}, nil
+	case "draft":
+		return map[Stage]bool{Draft: true}, nil
+	case "all":
+		return map[Stage]bool{Stable: true, Draft: true}, nil
+	}
+	return nil, fmt.Errorf("storetest: STORETEST_STAGE is %q; want stable, draft or all", v)
+}
+
 type Harness struct {
 	// Open returns the store one case runs against. It is called once per
 	// case, with that case's t, so a backend can register cleanup; it may
@@ -84,17 +127,24 @@ func (h Harness) validate() error {
 	return nil
 }
 
-// Run runs every conformance case against the store h opens.
+// Run runs every conformance case STORETEST_STAGE selects against the store h
+// opens.
 func Run(t *testing.T, h Harness) {
 	t.Helper()
 	if err := h.validate(); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := stages(os.Getenv("STORETEST_STAGE"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	emails := newEmails()
 	for _, method := range storeMethods() {
 		t.Run(method, func(t *testing.T) {
 			for _, c := range suite[method] {
-				t.Run(c.title(), func(t *testing.T) { c.run(t, h, emails) })
+				if selected[c.stage] {
+					t.Run(c.title(), func(t *testing.T) { c.run(t, h, emails, method) })
+				}
 			}
 		})
 	}
@@ -116,13 +166,30 @@ var suite = map[string][]storeCase{
 	"ListVotes":   listVotesCases,
 }
 
+// drafts is store.Drafts, a variable so the suite's own tests can declare one.
+var drafts = store.Drafts
+
+// storeMethods is every method the suite covers: Store's, then each Draft's.
 func storeMethods() []string {
 	iface := reflect.TypeFor[store.Store]()
 	out := make([]string, iface.NumMethod())
 	for i := range out {
 		out[i] = iface.Method(i).Name
 	}
+	for _, d := range drafts {
+		out = append(out, d.Method(0).Name)
+	}
 	return out
+}
+
+// draftOf returns the Draft interface declaring method, if one does.
+func draftOf(method string) (reflect.Type, bool) {
+	for _, d := range drafts {
+		if d.Method(0).Name == method {
+			return d, true
+		}
+	}
+	return nil, false
 }
 
 // emails issues addresses unique to one Run, so cases never collide with each
