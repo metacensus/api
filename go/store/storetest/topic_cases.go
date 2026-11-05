@@ -21,7 +21,7 @@ var createTopicCases = []storeCase{
 	// Unauthenticated, errors.go says SignatureInvalid.
 	{
 		name:    "content altered after signing",
-		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		promise: "SignatureInvalid if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adaDraftsTopic, topicAltered},
 		call:    adaSubmitsTopic,
@@ -30,7 +30,7 @@ var createTopicCases = []storeCase{
 	},
 	{
 		name:    "signature time altered after signing",
-		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		promise: "SignatureInvalid if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adaDraftsTopic, topicSignatureTimeAltered},
 		call:    adaSubmitsTopic,
@@ -39,7 +39,7 @@ var createTopicCases = []storeCase{
 	},
 	{
 		name:    "interpretation altered after signing",
-		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		promise: "SignatureInvalid if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, adaDraftsTopic, topicInterpretationAltered},
 		call:    adaSubmitsTopic,
@@ -48,7 +48,7 @@ var createTopicCases = []storeCase{
 	},
 	{
 		name:    "asserted by a key other than the one key_id names",
-		promise: "SignatureInvalid (Fabric) if the signature does not stand",
+		promise: "SignatureInvalid if the signature does not stand",
 		hard:    true,
 		given:   []step{adaEnrolled, bobDrafted, adaDraftsTopic, topicAssertedByBobsKey},
 		call:    adaSubmitsTopic,

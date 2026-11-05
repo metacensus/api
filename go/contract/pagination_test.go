@@ -6,9 +6,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// No route paginates. demo does, so re-deriving any of its request messages
-// would reintroduce the parameters one endpoint at a time: a test, not a
-// one-off audit.
 func TestNoPaginationFields(t *testing.T) {
 	paginationNames := map[string]bool{
 		"page": true, "limit": true, "offset": true, "cursor": true,

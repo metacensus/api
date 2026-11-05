@@ -6,9 +6,8 @@ import (
 )
 
 // Kind is the closed vocabulary a Store speaks, independent of any backend's
-// own error strings. It exists so the server maps a Kind to an HTTP status
-// (that mapping is the server PR's) rather than string-matching a driver
-// message; see doc.go for the infra prototype this replaces.
+// own error strings. It exists so go/service maps a Kind to an HTTP status
+// (mapErr) rather than string-matching a driver message.
 //
 // A Kind both names the failure and is itself an error, so a backend can return
 // a bare Kind for the common case and callers can test with errors.Is:
@@ -37,10 +36,8 @@ const (
 
 	// SignatureInvalid: the user (or institutional) signature does not stand —
 	// the digest fails, the key_id resolves to no enrolled key, or an inline
-	// key's thumbprint mismatches its key_id. Raised where signatures are
-	// verified hard (inside the Fabric boundary); the Postgres backend verifies
-	// softly and so raises this only for malformed input, not cryptographic
-	// failure. See README.md, "The signing chain".
+	// key's thumbprint mismatches its key_id. See README.md, "The signing
+	// chain".
 	SignatureInvalid Kind = "signature_invalid"
 
 	// Unauthenticated: the caller could not be established, or the caller
@@ -50,9 +47,8 @@ const (
 	Unauthenticated Kind = "unauthenticated"
 
 	// Unavailable: the backend could not answer and the same request might
-	// succeed later — a lost or timed-out connection, or a Fabric MVCC read
-	// conflict. The one Kind that means retry may work; see doc.go for why a
-	// conflict is absorbed here rather than given a Kind of its own.
+	// succeed later — a lost or timed-out connection, or a conflict detected at
+	// commit. The one Kind that means retry may work.
 	Unavailable Kind = "unavailable"
 )
 

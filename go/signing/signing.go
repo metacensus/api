@@ -327,9 +327,8 @@ func VerifyAssertion(pub *ecdsa.PublicKey, a *v1.Signature_Assertion, challenge 
 		return errors.New("signing: user-verified flag is not set; this layer requires a verified human gesture")
 	}
 	// A full WebAuthn check also binds authenticatorData[:32] to SHA-256(rpID).
-	// That is a verifier-config concern (the expected RP per environment), left
-	// with the rest of the deferred write-path verification; origin already
-	// binds the participant's domain. See README.md, "Open questions".
+	// That is a verifier-config concern (the expected RP per environment) not
+	// done here (#66); origin already binds the participant's domain.
 
 	// The signature over the wrapper.
 	if !ecdsa.VerifyASN1(pub, signedDigest(authData, cdj), sig) {

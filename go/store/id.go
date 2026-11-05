@@ -8,10 +8,9 @@ import (
 )
 
 // IDKind is the prefix naming what an id identifies. An id is
-// "<kind>:<UUIDv7>", e.g. "topc:0192a642-817d-7a3e-a282-d7a282ebd482" — infra's
-// scheme (core/shared/types), kept so an id carries its kind, sorts by when it
-// was minted, and yields a suffix that is already a legal Fabric channel
-// segment. The wire still types ids as plain strings.
+// "<kind>:<UUIDv7>", e.g. "topc:0192a642-817d-7a3e-a282-d7a282ebd482", so an id
+// carries its kind and sorts by when it was minted. The wire still types ids as
+// plain strings.
 type IDKind string
 
 const (

@@ -2,6 +2,7 @@ package contract_test
 
 import (
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -38,6 +39,28 @@ func declaredRPCs(t *testing.T) map[string]bool {
 // fullPath is the route's identity wherever uniqueness matters: two surfaces
 // can each declare a "/partner" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
+
+var pathParamPattern = regexp.MustCompile(`\{([^{}]*)\}`)
+
+// routegen spells each {param} as the field's JSON name, which
+// TestJSONNamesAreLowerCamelCase already holds; this holds the manifest anyway,
+// since the manifest is what a consumer reads.
+func TestPathParamsAreLowerCamelCase(t *testing.T) {
+	for _, r := range routes.Routes {
+		key := r.Method + " " + fullPath(r)
+		var params []string
+		for _, match := range pathParamPattern.FindAllStringSubmatch(fullPath(r), -1) {
+			param := match[1]
+			params = append(params, param)
+			if !lowerCamel.MatchString(param) {
+				t.Errorf("%s: parameter {%s} must be lowerCamelCase", key, param)
+			}
+		}
+		if !slices.Equal(params, r.Params) {
+			t.Errorf("%s: path parameters %q differ from manifest Params %q", key, params, r.Params)
+		}
+	}
+}
 
 // The manifest and the services disagreeing is what a silently dropped
 // annotation looks like.
@@ -92,6 +115,8 @@ func verbSegment(path string) string {
 }
 
 func nonConformingRoutes(routeSet []routes.Route) map[string]string {
+	// Reasons accumulate: a route can break more than one convention, and
+	// overwriting would hide the second.
 	reasons := map[string][]string{}
 	for _, r := range routeSet {
 		key := r.Method + " " + fullPath(r)
@@ -195,8 +220,8 @@ func TestNonConformingRoutes_AccumulatesByFullPath(t *testing.T) {
 
 // Pins the set of routes that break the route conventions — empty today, but
 // kept as a map (rather than the check collapsing to "no exceptions") since
-// this contract has had deliberate exceptions before (metacensus/api#8) and
-// may again.
+// this contract has had deliberate exceptions before (the Paper routes,
+// removed in 9edc6fe) and may again.
 func TestNonConformingRoutes(t *testing.T) {
 	want := map[string]string{}
 
@@ -252,18 +277,14 @@ func TestPrefix(t *testing.T) {
 		}
 	}
 
-	// No prefix may contain another: the reverse proxy routes by longest-
-	// prefix match, so a nested pair would move "which service answers this"
-	// into a config file in a third repository.
 	for outer := range declared {
 		for inner := range declared {
 			if outer == inner {
 				continue
 			}
 			if strings.HasPrefix(inner, outer+"/") {
-				t.Errorf("prefix %q nests inside %q. Which service answers a request "+
-					"then depends on the order of rules in the reverse proxy's config, "+
-					"which is not in this repository. Decide that deliberately before "+
+				t.Errorf("prefix %q nests inside %q, so a request's prefix no longer "+
+					"names the service that answers it. Decide that deliberately before "+
 					"relaxing this.", inner, outer)
 			}
 		}

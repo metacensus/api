@@ -94,7 +94,7 @@ const signer: Signer = async (content, contentType) => {
   const challenge = await userChallenge(content, interp, kid, time);
   const cred = await navigator.credentials.get({
     publicKey: { challenge, allowCredentials: [/* this device's passkey */] },
-  }); // ui#55 owns provisioning and RP-ID scoping
+  });
 
   const r = cred.response as AuthenticatorAssertionResponse;
   return {
@@ -120,9 +120,8 @@ The client supplies `content` and the exact `contentType` (the one thing left to
 the caller, and the easiest to get wrong); the signer builds the interpretation
 and the assertion. A headless signer (a server or a test) builds the same shape
 with `assert()` instead of a browser ceremony — one format, both layers. A write
-on a client built without a signer throws. **The browser ceremony above is
-sketch, not shipped: provisioning a passkey to a device, RP-ID scoping across
-environments, and recovery are [ui#55](https://github.com/metacensus/ui/issues/55).**
+on a client built without a signer throws. **The browser ceremony above is a
+sketch; the package ships none.**
 
 ## Auth and the session token
 
@@ -164,7 +163,7 @@ const pub = new PublicClient({ baseUrl });
 await pub.submitPartnerInterest({ name, email, interests, message, website: "" });
 ```
 
-One package because the SPA calls both surfaces from one build; an entry point
+One package because a client may call both surfaces from one build; an entry point
 per surface because a consumer of only the public surface should not acquire the
 authenticated types. `@metacensus/api/signing` is a third, splitting by concern
 rather than by surface — nothing on the public surface is ever signed.
@@ -183,8 +182,7 @@ const choices = Object.values(PartnerSubmission_Interest).filter(
 );
 ```
 
-The display labels are not in the contract; they stay in the SPA as copy. See
-the enum's comment for why.
+The display labels are not in the contract.
 
 ## Signing
 
@@ -212,8 +210,7 @@ need a key?" is a lookup rather than a guess.
 
 The scheme, the digest, and the verify procedure are the repository README's
 "The signing chain"; `go/signing` is the other half that computes the same digest
-and whose DER assertions this module verifies. The browser passkey ceremony
-itself is [ui#55](https://github.com/metacensus/ui/issues/55).
+and whose DER assertions this module verifies.
 
 ## Both surfaces
 

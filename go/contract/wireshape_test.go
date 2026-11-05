@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// These are the conventions in contract/README.md, checked against compiled
-// descriptors rather than left as prose. TypeScript agreement is not checked
-// here (needs generated documents): metacensus/ui#49.
+// The repository README's conventions, checked against compiled descriptors
+// rather than left as prose; ts/test/wire.test.mjs checks that TypeScript
+// emits the same documents.
 
 // Every proto package these invariants govern; TestEveryPackageIsGoverned
 // makes an omission here a failure rather than a silence.
@@ -40,6 +40,30 @@ var (
 	lowerCamel = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
 	pascalCase = regexp.MustCompile(`^[A-Z][a-zA-Z0-9]*$`)
 )
+
+func TestLowerCamel(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		want bool
+	}{
+		{"", false},
+		{"topic_id", false},
+		{"TopicId", false},
+		{"topic-id", false},
+		{"1topic", false},
+		{"topic id", false},
+		{"topicId\n", false},
+		{"id", true},
+		{"topicId", true},
+		{"id2", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := lowerCamel.MatchString(tt.name); got != tt.want {
+				t.Errorf("lowerCamel.MatchString(%q) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
 
 // protojson derives JSON names from snake_case proto names, so this catches an
 // explicit json_name override or an already-camelCased field.

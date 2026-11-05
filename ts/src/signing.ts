@@ -18,8 +18,8 @@
 //
 // This module holds the format primitives: the digest, a headless signer, and
 // verification. The browser passkey ceremony — navigator.credentials.create /
-// get — belongs to the consumer (metacensus/ui#55), which passes its assertion
-// here to be verified. Canonical JSON (RFC 8785) rather than the wire bytes:
+// get — belongs to the consumer, which passes its assertion here to be
+// verified. Canonical JSON (RFC 8785) rather than the wire bytes:
 // protojson isn't byte-stable, so only canonicalizing keeps a record verifiable
 // after it's relayed, re-encoded and stored.
 

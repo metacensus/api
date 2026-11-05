@@ -8,11 +8,9 @@
 // the machine that made it. The getXSigned reads expose the raw envelope, so the
 // exact keys a signature would cover are what these assertions see.
 //
-// What this file no longer carries is the cross-language signing chain in
-// conjunction — TypeScript signs, Go verifies, and the reverse, plus the write
-// path. That is an integration concern, deferred to a suite over a mock
-// persistence layer: https://github.com/metacensus/api/issues/31. The signing
-// module's own behaviour is unit-tested in signing.test.mjs.
+// TypeScript signing with Go verifying, and the write path, are not covered
+// here: https://github.com/metacensus/api/issues/31. The signing module's own
+// behaviour is unit-tested in signing.test.mjs.
 //
 // The server is routegen/wireserver, compiled to a temporary directory and run;
 // it lives in the routegen module so a fixture never reaches the published

@@ -89,8 +89,7 @@ export interface VoteSigned {
 
 /**
  * What a voter signs. `user_id` duplicates the author `user_signature.key_id`
- * resolves to; persistence owes refusing the two when they disagree (see
- * README.md, "Open questions").
+ * resolves to; a store refuses the two disagreeing (go/store/storetest).
  */
 export interface Vote {
   topicId: string;

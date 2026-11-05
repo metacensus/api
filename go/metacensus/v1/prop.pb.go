@@ -382,8 +382,7 @@ func (x *VoteSigned) GetInstitutionalSignature() *Signature {
 }
 
 // What a voter signs. `user_id` duplicates the author `user_signature.key_id`
-// resolves to; persistence owes refusing the two when they disagree (see
-// README.md, "Open questions").
+// resolves to; a store refuses the two disagreeing (go/store/storetest).
 type Vote struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	TopicId     string                 `protobuf:"bytes,1,opt,name=topic_id,json=topicId,proto3" json:"topic_id,omitempty"`

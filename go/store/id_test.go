@@ -14,7 +14,7 @@ func TestParseID(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "success - minted", kind: TopicID, id: NewID(TopicID)},
-		{name: "success - infra's", kind: TopicID, id: "topc:" + v7},
+		{name: "success - canonical", kind: TopicID, id: "topc:" + v7},
 		{name: "error - another kind", kind: UserID, id: "topc:" + v7, wantErr: true},
 		{name: "error - no kind", kind: TopicID, id: v7, wantErr: true},
 		{name: "error - empty", kind: TopicID, id: "", wantErr: true},

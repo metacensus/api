@@ -81,8 +81,7 @@ message TopicCreateRequest {
   Signature user_signature = 3;
 }
 
-// A user's membership of a topic. No backend implements the member routes
-// yet, so it carries no signature.
+// A user's membership of a topic.
 message Member {
   // The member's user id, not an id of the membership itself.
   string id = 1;
