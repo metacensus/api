@@ -7,20 +7,18 @@ import (
 )
 
 // Store is the seam between the shared API layer and whichever backend holds
-// the data: service-api-standard over Postgres, service-api-chain over
-// Hyperledger Fabric. It is the whole contract between them; nothing Fabric-
-// or Postgres-shaped crosses it.
+// the data. It is the whole contract between them; nothing shaped by one
+// storage engine crosses it.
 //
 // Three rules fix its shape, and every method's contract is read against them:
 //
-//   - One method is one atomic unit of work — a chaincode invocation in Fabric,
-//     a transaction in Postgres. The seam is drawn where a single call is a
-//     single commit; nothing composes two methods into one atom.
+//   - One method is one atomic unit of work. The seam is drawn where a single
+//     call is a single commit; nothing composes two methods into one atom.
 //
 //   - Every method is a pure function of (request, current state). Ids,
 //     timestamps and the enrolling key are minted above and arrive already set
 //     on the record; a backend that generated any of them would make two
-//     endorsing peers disagree. Writes therefore take a fully-minted
+//     replicas executing one call disagree. Writes therefore take a fully-minted
 //     *v1.XSigned and return only an error — the server already holds the
 //     record it echoes to the client. A minted id is "<kind>:<UUIDv7>" (see
 //     IDKind); a write whose id is not of its record's kind is refused
@@ -50,21 +48,16 @@ type Store interface {
 	// the owner's first key. passwordHash is deliberately a separate argument:
 	// it is the already-hashed credential — bcrypt mints its salt above this
 	// seam, so the hash a backend stores is a pure function of (request, current
-	// state), and the same string reaches every endorsing peer. The plaintext
-	// never crosses the seam, so it is never an invocation argument and never
-	// sits inside a signed, stored document.
+	// state), and the same string reaches every replica. The plaintext never
+	// crosses the seam, so it is never an invocation argument and never sits
+	// inside a signed, stored document.
 	//
 	// AlreadyExists if the email is taken (compared byte-exact: no case folding
 	// or normalization), the minted id collides, or key_id is already bound —
 	// rebinding it would hand its owner's later writes to the new user.
 	// InvalidContent if publicKey is absent or key_id does not thumbprint it,
 	// or if the id is not a user id.
-	// SignatureInvalid (Fabric) if the enrolling assertion does not stand.
-	//
-	// Email and key_id uniqueness are the store's, not a backend's: Postgres
-	// gets them from unique indexes, but Fabric world state is addressed by id
-	// alone and needs separate email→id and key_id→owner keys written in the
-	// same invocation.
+	// SignatureInvalid if the enrolling assertion does not stand.
 	EnrollUser(ctx context.Context, record *v1.UserSigned, publicKey, passwordHash string) error
 
 	// Credential returns the id and stored password hash of the user an email
@@ -90,8 +83,8 @@ type Store interface {
 	// CreateTopic persists a new topic; the record is fully minted.
 	//
 	// InvalidContent if the id is not a topic id. Unauthenticated if callerID
-	// is not the author. AlreadyExists on id collision. SignatureInvalid
-	// (Fabric) if the signature does not stand.
+	// is not the author. AlreadyExists on id collision. SignatureInvalid if the
+	// signature does not stand.
 	CreateTopic(ctx context.Context, callerID string, record *v1.TopicSigned) error
 
 	// GetTopic returns one topic by id. NotFound if absent.
@@ -105,7 +98,7 @@ type Store interface {
 	//
 	// InvalidContent if topic_id is absent or names a topic that does not
 	// exist, or if the id is not a prop id. Unauthenticated if callerID is not the author. AlreadyExists on id
-	// collision. SignatureInvalid (Fabric) if the signature does not stand.
+	// collision. SignatureInvalid if the signature does not stand.
 	CreateProp(ctx context.Context, callerID string, record *v1.PropSigned) error
 
 	// GetProp returns one prop, addressed by the (topic, prop) tuple rather
@@ -124,8 +117,8 @@ type Store interface {
 	//
 	// InvalidContent if any of the three ids is absent, if user_id disagrees
 	// with the author, or if the prop does not exist. Unauthenticated if
-	// callerID is not the author. SignatureInvalid (Fabric) if the signature
-	// does not stand.
+	// callerID is not the author. SignatureInvalid if the signature does not
+	// stand.
 	SetVote(ctx context.Context, callerID string, record *v1.VoteSigned) error
 
 	// ListVotes returns every vote on one prop — the only way to read votes;

@@ -149,8 +149,8 @@ generated-paths:
 # ---------------------------------------------------------------------------
 # Release
 #
-# `set -e` matters: without it a failing version.sh still tags and pushes
-# `v` — the junk tag metacensus/infra shipped.
+# `set -e` matters: without it a failing version.sh still tags and pushes a
+# bare `v`.
 # ---------------------------------------------------------------------------
 
 VERSION ?=

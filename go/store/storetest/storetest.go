@@ -16,7 +16,7 @@
 // list only for its own records, so a store may be fresh or shared.
 //
 // Not covered, as not provokable through the interface: a failure partway
-// through a commit, Unavailable, agreement between endorsing peers, and
+// through a commit, Unavailable, agreement between replicas, and
 // context cancellation.
 package storetest
 

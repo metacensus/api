@@ -142,15 +142,13 @@ func TestChiRouterMustDeclareItsPathValue(t *testing.T) {
 	server.RegisterTopicRoutes(chi.NewRouter(), &server.Runtime{Prefix: routes.Prefix}, &topics{})
 }
 
-// metacensus/infra mounts everything inside chi's Route(routes.Prefix, ...),
-// so routes registered there must carry no prefix of their own — Runtime's
-// zero value.
+// Mounted inside chi's Route(routes.Prefix, ...), routes must carry no prefix
+// of their own — Runtime's zero value.
 func TestMountedUnderAnExistingPrefix(t *testing.T) {
 	impl := &topics{}
 	r := chi.NewRouter()
 	r.Route(routes.Prefix, func(v1Routes chi.Router) {
 		v1Routes.Group(func(authed chi.Router) {
-			// authed.Use(jwtMiddleware) — infra's shape
 			server.RegisterTopicRoutes(authed, &server.Runtime{PathValue: server.EscapedPathValue}, impl)
 		})
 	})

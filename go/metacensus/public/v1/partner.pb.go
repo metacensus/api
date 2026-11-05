@@ -24,9 +24,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// The set of checkboxes is a contract; display wording lives in the SPA
-// (see README.md). Unspecified is the proto3 zero value, not an offered
-// choice — filter it out when building a form.
+// The set of checkboxes is a contract; display wording is not. Unspecified
+// is the proto3 zero value, not an offered choice — filter it out when
+// building a form.
 type PartnerSubmission_Interest int32
 
 const (
@@ -87,7 +87,8 @@ func (PartnerSubmission_Interest) EnumDescriptor() ([]byte, []int) {
 
 // One express-interest form post. The length caps below are enforced but not
 // machine-readable — ts-proto drops field options, so protovalidate can't
-// reach the client; see README.md.
+// reach the client; see AGENTS.md, "What the public contract does and does not
+// mechanise", which also says why display wording is not in the contract.
 type PartnerSubmission struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. Whitespace-collapsed, then capped at 120 characters.

@@ -6,8 +6,8 @@ Cross-cutting decisions with no single declaration to sit beside. Per-declaratio
 
 The two surfaces (README, "The two surfaces") owe different compatibility:
 
-- **`metacensus.v1`** owes none yet — its consumers are two backends and one SPA that ship together (the org's standing position, [infra's `AGENTS.md`](https://github.com/metacensus/infra/blob/main/AGENTS.md)).
-- **`metacensus.public.v1`** owes it to whatever is deployed. Its callers are browsers running whatever SPA build they loaded; there is no auth handshake, version negotiation or client registry to find who would break, and a rolling deploy alone can break submissions mid-window. So form intake evolves additively — values are added to `Interest`, never removed or renumbered — and the path carries no version segment. Read-only public data, if it ever arrives ([service-public-api#2](https://github.com/metacensus/service-public-api/issues/2)), gets its own versioned prefix rather than retrofitting one; `TestPrefix` fails the day a nested prefix appears, because the reverse proxy routes by longest-prefix match and that decision must be taken deliberately.
+- **`metacensus.v1`** owes none yet — its consumers ship together.
+- **`metacensus.public.v1`** owes it to whatever is deployed. Its callers are browsers running whatever build they loaded; there is no auth handshake, version negotiation or client registry to find who would break, and a rolling deploy alone can break submissions mid-window. So form intake evolves additively — values are added to `Interest`, never removed or renumbered — and the path carries no version segment. Read-only public data, if it ever arrives, gets its own versioned prefix rather than retrofitting one; `TestPrefix` fails the day a nested prefix appears, because a request's prefix alone must name the service that answers it, and that decision must be taken deliberately.
 
 **Wire version and release tag are independent.** `metacensus.public.v1` carries its own `v1`, so the public schema can reach v2 while the authenticated one stays at v1. The release tag is shared: one repo, one `v*` tag, one npm version, one Go module version. Splitting the Go side would mean a `go.mod` under a subdirectory versioned by `go/v1.2.3` tags — the trap "Releasing" avoids, paid twice.
 
@@ -18,7 +18,7 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 
 ## The request standard
 
-Every route in `metacensus.v1` is measured against this table, and a request brought over from the demo is reshaped to fit it. It stands with the README's "Routes", "JSON is the wire" and "The signing chain", and this file's "Errors" and "Compatibility and versioning". A rule marked review has no test yet; [#72](https://github.com/metacensus/api/issues/72) tracks each that could have one.
+Every route in `metacensus.v1` is measured against this table. It stands with the README's "Routes", "JSON is the wire" and "The signing chain", and this file's "Errors" and "Compatibility and versioning". A rule marked review has no test yet; [#72](https://github.com/metacensus/api/issues/72) tracks each that could have one.
 
 | Rule | Enforced by |
 |---|---|
@@ -36,12 +36,12 @@ Every route in `metacensus.v1` is measured against this table, and a request bro
 
 ## Why /healthz is not in the contract
 
-`Serve` and `service-public-api` answer `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. The container runtime probes the service directly rather than through the proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
+`Serve` answers `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. A container runtime probes a service directly rather than through a proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
 
 ## What the public contract does and does not mechanise
 
-- **The interest set is mechanised, and is why this exists.** `PartnerSubmission.Interest` is a proto enum; adding a checkbox is adding a value, service and SPA regenerate, and `buf breaking` refuses a removal. Getting it wrong now fails CI; before the split it 400'd every submission carrying the new checkbox, at runtime.
-- **Display wording is not.** The label ("Fund the work") stays in the SPA as copy. A stale label renders an odd string; a stale set rejects every submission — only the second is worth a build failure.
+- **The interest set is mechanised, and is why this exists.** `PartnerSubmission.Interest` is a proto enum; adding a checkbox is adding a value, every consumer regenerates, and `buf breaking` refuses a removal. Getting it wrong fails CI, not every submission carrying the new checkbox at runtime.
+- **Display wording is not.** The label ("Fund the work") is a consumer's copy. A stale label renders an odd string; a stale set rejects every submission — only the second is worth a build failure.
 - **Validation limits are documented, not enforced** — `name` ≤ 120, `email` ≤ 254, `message` ≤ 2000, body ≤ 16 KiB, as field comments. ts-proto runs `onlyTypes=true` and drops field options, so `protovalidate-es` would have no constraint to enforce on the TS side.
 
 ## Errors
@@ -59,7 +59,7 @@ Two costs weigh heaviest: a requirement in the root `go.mod` reaches every consu
 ## Toolchain, pinning, and generation traps
 
 - **buf and protoc-gen-go are `tool` deps of `routegen`, not the root** — in the published module they'd add ~90 indirect requirements (Docker CLI, quic-go, the buf server graph) to every consumer. **Do not `go mod tidy` `routegen`**: it moves the pins and can't complete anyway (something in buf's graph wants a newer Go than the generators are pinned to). Add a requirement by hand.
-- **`make gen` and `make test` run `routegen` with `GOWORK=off` and the pinned `GOTOOLCHAIN`** — lessons from [infra#52](https://github.com/metacensus/infra/pull/52). A `go.work` above the checkout resolves tool versions against the union of its members and lifts the pins; the `go` directive is a floor not a ceiling, so an unpinned toolchain builds plugins against whatever stdlib is present. `protoc-gen-go` stamps its version into every `.pb.go`, so either surfaces as generated-code drift in a PR that never touched a `.proto`.
+- **`make gen` and `make test` run `routegen` with `GOWORK=off` and the pinned `GOTOOLCHAIN`** — a `go.work` above the checkout resolves tool versions against the union of its members and lifts the pins; the `go` directive is a floor not a ceiling, so an unpinned toolchain builds plugins against whatever stdlib is present. `protoc-gen-go` stamps its version into every `.pb.go`, so either surfaces as generated-code drift in a PR that never touched a `.proto`.
 - **buf runs from the repository root** — every relative path in `buf.gen.yaml` and `routegen` is relative to it. `routegen` finds the root by walking up for the contract's `go.mod` and refuses to run outside the repository.
 
 | Thing | Pinned in | Read by |

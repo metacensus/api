@@ -35,7 +35,7 @@ var enrollUserCases = []storeCase{
 	},
 	{
 		name:    "enrolling assertion does not stand",
-		promise: "SignatureInvalid (Fabric) if the enrolling assertion does not stand",
+		promise: "SignatureInvalid if the enrolling assertion does not stand",
 		hard:    true,
 		given:   []step{adaDrafted, adaEnrolmentAltered},
 		call:    enrolAda,
