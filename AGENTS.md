@@ -77,6 +77,14 @@ Both are the module's public surface once a tag exists, so both are settled deli
 - **The Go packages sit under `go/`**, so imports read `github.com/metacensus/api/go/metacensus/v1`. Hoisting `metacensus/` to the root would read better at the call site, but the root is shared with `ts/`, `proto/`, `internal/` and `scripts/`, and a generated `metacensus/` tree there would be the only directory whose name says nothing about which language reads it.
 - **`go.mod` is at the repository root, not in `go/`.** A module whose `go.mod` sits in `go/` is versioned by `go/v1.2.3` tags: a plain `v1.2.3` would publish nothing, and `go/v1.2.3` wouldn't match the release workflow's tag filter — nothing would run and no failure would be reported. Rooted here, one plain semver tag does the job, and `routegen` is deliberately unversioned.
 
+## A change across api and the services
+
+service-api-standard and service-api-chain implement `store.Store` and pass `storetest`, so a change to either reaches both.
+
+- **One identifier.** The api issue names the change: every branch for it, in any repository, contains `api-<N>`, and a service's own issue for it is a sub-issue of, or blocked by, `metacensus/api#<N>`. Conformance tests each side against its pair ([#118](https://github.com/metacensus/api/issues/118)).
+- **Chain first.** Work starts in service-api-chain, then service-api-standard. Fabric is the harder implementation, so a contract that fits it is found before Postgres has settled anything.
+- **Services merge first.** Once every pair is green, the services merge, then api, then the release. A store method nothing calls yet is harmless against the released api; a released method a service lacks breaks its build.
+
 ## Releasing
 
 Tags are minted, never typed: `make release TYPE=patch|minor|major` or `VERSION=1.4.0`, `make latest`. `scripts/version.sh` validates semver, refuses an existing tag, and prompts before pushing (`YES=1` skips; no TTY refuses without it). A release can't be withdrawn — npm unpublish is limited to 72h, the Go module proxy is an immutable cache. Pushing the tag is the whole release: `release.yml` runs full CI then publishes npm; the Go module needs nothing but the tag.
