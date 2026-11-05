@@ -3,13 +3,18 @@ name: CI
 # Validates the .proto contract and its generated Go/TS. One job because
 # building buf/protoc-gen-go from source is the expensive part and splitting
 # would pay for it repeatedly. `workflow_call` lets release.yml gate its
-# publish on this.
+# tag on this, at the commit it releases.
 
 on:
   pull_request:
   push:
     branches: [main]
   workflow_call:
+    inputs:
+      ref:
+        description: Commit to check; the triggering one when empty
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -22,6 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref }}
           # Full history: only the (currently disabled, #14) breaking check
           # needs it, kept so re-enabling is just an uncomment.
           fetch-depth: 0
@@ -78,10 +84,12 @@ jobs:
       # `make check` can't drift. Includes `breaking-public`, which still
       # enforces even though the released-contract check above is off (#14).
       - name: Check
-        # Empty baseline on a tag disables breaking-public: the comparison
-        # would otherwise run backwards (a tag can sit behind origin/main).
+        # Empty baseline for a release disables breaking-public: the comparison
+        # would otherwise run backwards (the released commit can sit behind
+        # origin/main). `cond && 'origin/main' || ''`, not `cond && '' || …`:
+        # an empty string is falsy, so the latter always yields the fallback.
         env:
-          PUBLIC_BREAKING_AGAINST: ${{ github.ref_type == 'tag' && '' || 'origin/main' }}
+          PUBLIC_BREAKING_AGAINST: ${{ !inputs.ref && 'origin/main' || '' }}
         run: make check
 
       # Left out of `make check`: a question about the commit, not the code.

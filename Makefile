@@ -155,43 +155,55 @@ generated-paths:
 
 VERSION ?=
 TYPE    ?=
-MESSAGE ?=
+DRY_RUN ?=
 
-## release — tag and push a version; prompts, and refuses a dirty tree
+## release — dispatch release.yml for HEAD and watch it; prompts, and refuses a dirty tree
 release:
 	@set -e; \
+	git fetch -q --tags origin main; \
 	VERSION=$$(./scripts/version.sh "$(VERSION)" "$(TYPE)"); \
 	TAG="v$$VERSION"; \
-	MSG=$$([ -n "$(MESSAGE)" ] && echo "$(MESSAGE)" || echo "Release $$VERSION"); \
 	if [ -n "$$(git status --porcelain)" ]; then \
 		echo "Error: working tree is dirty; commit or clean it before releasing"; \
 		exit 1; \
 	fi; \
-	git fetch -q origin main; \
 	if ! git merge-base --is-ancestor HEAD origin/main; then \
 		echo "Error: HEAD is not an ancestor of origin/main."; \
-		echo "Pushing the tag would carry the commit with it and publish a"; \
-		echo "version that sits on no branch, which the proxy keeps serving."; \
+		echo "release.yml refuses a commit outside main: its tag would publish"; \
+		echo "a version that sits on no branch, which the proxy keeps serving."; \
 		exit 1; \
 	fi; \
-	echo "About to tag and push $$TAG."; \
-	echo "That publishes @metacensus/api@$$VERSION to public npm and"; \
-	echo "github.com/metacensus/api@$$TAG to proxy.golang.org."; \
-	echo "Neither can be withdrawn: npm unpublish is limited to 72 hours and"; \
-	echo "the Go module proxy is an immutable cache. Deleting the tag is not"; \
-	echo "enough — that version stays served."; \
-	if [ "$(YES)" != "1" ]; then \
-		if [ -t 0 ]; then \
-			printf "Proceed? [y/N] "; read -r reply; \
-			case "$$reply" in y|Y|yes|YES) ;; *) echo "Aborted."; exit 1;; esac; \
-		else \
-			echo "Refusing to release non-interactively; pass YES=1 if you mean it."; \
-			exit 1; \
+	SHA=$$(git rev-parse HEAD); \
+	if [ "$(DRY_RUN)" = "1" ]; then \
+		DRY=true; echo "Dry run: checking $$TAG at $$SHA; no tag is created."; \
+	else \
+		DRY=false; \
+		echo "About to release $$TAG at $$SHA."; \
+		echo "That publishes @metacensus/api@$$VERSION to public npm and"; \
+		echo "github.com/metacensus/api@$$TAG to proxy.golang.org."; \
+		echo "Neither can be withdrawn: npm unpublish is limited to 72 hours and"; \
+		echo "the Go module proxy is an immutable cache. Deleting the tag is not"; \
+		echo "enough — that version stays served."; \
+		if [ "$(YES)" != "1" ]; then \
+			if [ -t 0 ]; then \
+				printf "Proceed? [y/N] "; read -r reply; \
+				case "$$reply" in y|Y|yes|YES) ;; *) echo "Aborted."; exit 1;; esac; \
+			else \
+				echo "Refusing to release non-interactively; pass YES=1 if you mean it."; \
+				exit 1; \
+			fi; \
 		fi; \
 	fi; \
-	git tag -a "$$TAG" -m "$$MSG" && \
-	git push origin "$$TAG" && \
-	echo "Released: $$TAG"
+	SINCE=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	gh workflow run release.yml -f version="$$VERSION" -f sha="$$SHA" -f dry_run="$$DRY"; \
+	RUN=; \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
+		RUN=$$(gh run list --workflow release.yml --event workflow_dispatch --user "$$(gh api user --jq .login)" \
+			--limit 5 --json databaseId,createdAt --jq "[.[] | select(.createdAt >= \"$$SINCE\")] | first | .databaseId // empty"); \
+		[ -n "$$RUN" ] && break; sleep 3; \
+	done; \
+	if [ -z "$$RUN" ]; then echo "Error: dispatched, but found no run to watch; see gh run list --workflow release.yml"; exit 1; fi; \
+	gh run watch "$$RUN" --exit-status
 
 ## latest — print the most recent version tag
 latest:
