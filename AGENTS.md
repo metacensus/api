@@ -16,6 +16,14 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 - `make breaking` — does the schema break **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base? The published contract is what a break breaks. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)). Intact for running by hand. An intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
 - `make breaking-public` — does it break **what is deployed**, against `origin/main` (what a browser talks to)? The only one in CI, and unaffected by a stale release, since its population never consumed a tag.
 
+## How a store.Store change reaches the services
+
+**service-api-chain implements first** and merges: a method `store.Store` does not declare yet is harmless there, and chain's implementation passing `storetest` is the only proof chain can support it. Write it against the unmerged api with `go mod edit -replace github.com/metacensus/api=<your api checkout>`, locally.
+
+**Then api adds it to `Store`** with its `storetest` cases. The **Chain** check builds chain's `main` against the pull request and runs its `make api-check` ([#94](https://github.com/metacensus/api/issues/94)); the merge queue reruns it against chain's `main` as it stands at merge time ([#95](https://github.com/metacensus/api/issues/95)). Chain's own pull requests run against api's `main` the same way, so neither `main` breaks the other.
+
+**service-api-standard trails**: it implements the method at the bump pull request that brings the release carrying it ([#97](https://github.com/metacensus/api/issues/97)), and gates nothing here. Changing an existing method's signature stays expand/contract by hand ([#92](https://github.com/metacensus/api/issues/92)).
+
 ## The request standard
 
 Every route in `metacensus.v1` is measured against this table. It stands with the README's "Routes", "JSON is the wire" and "The signing chain", and this file's "Errors" and "Compatibility and versioning". A rule marked review has no test yet; [#72](https://github.com/metacensus/api/issues/72) tracks each that could have one.
