@@ -1,0 +1,85 @@
+name: Chain
+
+# service-api-chain's main, built against this commit, passes its
+# `make api-check` (#94). The merge queue reruns it against chain's main as it
+# stands at merge time (#95). service-api-standard is not checked: it trails,
+# and catches up at its bump pull request (#97).
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-check:
+    name: service-api-chain api-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: api
+          # The change check below diffs against the base.
+          fetch-depth: 0
+
+      # Not a workflow-level paths filter: a required check that never starts
+      # reads as pending, and blocks the merge.
+      - name: Check whether the Go module changed
+        id: changed
+        working-directory: api
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          if git diff --quiet "$BASE" HEAD -- go go.mod go.sum; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No change under go/, go.mod or go.sum; service-api-chain not built." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout service-api-chain's main
+        if: steps.changed.outputs.go == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: metacensus/service-api-chain
+          ref: main
+          path: chain
+
+      - uses: actions/setup-go@v5
+        if: steps.changed.outputs.go == 'true'
+        with:
+          go-version-file: chain/go.mod
+          cache-dependency-path: chain/go.sum
+
+      - name: Build service-api-chain against this commit
+        if: steps.changed.outputs.go == 'true'
+        working-directory: chain
+        run: |
+          go mod edit -replace "github.com/metacensus/api=$GITHUB_WORKSPACE/api"
+          {
+            echo "service-api-chain at metacensus/service-api-chain@$(git rev-parse HEAD),"
+            echo "built against metacensus/api@$(git -C ../api rev-parse HEAD)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Its own step, so a registry failure isn't read as a test timeout; as chain's CI does.
+      - name: Pull Microfab
+        if: steps.changed.outputs.go == 'true'
+        run: docker pull ghcr.io/hyperledger-labs/microfab:latest
+
+      - name: make api-check
+        if: steps.changed.outputs.go == 'true'
+        working-directory: chain
+        # The pinned toolchain is chain's: a go.work above the checkout or a
+        # newer local Go would otherwise build something chain doesn't.
+        # -mod=mod records go.sum entries for anything this commit's
+        # requirements add.
+        run: |
+          pin="$(awk '/^toolchain /{t=$2} /^go /{if (g == "") g = "go" $2} END{print (t != "" ? t : g)}' go.mod)"
+          GOWORK=off GOTOOLCHAIN="$pin" GOFLAGS=-mod=mod make api-check
