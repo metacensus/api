@@ -7,6 +7,8 @@ name: CI
 
 on:
   pull_request:
+  # The merge queue (#95) requires this check, so it must run on the group too.
+  merge_group:
   push:
     branches: [main]
   workflow_call:
