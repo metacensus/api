@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-# Must match release.yml's tag filter, or the tag publishes nothing.
+# release.yml and npm publish both rely on this rejecting anything but plain semver.
 VERSION_REGEX="^v?[0-9]+\.[0-9]+\.[0-9]+$"
 
 # grep exits 1 when no tag matches.
