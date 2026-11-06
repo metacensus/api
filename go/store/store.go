@@ -37,6 +37,7 @@ import (
 // verification key.
 //
 // What this seam deliberately omits is in doc.go.
+// Probe: comment-only change.
 type Store interface {
 	// EnrollUser persists a new user and, with it, the signing key every later
 	// write of theirs is verified against — trust on first use: nobody vouches
