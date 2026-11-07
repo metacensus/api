@@ -3,7 +3,8 @@ name: Release
 # Tags and publishes a commit on main: the Go module (nothing beyond the tag)
 # and the npm package. No container image. Dispatched by `make release`; the
 # tag ruleset lets only the release-bot App create a v* tag, so a pushed tag
-# is refused rather than published.
+# is refused rather than published. Once published, it opens a bump pull
+# request in each service that merges itself when that service's CI passes.
 
 run-name: Release ${{ inputs.version || inputs.type }} at ${{ inputs.sha }}${{ inputs.dry_run && ' (dry run)' || '' }}
 
@@ -218,3 +219,117 @@ jobs:
             --title "$TAG" \
             --generate-notes \
             --verify-tag
+
+  # One self-merging pull request per service, as the release-bot App with a
+  # token scoped to that service. A bump that fails CI waits for a person:
+  # adapting a service to a breaking release is out of scope (#78).
+  bump:
+    name: Bump ${{ matrix.service }}
+    needs: [prepare, github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [service-api-standard, service-api-chain]
+    steps:
+      # GITHUB_TOKEN can't reach another repository, and a pull request it
+      # opened would run no workflows, so the required check never reports.
+      - name: Mint a release-bot token for the service
+        id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ matrix.service }}
+
+      - name: Checkout the service
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ matrix.service }}
+          token: ${{ steps.app.outputs.token }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # A service already at or past this version, or with an open bump to a
+      # newer one, gets nothing; an open bump for this same version is rebuilt.
+      - name: Skip unless newer than main and every open bump
+        id: newer
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          at_most() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]; }
+          current=$(go list -m -f '{{.Version}}' github.com/metacensus/api)
+          newest=$current
+          bump=true
+          if at_most "$TAG" "$current"; then
+            bump=false
+          else
+            for open in $(gh pr list --state open --json headRefName \
+                -q '.[].headRefName | select(startswith("deps/api-")) | ltrimstr("deps/api-")'); do
+              if [ "$open" != "$TAG" ] && at_most "$TAG" "$open"; then
+                bump=false
+                newest=$open
+              fi
+            done
+          fi
+          if [ "$bump" = false ]; then
+            echo "metacensus/api $TAG is not newer than $newest; nothing to do."
+          fi
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
+      # The module proxy indexes a new tag asynchronously.
+      - name: Bump the module
+        if: steps.newer.outputs.bump == 'true'
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if go get "github.com/metacensus/api@$TAG"; then
+              go mod tidy
+              exit 0
+            fi
+            echo "not resolvable yet; retrying in 30s ($i/10)"
+            sleep 30
+          done
+          echo "::error::github.com/metacensus/api@$TAG never resolved"
+          exit 1
+
+      - name: Open the pull request and enable auto-merge
+        if: steps.newer.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          branch="deps/api-$TAG"
+          id="$(gh api "/users/${SLUG}[bot]" --jq .id)"
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
+
+          git switch -c "$branch"
+          git commit -am "Bump metacensus/api to $TAG."
+          # Forced: a re-run rebuilds the bump on today's main.
+          git push --force origin "$branch"
+
+          pr=$(gh pr list --head "$branch" --state open --json number -q '.[0].number')
+          if [ -z "$pr" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "Bump metacensus/api to $TAG" \
+              --body "Opened by metacensus/api's release ([notes](https://github.com/metacensus/api/releases/tag/$TAG)). It merges itself once CI passes; if CI fails, it waits for a person."
+            pr=$(gh pr list --head "$branch" --state open --json number -q '.[0].number')
+          fi
+
+          for old in $(gh pr list --state open --json headRefName \
+              -q '.[].headRefName | select(startswith("deps/api-"))'); do
+            if [ "$old" != "$branch" ]; then
+              gh pr close "$old" --delete-branch --comment "Superseded by #$pr."
+            fi
+          done
+
+          # Behind a merge queue the queue's own method applies.
+          gh pr merge "$pr" --auto --squash
