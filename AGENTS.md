@@ -20,7 +20,7 @@ The two surfaces (README, "The two surfaces") owe different compatibility:
 
 **service-api-chain implements first** and merges: a method `store.Store` does not declare yet is harmless there, and chain's implementation passing `storetest` is the only proof chain can support it. Write it against the unmerged api with `go mod edit -replace github.com/metacensus/api=<your api checkout>`, locally.
 
-**Then api adds it to `Store`** with its `storetest` cases. The **Chain** check builds chain's `main` against the pull request and runs its `make api-check` ([#94](https://github.com/metacensus/api/issues/94)); the merge queue reruns it against chain's `main` as it stands at merge time ([#95](https://github.com/metacensus/api/issues/95)). Chain's own pull requests run against api's `main` the same way, so neither `main` breaks the other.
+**Then api adds it to `Store`** with its `storetest` cases. The **Chain** check builds chain's `main` against the pull request and runs its `make api-check` ([#94](https://github.com/metacensus/api/issues/94)); the merge queue reruns it against chain's `main` as it stands at merge time ([#95](https://github.com/metacensus/api/issues/95)). Chain's own pull requests run against api's `main` the same way, so neither `main` breaks the other. Both repositories merge only through a merge queue ("Merge when ready"), with no bypass, admins included.
 
 **service-api-standard trails**: it implements the method at the bump pull request that brings the release carrying it ([#97](https://github.com/metacensus/api/issues/97)), and gates nothing here. Changing an existing method's signature stays expand/contract by hand ([#92](https://github.com/metacensus/api/issues/92)).
 
