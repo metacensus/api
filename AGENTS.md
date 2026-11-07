@@ -36,9 +36,9 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 | Server-minted ids are `<kind>:<UUIDv7>` (`go/store`). | review |
 | A path-bound id repeated in `content` equals the one in the path. | `TestPathAndSignedContentMustAgree` |
 | A composite key, like `Vote`'s `(propId, userId)`, addresses one live value per parent and actor, written with `Set*`; any other writable record gets a minted id. | review |
-| Fields the server owns (`id`, `recorded`) never go in the object the client posts. | review |
+| Fields the server owns (`id`, `recorded`) never go in the object the client posts. | `TestContentHasNoServerOwnedFields` |
 | Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
-| Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`. | review |
+| Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`; the session and health routes are the exceptions. | `TestRecordMessageNames` |
 
 **Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 
