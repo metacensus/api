@@ -228,3 +228,125 @@ func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 		}
 	}
 }
+
+// requestMessage is the route's request message, which routegen names in the
+// manifest relative to the route's proto package.
+func requestMessage(t *testing.T, r routes.Route) protoreflect.MessageDescriptor {
+	t.Helper()
+	pkg := "metacensus.v1"
+	if r.Prefix == routes.PublicPrefix {
+		pkg = "metacensus.public.v1"
+	}
+	d, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(pkg + "." + r.Request))
+	if err != nil {
+		t.Fatalf("%s.%s: request %s: %v", r.Service, r.RPC, r.Request, err)
+	}
+	md, ok := d.(protoreflect.MessageDescriptor)
+	if !ok {
+		t.Fatalf("%s.%s: request %s is not a message", r.Service, r.RPC, r.Request)
+	}
+	return md
+}
+
+// recordAliases names the record a caller-scoped resource stands for: GET
+// /self is the caller's own User, so it answers with UserSigned.
+var recordAliases = map[string]string{
+	"Self": "User",
+}
+
+var rpcName = regexp.MustCompile(`^([A-Z][a-z]+)([A-Z][a-zA-Z0-9]*)$`)
+
+// messageNameProblem says how a route's messages break the naming rule, or ""
+// if they keep it. An rpc is {Action}{Resource} (plural for List); its request
+// is {Resource}{Action}Request and its response {Record}List for a List,
+// otherwise {Record} or {Record}Signed.
+func messageNameProblem(rpc, request, response string) string {
+	m := rpcName.FindStringSubmatch(rpc)
+	if m == nil {
+		return "rpc " + rpc + " is not {Action}{Resource}"
+	}
+	action, resource := m[1], m[2]
+	if action == "List" {
+		resource = strings.TrimSuffix(resource, "s")
+	}
+	var problems []string
+	if want := resource + action + "Request"; request != want {
+		problems = append(problems, "request "+request+", want "+want)
+	}
+	record := resource
+	if alias, ok := recordAliases[resource]; ok {
+		record = alias
+	}
+	want := []string{record, record + "Signed"}
+	if action == "List" {
+		want = []string{record + "List"}
+	}
+	if !slices.Contains(want, response) {
+		problems = append(problems, "response "+response+", want "+strings.Join(want, " or "))
+	}
+	return strings.Join(problems, "; ")
+}
+
+func TestMessageNameProblem(t *testing.T) {
+	for _, tt := range []struct {
+		rpc, request, response string
+		ok                     bool
+	}{
+		{"ListProps", "PropListRequest", "PropList", true},
+		{"GetProp", "PropGetRequest", "PropSigned", true},
+		{"GetMember", "MemberGetRequest", "Member", true},
+		{"GetSelf", "SelfGetRequest", "UserSigned", true},
+		{"CreateProp", "CreatePropRequest", "PropSigned", false},
+		{"CreateProp", "PropCreateRequest", "Prop", true},
+		{"CreateProp", "PropCreateRequest", "PropCreateResponse", false},
+		{"ListProps", "PropListRequest", "PropSigned", false},
+		{"GetProp", "PropGetRequest", "PropList", false},
+		{"GetProp", "PropGetRequest", "TopicSigned", false},
+		{"Healthcheck", "HealthcheckRequest", "HealthcheckResponse", false},
+	} {
+		t.Run(tt.rpc+"/"+tt.request+"/"+tt.response, func(t *testing.T) {
+			if got := messageNameProblem(tt.rpc, tt.request, tt.response); (got == "") != tt.ok {
+				t.Errorf("messageNameProblem = %q, want ok=%v", got, tt.ok)
+			}
+		})
+	}
+}
+
+// unrecordedRoutes lists the routes whose messages are not named for a record,
+// each with its reason; TestRecordMessageNames fails if either side drifts.
+var unrecordedRoutes = map[string]string{
+	"POST /metacensus/api/v1/login":      "a session verb: it answers with a Session, not a record",
+	"POST /metacensus/api/v1/signup":     "a session verb: it creates a User and answers with a Session",
+	"POST /metacensus/api/v1/refresh":    "a session verb: it answers with a Session, not a record",
+	"POST /metacensus/api/v1/logout":     "a session verb: it answers with an empty LogoutResponse",
+	"GET /metacensus/api/v1/healthcheck": "a status, not a resource: HealthcheckResponse",
+}
+
+// Holds the record message names of every metacensus.v1 route unless listed in
+// unrecordedRoutes. The public surface is outside the request standard.
+func TestRecordMessageNames(t *testing.T) {
+	got := map[string]string{}
+	for _, r := range routes.Routes {
+		if r.Prefix != routes.Prefix {
+			continue
+		}
+		if problem := messageNameProblem(r.RPC, r.Request, r.Response); problem != "" {
+			got[r.Method+" "+fullPath(r)] = problem
+		}
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(got)) {
+		if _, ok := unrecordedRoutes[key]; !ok {
+			t.Errorf("%s misnames its messages: %s. Records are {Resource}, "+
+				"{Resource}Signed, {Resource}{Action}Request and {Resource}List "+
+				"(AGENTS.md, \"The request standard\") — or add it to "+
+				"unrecordedRoutes with the reason it moves no record.", key, got[key])
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(unrecordedRoutes)) {
+		if _, ok := got[key]; !ok {
+			t.Errorf("%s is listed in unrecordedRoutes and names its messages for "+
+				"a record now; strike it off.", key)
+		}
+	}
+}
