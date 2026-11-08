@@ -82,13 +82,13 @@ because a passkey's key is non-extractable in the authenticator.
 
 ```ts
 import {
-  interpretation, userChallenge, keyId, participantPolicy,
+  interpretation, signingTime, userChallenge, keyId, participantPolicy,
 } from "@metacensus/api/signing";
 
 const signer: Signer = async (content, contentType) => {
   const interp = interpretation(contentType); // { spec, contentType } — the client names contentType
   const kid = await keyId(publicKey);
-  const time = new Date().toISOString();
+  const time = signingTime(); // never toISOString(): its .000Z fails on the server
 
   // The digest the assertion must commit to, carried as the WebAuthn challenge.
   const challenge = await userChallenge(content, interp, kid, time);
@@ -202,8 +202,8 @@ const { privateKey, publicKey } = await generateKeyPair(); // ECDSA P-256 (ES256
 ```
 
 The mechanism is **WebAuthn/passkeys**, one format for both the participant and
-the institution (ECDSA P-256 / ES256). This module is the toolkit: `interpretation`
-and `userChallenge` build the digest, `assert` makes a headless assertion,
+the institution (ECDSA P-256 / ES256). This module is the toolkit: `interpretation`,
+`signingTime` and `userChallenge` build the digest, `assert` makes a headless assertion,
 `verifyUser`/`verifyCountersign` check one under a `participantPolicy` or
 `institutionPolicy`. `routes` carries a `signed` flag per route, so "which routes
 need a key?" is a lookup rather than a guess.

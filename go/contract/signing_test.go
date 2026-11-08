@@ -172,3 +172,34 @@ func TestSignedRecordsReserveTheNextField(t *testing.T) {
 			md.FullName(), want)
 	})
 }
+
+// serverOwnedFields are the fields the server writes onto a stored record;
+// posted content that declared one would be a value the client signs and the
+// server then has to overwrite or trust.
+var serverOwnedFields = []string{"id", "recorded"}
+
+// The object a client posts never declares a field the server owns.
+func TestContentHasNoServerOwnedFields(t *testing.T) {
+	checked := 0
+	for _, r := range routes.Routes {
+		if r.Method == "GET" {
+			continue
+		}
+		content := requestMessage(t, r).Fields().ByJSONName(contentField)
+		if content == nil || content.Message() == nil {
+			continue
+		}
+		checked++
+		for _, name := range serverOwnedFields {
+			if content.Message().Fields().ByJSONName(name) != nil {
+				t.Errorf("%s %s posts %s, which declares %q. The server owns that "+
+					"field: it belongs on %sSigned, beside the signature, not in the "+
+					"content the client signs.", r.Method, fullPath(r),
+					content.Message().FullName(), name, content.Message().Name())
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no write route posts a content message")
+	}
+}
