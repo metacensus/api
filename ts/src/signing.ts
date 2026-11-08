@@ -157,6 +157,24 @@ export function userSigningInput(
   return canonicalize(baseFields(interp, keyId, time, { content }));
 }
 
+/**
+ * `date` as the `time` a signature carries: RFC 3339 in UTC, in the form
+ * protojson writes a Timestamp. The server recomputes the digest from
+ * protojson's output, so a time it would re-emit differently, like
+ * toISOString's `.000Z` on a whole second, cannot verify there.
+ */
+export function signingTime(date: Date = new Date()): string {
+  return date.toISOString().replace(/\.000Z$/, "Z");
+}
+
+// protojson writes 0, 3, 6 or 9 fractional digits, the fewest that are exact.
+const CANONICAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3}|\.\d{6}|\.\d{9})?Z$/;
+
+function isCanonicalTime(time: string): boolean {
+  const m = CANONICAL_TIME.exec(time);
+  return m !== null && !m[1]?.endsWith("000");
+}
+
 /** The string the institutional digest is taken over: {signature, interpretation, keyId, time}. */
 export function countersignInput(
   userSignature: Signature,
@@ -177,6 +195,12 @@ function baseFields(
     // Message-typed, so canonicalization can't tell "absent" from a default;
     // it must be set explicitly.
     throw new Error("signing: time is unset; every signature carries the time its signer claims or observes");
+  }
+  if (!isCanonicalTime(time)) {
+    throw new Error(
+      `signing: time ${JSON.stringify(time)} is not in the form protojson writes, so the server's ` +
+        `digest would differ; use signingTime`,
+    );
   }
   if (!keyId) throw new Error("signing: keyId is unset; the signer's enrolled key must be named");
   return { interpretation: interp, keyId, time, ...extra };
