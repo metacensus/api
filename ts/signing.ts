@@ -12,6 +12,7 @@ export {
   FLAG_BS,
   canonicalize,
   interpretation,
+  signingTime,
   userSigningInput,
   countersignInput,
   userChallenge,
