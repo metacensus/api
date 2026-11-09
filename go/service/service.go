@@ -86,6 +86,8 @@ type Handlers struct {
 	server.UnimplementedUserRoutes
 	server.UnimplementedTopicRoutes
 	server.UnimplementedPropRoutes
+	server.UnimplementedPublicationRoutes
+	server.UnimplementedPaperRoutes
 
 	store        store.Store
 	sessions     auth.Sessions
@@ -165,6 +167,8 @@ func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 	server.RegisterUserRoutes(authed, rt, h)
 	server.RegisterTopicRoutes(authed, rt, h)
 	server.RegisterPropRoutes(authed, rt, h)
+	server.RegisterPublicationRoutes(authed, rt, h)
+	server.RegisterPaperRoutes(authed, rt, h)
 	// Every auth route establishes or ends a session, so none can require a
 	// live access token: all four mount behind the cookie adapter (which reads
 	// and writes the refresh cookie) and none behind the bearer middleware.

@@ -168,7 +168,9 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	rt := &server.Runtime{Prefix: routes.Prefix, PathValue: server.EscapedPathValue}
 	server.RegisterAuthRoutes(r, rt, server.UnimplementedAuthRoutes{})
 	server.RegisterHealthRoutes(r, rt, server.UnimplementedHealthRoutes{})
+	server.RegisterPaperRoutes(r, rt, server.UnimplementedPaperRoutes{})
 	server.RegisterPropRoutes(r, rt, server.UnimplementedPropRoutes{})
+	server.RegisterPublicationRoutes(r, rt, server.UnimplementedPublicationRoutes{})
 	server.RegisterTopicRoutes(r, rt, server.UnimplementedTopicRoutes{})
 	server.RegisterUserRoutes(r, rt, server.UnimplementedUserRoutes{})
 

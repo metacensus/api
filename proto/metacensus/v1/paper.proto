@@ -1,0 +1,62 @@
+// Papers: a topic taking up a publication (publication.proto) for screening.
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "metacensus/v1/common.proto";
+
+option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
+
+service PaperRoutes {
+  // Answers with the topic's existing paper if it already includes the
+  // publication.
+  rpc CreatePaper(PaperCreateRequest) returns (PaperSigned) {
+    option (google.api.http) = {
+      post: "/topic/{topic_id}/paper"
+      body: "*"
+    };
+  }
+}
+
+// A publication taken up by one topic, as a signed record. A topic includes a
+// publication at most once.
+message PaperSigned {
+  // Minted by the server, outside every signature.
+  string id = 1;
+
+  // Server's observation; see Signature.time for the author's claim.
+  google.protobuf.Timestamp recorded = 2;
+
+  Paper content = 3;
+
+  // How to read this record; sealed by both signatures below.
+  Interpretation interpretation = 4;
+
+  // The participant vouches for `content`.
+  Signature user_signature = 5;
+
+  // The institution vouches for `user_signature`; see UserSigned.
+  Signature institutional_signature = 6;
+
+  // Held for the next signature layer — see the reserve-the-next-field rule in
+  // go/contract/signing_test.go.
+  reserved 7;
+}
+
+// What the member signs: this topic takes up this publication. Never the
+// provider's metadata, which stays on the Publication.
+message Paper {
+  string topic_id = 1;
+  string publication_id = 2;
+}
+
+// `topic_id` is bound by the path and re-signed inside `content`; the two must
+// agree (see PropCreateRequest).
+message PaperCreateRequest {
+  string topic_id = 1;
+  Paper content = 2;
+  Interpretation interpretation = 3;
+  Signature user_signature = 4;
+}
