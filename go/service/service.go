@@ -13,7 +13,9 @@
 //     the minted fields. It wraps; it never modifies. id and recorded are
 //     record-level, outside the {content, signature} the client hashed, so
 //     nothing the server adds can invalidate a signature;
-//   - call the store once per request — one handler, one atomic unit of work;
+//   - call the store once per request — one handler, one atomic unit of work.
+//     A create that answers with the record already holding its key
+//     (CreatePaper, CreatePublication) reads it back as well;
 //   - map a store.Kind to an HTTP status through *server.Error;
 //   - echo the assembled record back, since store writes return only an error.
 //
@@ -71,6 +73,10 @@ type Config struct {
 	// "mc_refresh".
 	RefreshCookieName string
 
+	// Resolver looks a posted DOI or PMID up at the bibliographic provider.
+	// Optional: without one, creating a publication no store holds answers 503.
+	Resolver Resolver
+
 	// InsecureCookies drops the Secure attribute from the refresh cookie so it
 	// round-trips over plain http. For tests only; never set in production.
 	InsecureCookies bool
@@ -90,6 +96,7 @@ type Handlers struct {
 	server.UnimplementedPaperRoutes
 
 	store        store.Store
+	resolver     Resolver
 	sessions     auth.Sessions
 	now          func() time.Time
 	bcryptCost   int
@@ -139,6 +146,7 @@ func New(cfg Config) *Handlers {
 	}
 	return &Handlers{
 		store:        cfg.Store,
+		resolver:     cfg.Resolver,
 		sessions:     sessions,
 		now:          now,
 		bcryptCost:   cost,
@@ -265,4 +273,12 @@ func internal(err error) *server.Error {
 
 func badRequest(code, msg string) *server.Error {
 	return &server.Error{Status: http.StatusBadRequest, Code: code, Message: msg}
+}
+
+func invalidContent(msg string) *server.Error {
+	return &server.Error{Status: http.StatusUnprocessableEntity, Code: "invalid_content", Message: msg}
+}
+
+func unavailable(msg string, err error) *server.Error {
+	return &server.Error{Status: http.StatusServiceUnavailable, Code: "unavailable", Message: msg, Err: err}
 }

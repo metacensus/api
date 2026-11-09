@@ -102,18 +102,24 @@ func Run(t *testing.T, h Harness) {
 
 // suite is every case, keyed by the store.Store method it covers.
 var suite = map[string][]storeCase{
-	"EnrollUser":  enrollUserCases,
-	"Credential":  credentialCases,
-	"GetUser":     getUserCases,
-	"ListUsers":   listUsersCases,
-	"CreateTopic": createTopicCases,
-	"GetTopic":    getTopicCases,
-	"ListTopics":  listTopicsCases,
-	"CreateProp":  createPropCases,
-	"GetProp":     getPropCases,
-	"ListProps":   listPropsCases,
-	"SetVote":     setVoteCases,
-	"ListVotes":   listVotesCases,
+	"EnrollUser":        enrollUserCases,
+	"Credential":        credentialCases,
+	"GetUser":           getUserCases,
+	"ListUsers":         listUsersCases,
+	"CreateTopic":       createTopicCases,
+	"GetTopic":          getTopicCases,
+	"ListTopics":        listTopicsCases,
+	"CreateProp":        createPropCases,
+	"GetProp":           getPropCases,
+	"ListProps":         listPropsCases,
+	"SetVote":           setVoteCases,
+	"ListVotes":         listVotesCases,
+	"CreatePublication": createPublicationCases,
+	"GetPublication":    getPublicationCases,
+	"FindPublication":   findPublicationCases,
+	"CreatePaper":       createPaperCases,
+	"GetPaper":          getPaperCases,
+	"FindPaper":         findPaperCases,
 }
 
 func storeMethods() []string {
