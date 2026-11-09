@@ -159,6 +159,9 @@ type Store interface {
 	// GetProp is. NotFound if absent.
 	GetPaper(ctx context.Context, topicID, paperID string) (*v1.PaperSigned, error)
 
+	// ListPapers returns every paper in one topic.
+	ListPapers(ctx context.Context, topicID string) ([]*v1.PaperSigned, error)
+
 	// FindPaper returns the paper by which a topic includes a publication.
 	// NotFound if the topic does not include it.
 	FindPaper(ctx context.Context, topicID, publicationID string) (*v1.PaperSigned, error)

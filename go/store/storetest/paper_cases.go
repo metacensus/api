@@ -120,6 +120,17 @@ var getPaperCases = []storeCase{
 	},
 }
 
+var listPapersCases = []storeCase{
+	{
+		name:    "lists exactly the papers in the topic",
+		promise: "ListPapers returns every paper in one topic.",
+		given:   []step{adaEnrolled, adasTopicExists, publicationExists, adasPaperExists, otherPublicationExists, adasSecondPaperExists, adasPaperElsewhereExists},
+		call:    listPapers,
+		then:    []step{listsBothPapersOnly},
+	},
+	// Omitted: a topic that does not exist, as for ListProps.
+}
+
 var findPaperCases = []storeCase{
 	{
 		name:    "the topic's paper for the publication",
@@ -173,6 +184,17 @@ func adasPaperExists(sc *scene) {
 	sc.storedPaper = sc.paper
 }
 
+func adasSecondPaperExists(sc *scene) {
+	sc.secondPaper = sc.paperBy(sc.ada, aPaper(sc.storedTopic, sc.otherPublication))
+	sc.must(sc.s.CreatePaper(sc.ctx, sc.ada.user.GetId(), sc.secondPaper), "create Ada's second paper")
+}
+
+func adasPaperElsewhereExists(sc *scene) {
+	adasOtherTopicExists(sc)
+	elsewhere := sc.paperBy(sc.ada, aPaper(sc.otherTopic, sc.storedPublication))
+	sc.must(sc.s.CreatePaper(sc.ctx, sc.ada.user.GetId(), elsewhere), "create a paper in Ada's other topic")
+}
+
 // paperAltered points the signed paper at another publication that exists, so
 // only the signature is wrong.
 func paperAltered(sc *scene) { sc.paper.Content.PublicationId = sc.otherPublication.GetId() }
@@ -202,6 +224,12 @@ func getPaperUnderOtherTopic(sc *scene) (err error) {
 	return err
 }
 
+func listPapers(sc *scene) error {
+	list, err := sc.s.ListPapers(sc.ctx, sc.storedTopic.GetId())
+	sc.gotList = messages(list)
+	return err
+}
+
 func findStoredPaper(sc *scene) (err error) {
 	sc.got, err = sc.s.FindPaper(sc.ctx, sc.storedTopic.GetId(), sc.storedPublication.GetId())
 	return err
@@ -212,8 +240,9 @@ func findStoredPaperInOtherTopic(sc *scene) (err error) {
 	return err
 }
 
-func gotPaper(sc *scene)         { assertRecord(sc, sc.got, sc.paper) }
-func foundStoredPaper(sc *scene) { assertRecord(sc, sc.got, sc.storedPaper) }
+func gotPaper(sc *scene)            { assertRecord(sc, sc.got, sc.paper) }
+func foundStoredPaper(sc *scene)    { assertRecord(sc, sc.got, sc.storedPaper) }
+func listsBothPapersOnly(sc *scene) { assertExactly(sc, sc.gotList, sc.storedPaper, sc.secondPaper) }
 
 func paperReadsBack(sc *scene) {
 	sc.t.Helper()

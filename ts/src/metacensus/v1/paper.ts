@@ -44,6 +44,19 @@ export interface Paper {
   publicationId: string;
 }
 
+export interface PaperListRequest {
+  topicId: string;
+}
+
+export interface PaperList {
+  items: PaperSigned[];
+}
+
+export interface PaperGetRequest {
+  topicId: string;
+  paperId: string;
+}
+
 /**
  * `topic_id` is bound by the path and re-signed inside `content`; the two must
  * agree (see PropCreateRequest).

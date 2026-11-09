@@ -52,7 +52,7 @@ type scene struct {
 	vote, standingVote, otherVote  *v1.VoteSigned
 
 	publication, storedPublication, otherPublication *v1.Publication
-	paper, storedPaper                               *v1.PaperSigned
+	paper, storedPaper, secondPaper                  *v1.PaperSigned
 
 	got            proto.Message
 	gotList        []proto.Message

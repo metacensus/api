@@ -315,6 +315,14 @@ func (s *Store) GetPaper(_ context.Context, topicID, paperID string) (*v1.PaperS
 	return clone(p), nil
 }
 
+func (s *Store) ListPapers(_ context.Context, topicID string) ([]*v1.PaperSigned, error) {
+	out := make([]*v1.PaperSigned, 0, len(s.papers[topicID]))
+	for _, p := range s.papers[topicID] {
+		out = append(out, clone(p))
+	}
+	return out, nil
+}
+
 func (s *Store) FindPaper(ctx context.Context, topicID, publicationID string) (*v1.PaperSigned, error) {
 	id, ok := s.paperByPub[topicID][publicationID]
 	if !ok {

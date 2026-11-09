@@ -122,6 +122,17 @@ func TestPaperJourney(t *testing.T) {
 	if again := c.paper(topicID, pub.GetId()); again.GetId() != paper.GetId() {
 		t.Fatalf("adding the paper twice made a second one: %s, want %s", again.GetId(), paper.GetId())
 	}
+
+	var list v1.PaperList
+	decode(t, c.do("GET", "/topic/"+topicID+"/paper", nil), &list)
+	if len(list.GetItems()) != 1 || list.GetItems()[0].GetId() != paper.GetId() {
+		t.Fatalf("GET /topic/%s/paper = %v, want only %s", topicID, list.GetItems(), paper.GetId())
+	}
+	var gotPaper v1.PaperSigned
+	decode(t, c.do("GET", "/topic/"+topicID+"/paper/"+paper.GetId(), nil), &gotPaper)
+	if gotPaper.GetId() != paper.GetId() {
+		t.Fatalf("GET /topic/%s/paper/%s = %s", topicID, paper.GetId(), gotPaper.GetId())
+	}
 }
 
 func TestCreatePublicationRefuses(t *testing.T) {
