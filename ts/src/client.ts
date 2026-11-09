@@ -6,7 +6,9 @@
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
+import type { Paper, PaperCreateRequest, PaperSigned } from "./metacensus/v1/paper.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
+import type { Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
 import { apiPrefix, publicPrefix } from "./route-manifest.js";
@@ -63,10 +65,15 @@ async function request<T>(
   return (text === "" ? {} : JSON.parse(text)) as T;
 }
 
+export type PaperRecord = Pick<PaperSigned, "id" | "recorded"> & Paper;
 export type PropRecord = Pick<PropSigned, "id" | "recorded"> & Prop;
 export type TopicRecord = Pick<TopicSigned, "id" | "recorded"> & Topic;
 export type UserRecord = Pick<UserSigned, "id" | "recorded"> & User;
 export type VoteRecord = Pick<VoteSigned, "recorded"> & Vote;
+
+function flattenPaper(r: PaperSigned): PaperRecord {
+  return { id: r.id, recorded: r.recorded, ...(r.content as Paper) };
+}
 
 function flattenProp(r: PropSigned): PropRecord {
   return { id: r.id, recorded: r.recorded, ...(r.content as Prop) };
@@ -163,6 +170,13 @@ export class Client {
     return this.#request<HealthcheckResponse>("GET", "/healthcheck", undefined);
   }
 
+  // PaperRoutes.CreatePaper: POST /topic/{topicId}/paper
+  async createPaper(req: Omit<PaperCreateRequest, "userSignature" | "interpretation" | "publicKey">): Promise<PaperRecord> {
+    const { topicId, ...rest } = req;
+    const { interpretation, signature } = await this.#sign(rest.content, "metacensus.v1.Paper");
+    return flattenPaper(await this.#request<PaperSigned>("POST", `/topic/${param(topicId)}/paper`, JSON.stringify({ ...rest, interpretation, userSignature: signature })));
+  }
+
   // PropRoutes.ListProps: GET /topic/{topicId}/prop
   listProps(req: PropListRequest): Promise<PropRecord[]> {
     return this.#request<PropList>("GET", `/topic/${param(req.topicId)}/prop`, undefined).then((r) => r.items.map(flattenProp));
@@ -205,6 +219,16 @@ export class Client {
     const { topicId, propId, ...rest } = req;
     const { interpretation, signature } = await this.#sign(rest.content, "metacensus.v1.Vote");
     return flattenVote(await this.#request<VoteSigned>("POST", `/topic/${param(topicId)}/prop/${param(propId)}/vote`, JSON.stringify({ ...rest, interpretation, userSignature: signature })));
+  }
+
+  // PublicationRoutes.GetPublication: GET /publication/{publicationId}
+  getPublication(req: PublicationGetRequest): Promise<Publication> {
+    return this.#request<Publication>("GET", `/publication/${param(req.publicationId)}`, undefined);
+  }
+
+  // PublicationRoutes.CreatePublication: POST /publication
+  createPublication(req: PublicationCreateRequest): Promise<Publication> {
+    return this.#request<Publication>("POST", "/publication", JSON.stringify(req));
   }
 
   // TopicRoutes.ListTopics: GET /topic

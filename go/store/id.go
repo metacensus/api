@@ -17,6 +17,9 @@ const (
 	UserID  IDKind = "user"
 	TopicID IDKind = "topc"
 	PropID  IDKind = "prop"
+
+	PublicationID IDKind = "publ"
+	PaperID       IDKind = "papr"
 )
 
 // NewID mints a fresh id of kind k.

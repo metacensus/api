@@ -65,7 +65,9 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 	std := server.StdMux{ServeMux: mux}
 	server.RegisterAuthRoutes(std, rt, server.UnimplementedAuthRoutes{})
 	server.RegisterHealthRoutes(std, rt, server.UnimplementedHealthRoutes{})
+	server.RegisterPaperRoutes(std, rt, server.UnimplementedPaperRoutes{})
 	server.RegisterPropRoutes(std, rt, props)
+	server.RegisterPublicationRoutes(std, rt, server.UnimplementedPublicationRoutes{})
 	server.RegisterTopicRoutes(std, rt, topics)
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
 
