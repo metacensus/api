@@ -172,6 +172,10 @@ func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 // One method per route; the request carries path, query and body fields
 // already bound. Its routes hang off routes.Prefix.
 type PaperRoutes interface {
+	// GET /topic/{topicId}/paper
+	ListPapers(context.Context, *v1.PaperListRequest) (*v1.PaperList, error)
+	// GET /topic/{topicId}/paper/{paperId}
+	GetPaper(context.Context, *v1.PaperGetRequest) (*v1.PaperSigned, error)
 	// POST /topic/{topicId}/paper
 	CreatePaper(context.Context, *v1.PaperCreateRequest) (*v1.PaperSigned, error)
 }
@@ -179,6 +183,14 @@ type PaperRoutes interface {
 // UnimplementedPaperRoutes answers every PaperRoutes route with 501. Embed it to
 // implement a service one route at a time.
 type UnimplementedPaperRoutes struct{}
+
+func (UnimplementedPaperRoutes) ListPapers(context.Context, *v1.PaperListRequest) (*v1.PaperList, error) {
+	return nil, errNotImplemented("PaperRoutes.ListPapers")
+}
+
+func (UnimplementedPaperRoutes) GetPaper(context.Context, *v1.PaperGetRequest) (*v1.PaperSigned, error) {
+	return nil, errNotImplemented("PaperRoutes.GetPaper")
+}
 
 func (UnimplementedPaperRoutes) CreatePaper(context.Context, *v1.PaperCreateRequest) (*v1.PaperSigned, error) {
 	return nil, errNotImplemented("PaperRoutes.CreatePaper")
@@ -190,6 +202,38 @@ func (UnimplementedPaperRoutes) CreatePaper(context.Context, *v1.PaperCreateRequ
 // How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
 func RegisterPaperRoutes(mux Mux, rt *Runtime, impl PaperRoutes) {
 	rt.checkPathValue(mux)
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/paper", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PaperListRequest)
+		var err error
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.ListPapers(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/paper/{paperId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PaperGetRequest)
+		var err error
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.PaperId, err = rt.pathParam(r, "paperId", req.PaperId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.GetPaper(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
 	mux.Method("POST", rt.Prefix+"/topic/{topicId}/paper", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := new(v1.PaperCreateRequest)
 		raw, err := rt.readBody(w, r)

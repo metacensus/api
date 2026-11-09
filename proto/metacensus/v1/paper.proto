@@ -10,6 +10,14 @@ import "metacensus/v1/common.proto";
 option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
 
 service PaperRoutes {
+  rpc ListPapers(PaperListRequest) returns (PaperList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/paper"};
+  }
+
+  rpc GetPaper(PaperGetRequest) returns (PaperSigned) {
+    option (google.api.http) = {get: "/topic/{topic_id}/paper/{paper_id}"};
+  }
+
   // Answers with the topic's existing paper if it already includes the
   // publication.
   rpc CreatePaper(PaperCreateRequest) returns (PaperSigned) {
@@ -50,6 +58,19 @@ message PaperSigned {
 message Paper {
   string topic_id = 1;
   string publication_id = 2;
+}
+
+message PaperListRequest {
+  string topic_id = 1;
+}
+
+message PaperList {
+  repeated PaperSigned items = 1;
+}
+
+message PaperGetRequest {
+  string topic_id = 1;
+  string paper_id = 2;
 }
 
 // `topic_id` is bound by the path and re-signed inside `content`; the two must

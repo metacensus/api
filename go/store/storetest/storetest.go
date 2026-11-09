@@ -119,6 +119,7 @@ var suite = map[string][]storeCase{
 	"FindPublication":   findPublicationCases,
 	"CreatePaper":       createPaperCases,
 	"GetPaper":          getPaperCases,
+	"ListPapers":        listPapersCases,
 	"FindPaper":         findPaperCases,
 }
 

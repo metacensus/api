@@ -8,6 +8,22 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func (h *Handlers) ListPapers(ctx context.Context, req *v1.PaperListRequest) (*v1.PaperList, error) {
+	papers, err := h.store.ListPapers(ctx, req.GetTopicId())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &v1.PaperList{Items: papers}, nil
+}
+
+func (h *Handlers) GetPaper(ctx context.Context, req *v1.PaperGetRequest) (*v1.PaperSigned, error) {
+	paper, err := h.store.GetPaper(ctx, req.GetTopicId(), req.GetPaperId())
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return paper, nil
+}
+
 // CreatePaper mints the paper's id and recorded time, wraps the client's
 // content and signature, and persists it under content.topic_id. A topic that
 // already includes the publication answers with its existing paper; the store

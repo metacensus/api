@@ -6,7 +6,7 @@
 import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
-import type { Paper, PaperCreateRequest, PaperSigned } from "./metacensus/v1/paper.js";
+import type { Paper, PaperCreateRequest, PaperGetRequest, PaperList, PaperListRequest, PaperSigned } from "./metacensus/v1/paper.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
 import type { Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
@@ -168,6 +168,26 @@ export class Client {
   // HealthRoutes.Healthcheck: GET /healthcheck
   healthcheck(req: HealthcheckRequest): Promise<HealthcheckResponse> {
     return this.#request<HealthcheckResponse>("GET", "/healthcheck", undefined);
+  }
+
+  // PaperRoutes.ListPapers: GET /topic/{topicId}/paper
+  listPapers(req: PaperListRequest): Promise<PaperRecord[]> {
+    return this.#request<PaperList>("GET", `/topic/${param(req.topicId)}/paper`, undefined).then((r) => r.items.map(flattenPaper));
+  }
+
+  // PaperRoutes.ListPapers: GET /topic/{topicId}/paper
+  listPapersSigned(req: PaperListRequest): Promise<PaperSigned[]> {
+    return this.#request<PaperList>("GET", `/topic/${param(req.topicId)}/paper`, undefined).then((r) => r.items);
+  }
+
+  // PaperRoutes.GetPaper: GET /topic/{topicId}/paper/{paperId}
+  getPaper(req: PaperGetRequest): Promise<PaperRecord> {
+    return this.#request<PaperSigned>("GET", `/topic/${param(req.topicId)}/paper/${param(req.paperId)}`, undefined).then(flattenPaper);
+  }
+
+  // PaperRoutes.GetPaper: GET /topic/{topicId}/paper/{paperId}
+  getPaperSigned(req: PaperGetRequest): Promise<PaperSigned> {
+    return this.#request<PaperSigned>("GET", `/topic/${param(req.topicId)}/paper/${param(req.paperId)}`, undefined);
   }
 
   // PaperRoutes.CreatePaper: POST /topic/{topicId}/paper
