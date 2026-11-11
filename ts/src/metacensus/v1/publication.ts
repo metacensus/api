@@ -31,8 +31,6 @@ export interface Publication {
   /** Digits only; empty if the provider knows none. */
   pmid: string;
   title: string;
-  /** As the provider lists them, in order. */
-  authors: string[];
   journal: string;
   /**
    * As the provider gives it ("2021 Mar 4", "2021"); not a timestamp, because
@@ -40,6 +38,26 @@ export interface Publication {
    */
   published: string;
   abstract: string;
+  /** As the provider lists them, in order. */
+  authors: Author[];
+}
+
+/**
+ * A name as its parts, after CSL-JSON's name model, the one citation tools use
+ * across disciplines; display formats it. A person has `family` and usually
+ * `given`; a group or organisation has `literal` instead.
+ */
+export interface Author {
+  family: string;
+  /** As the provider gives it: a forename ("Jane A") or only initials ("JA"). */
+  given: string;
+  /** A group's or organisation's name ("Sleep Study Group", "WHO"). */
+  literal: string;
+  /**
+   * Bare and hyphenated ("0000-0002-1825-0097"); empty if the provider knows
+   * none.
+   */
+  orcid: string;
 }
 
 export interface PublicationGetRequest {

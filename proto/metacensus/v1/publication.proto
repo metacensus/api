@@ -44,8 +44,9 @@ message Publication {
 
   string title = 5;
 
-  // As the provider lists them, in order.
-  repeated string authors = 6;
+  // Was `repeated string authors`, names already formatted; `authors` (10)
+  // keeps their parts, so each topic can format them its own way.
+  reserved 6;
 
   string journal = 7;
 
@@ -54,6 +55,26 @@ message Publication {
   string published = 8;
 
   string abstract = 9;
+
+  // As the provider lists them, in order.
+  repeated Author authors = 10;
+}
+
+// A name as its parts, after CSL-JSON's name model, the one citation tools use
+// across disciplines; display formats it. A person has `family` and usually
+// `given`; a group or organisation has `literal` instead.
+message Author {
+  string family = 1;
+
+  // As the provider gives it: a forename ("Jane A") or only initials ("JA").
+  string given = 2;
+
+  // A group's or organisation's name ("Sleep Study Group", "WHO").
+  string literal = 3;
+
+  // Bare and hyphenated ("0000-0002-1825-0097"); empty if the provider knows
+  // none.
+  string orcid = 4;
 }
 
 message PublicationGetRequest {

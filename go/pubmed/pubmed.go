@@ -218,6 +218,21 @@ func normalizeDOI(doi string) string {
 	return doi
 }
 
+// normalizeORCID gives an ORCID iD bare and hyphenated, from any of the forms
+// PubMed carries ("https://orcid.org/…", unhyphenated); "" if it isn't one.
+func normalizeORCID(id string) string {
+	var d []byte
+	for _, c := range strings.ToUpper(id) {
+		if c >= '0' && c <= '9' || c == 'X' {
+			d = append(d, byte(c))
+		}
+	}
+	if len(d) != 16 {
+		return ""
+	}
+	return string(d[0:4]) + "-" + string(d[4:8]) + "-" + string(d[8:12]) + "-" + string(d[12:16])
+}
+
 // The EFetch PubmedArticleSet, as much of it as a Publication reads. Book
 // records (PubmedBookArticle) are skipped, so resolve as unknown.
 type articleSet struct {
@@ -236,9 +251,14 @@ type article struct {
 	} `xml:"MedlineCitation>Article>Journal>JournalIssue>PubDate"`
 	Abstract []abstractText `xml:"MedlineCitation>Article>Abstract>AbstractText"`
 	Authors  []struct {
-		LastName   string `xml:"LastName"`
-		Initials   string `xml:"Initials"`
-		Collective text   `xml:"CollectiveName"`
+		LastName    string `xml:"LastName"`
+		ForeName    string `xml:"ForeName"`
+		Initials    string `xml:"Initials"`
+		Collective  text   `xml:"CollectiveName"`
+		Identifiers []struct {
+			Source string `xml:"Source,attr"`
+			Value  string `xml:",chardata"`
+		} `xml:"Identifier"`
 	} `xml:"MedlineCitation>Article>AuthorList>Author"`
 	ELocationIDs []struct {
 		Type  string `xml:"EIdType,attr"`
@@ -251,8 +271,8 @@ type article struct {
 	} `xml:"PubmedData>ArticleIdList>ArticleId"`
 }
 
-// publication is the record as a Publication: authors as PubMed cites them
-// ("Smith JA", or a group's name), the date as the issue gives it, and a
+// publication is the record as a Publication: authors as their parts (the
+// forename, or initials when PubMed has none), the date as the issue gives it, and a
 // structured abstract's sections as "LABEL: text" paragraphs.
 func (a article) publication() *v1.Publication {
 	pub := &v1.Publication{
@@ -275,13 +295,21 @@ func (a article) publication() *v1.Publication {
 		}
 	}
 	for _, au := range a.Authors {
-		name := strings.TrimSpace(au.LastName + " " + au.Initials)
-		if name == "" {
-			name = string(au.Collective)
+		name := &v1.Author{Family: strings.TrimSpace(au.LastName)}
+		if name.Family != "" {
+			if name.Given = strings.TrimSpace(au.ForeName); name.Given == "" {
+				name.Given = strings.TrimSpace(au.Initials)
+			}
+		} else if name.Literal = string(au.Collective); name.Literal == "" {
+			continue
 		}
-		if name != "" {
-			pub.Authors = append(pub.Authors, name)
+		for _, id := range au.Identifiers {
+			if id.Source == "ORCID" {
+				name.Orcid = normalizeORCID(id.Value)
+				break
+			}
 		}
+		pub.Authors = append(pub.Authors, name)
 	}
 	d := a.PubDate
 	if pub.Published = strings.Join(strings.Fields(d.Year+" "+d.Month+" "+d.Day), " "); pub.Published == "" {
