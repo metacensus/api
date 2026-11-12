@@ -8,7 +8,10 @@
 
 export const protobufPackage = "metacensus.v1";
 
-/** Publications: the works a topic can take up as papers (paper.proto). */
+/**
+ * Publications: the works a topic can take up as papers (paper.proto), and the
+ * provider search that finds them.
+ */
 
 /**
  * One work, shared by every topic. Nobody signs it: the server fills it in
@@ -71,4 +74,37 @@ export interface PublicationGetRequest {
 export interface PublicationCreateRequest {
   doi: string;
   pmid: string;
+}
+
+/**
+ * `term` travels in the query string, in PubMed's own query syntax
+ * ("cannabis[tiab] AND sleep"); at most 2000 bytes.
+ */
+export interface HitListRequest {
+  topicId: string;
+  term: string;
+}
+
+export interface HitList {
+  items: Hit[];
+}
+
+/**
+ * One work the provider found, and what the topic already holds of it,
+ * matched as a posted id is: by DOI, then by PMID.
+ */
+export interface Hit {
+  /**
+   * The stored publication when one holds the work, its `id` set; otherwise
+   * the provider's record, `id` and `recorded` unset, which
+   * CreatePublication would store.
+   */
+  publication?:
+    | Publication
+    | undefined;
+  /**
+   * The topic's paper for this publication; empty unless the topic already
+   * includes it.
+   */
+  paperId: string;
 }

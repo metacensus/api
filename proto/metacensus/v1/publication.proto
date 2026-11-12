@@ -1,4 +1,5 @@
-// Publications: the works a topic can take up as papers (paper.proto).
+// Publications: the works a topic can take up as papers (paper.proto), and the
+// provider search that finds them.
 syntax = "proto3";
 
 package metacensus.v1;
@@ -21,6 +22,14 @@ service PublicationRoutes {
       post: "/publication"
       body: "*"
     };
+  }
+
+  // Searches the provider (PubMed) for `term` and answers its first hits, at
+  // most 100, best match first; nothing is recorded. Not paginated: a search
+  // past the cap is refined, not paged. 400 without a term; 404 for an unknown
+  // topic; 503 when the provider cannot be reached.
+  rpc ListHits(HitListRequest) returns (HitList) {
+    option (google.api.http) = {get: "/topic/{topic_id}/hit"};
   }
 }
 
@@ -86,4 +95,28 @@ message PublicationGetRequest {
 message PublicationCreateRequest {
   string doi = 1;
   string pmid = 2;
+}
+
+// `term` travels in the query string, in PubMed's own query syntax
+// ("cannabis[tiab] AND sleep"); at most 2000 bytes.
+message HitListRequest {
+  string topic_id = 1;
+  string term = 2;
+}
+
+message HitList {
+  repeated Hit items = 1;
+}
+
+// One work the provider found, and what the topic already holds of it,
+// matched as a posted id is: by DOI, then by PMID.
+message Hit {
+  // The stored publication when one holds the work, its `id` set; otherwise
+  // the provider's record, `id` and `recorded` unset, which
+  // CreatePublication would store.
+  Publication publication = 1;
+
+  // The topic's paper for this publication; empty unless the topic already
+  // includes it.
+  string paper_id = 2;
 }

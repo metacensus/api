@@ -45,17 +45,20 @@ const surfaces = {
   },
 };
 
-// The request a method needs: path parameters filled with a value that must be
-// escaped, so a dropped parameter shows up as a literal "{name}".
+// The request a method needs: path and query parameters filled with a value
+// that must be escaped, so a dropped parameter shows up as a literal "{name}"
+// or a missing query key.
 function reqFor(route) {
   const req = {};
-  for (const p of route.params) req[p] = `v/${p}`;
+  for (const p of [...route.params, ...route.query]) req[p] = `v/${p}`;
   if (route.body === "*") req.content = {}; // writes read req.content
   return req;
 }
 
-const wantPath = (route) =>
-  BASE + route.prefix + route.path.replace(/\{(\w+)\}/g, (_, p) => encodeURIComponent(`v/${p}`));
+const wantPath = (route) => {
+  const q = new URLSearchParams(route.query.map((p) => [p, `v/${p}`])).toString();
+  return BASE + route.prefix + route.path.replace(/\{(\w+)\}/g, (_, p) => encodeURIComponent(`v/${p}`)) + (q ? `?${q}` : "");
+};
 
 test("every manifest route is sent by its flat method", async () => {
   assert.ok(routes.length > 0, "empty manifest");

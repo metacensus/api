@@ -8,7 +8,7 @@ import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Sessi
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
 import type { Paper, PaperCreateRequest, PaperGetRequest, PaperList, PaperListRequest, PaperSigned } from "./metacensus/v1/paper.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
-import type { Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
+import type { Hit, HitList, HitListRequest, Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
 import { apiPrefix, publicPrefix } from "./route-manifest.js";
@@ -44,6 +44,17 @@ export type Signer = (content: unknown, contentType: string) => Promise<SignResu
 
 function param(v: string | number | boolean): string {
   return encodeURIComponent(String(v));
+}
+
+// The query string for a request's query fields, from "?"; a field at its zero
+// value is left out, which the server reads as that same zero value.
+function query(fields: Record<string, string | number | boolean | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined && v !== "" && v !== 0 && v !== false) q.set(k, String(v));
+  }
+  const s = q.toString();
+  return s === "" ? "" : "?" + s;
 }
 
 async function request<T>(
@@ -249,6 +260,11 @@ export class Client {
   // PublicationRoutes.CreatePublication: POST /publication
   createPublication(req: PublicationCreateRequest): Promise<Publication> {
     return this.#request<Publication>("POST", "/publication", JSON.stringify(req));
+  }
+
+  // PublicationRoutes.ListHits: GET /topic/{topicId}/hit
+  listHits(req: HitListRequest): Promise<Hit[]> {
+    return this.#request<HitList>("GET", `/topic/${param(req.topicId)}/hit` + query({ term: req.term }), undefined).then((r) => r.items);
   }
 
   // TopicRoutes.ListTopics: GET /topic

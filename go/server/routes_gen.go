@@ -461,6 +461,8 @@ type PublicationRoutes interface {
 	GetPublication(context.Context, *v1.PublicationGetRequest) (*v1.Publication, error)
 	// POST /publication
 	CreatePublication(context.Context, *v1.PublicationCreateRequest) (*v1.Publication, error)
+	// GET /topic/{topicId}/hit
+	ListHits(context.Context, *v1.HitListRequest) (*v1.HitList, error)
 }
 
 // UnimplementedPublicationRoutes answers every PublicationRoutes route with 501. Embed it to
@@ -473,6 +475,10 @@ func (UnimplementedPublicationRoutes) GetPublication(context.Context, *v1.Public
 
 func (UnimplementedPublicationRoutes) CreatePublication(context.Context, *v1.PublicationCreateRequest) (*v1.Publication, error) {
 	return nil, errNotImplemented("PublicationRoutes.CreatePublication")
+}
+
+func (UnimplementedPublicationRoutes) ListHits(context.Context, *v1.HitListRequest) (*v1.HitList, error) {
+	return nil, errNotImplemented("PublicationRoutes.ListHits")
 }
 
 // RegisterPublicationRoutes registers every PublicationRoutes route on mux, under rt.Prefix,
@@ -511,6 +517,20 @@ func RegisterPublicationRoutes(mux Mux, rt *Runtime, impl PublicationRoutes) {
 			return
 		}
 		resp, err := impl.CreatePublication(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/hit", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.HitListRequest)
+		var err error
+		if err := rt.bindQuery(r, req, []string{"term"}); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.ListHits(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
 }

@@ -41,6 +41,7 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 | Fields the server owns (`id`, `recorded`) never go in the object the client posts. | `TestContentHasNoServerOwnedFields` |
 | Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
 | Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`; the session and health routes are the exceptions. | `TestRecordMessageNames` |
+| A search at an external provider is a `List*` read of hits nested under the resource it is matched against (`GET /topic/{topicId}/hit?term=`), its input scalar query fields. It is typed, never a passthrough, records nothing, and answers a capped list, not a page; each hit names the stored records it matches. | review |
 
 **Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 
