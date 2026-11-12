@@ -326,8 +326,9 @@ func VerifyAssertion(pub *ecdsa.PublicKey, a *v1.Signature_Assertion, challenge 
 	if policy.RequireUV && authData[32]&FlagUV == 0 {
 		return errors.New("signing: user-verified flag is not set; this layer requires a verified human gesture")
 	}
-	// The rpId hash, authenticatorData[:32], goes unchecked: the browser binds
-	// the rpId to the origin checked above before the authenticator signs.
+	// The rpId hash, authenticatorData[:32], goes unchecked (#66): for a
+	// participant the browser binds the rpId to the allow-listed origin above;
+	// a countersignature has no origin, so its rpId is unchecked too.
 
 	// The signature over the wrapper.
 	if !ecdsa.VerifyASN1(pub, signedDigest(authData, cdj), sig) {
