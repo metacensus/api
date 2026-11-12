@@ -35,7 +35,7 @@ func (f *fakeResolver) Resolve(_ context.Context, doi, pmid string) (*v1.Publica
 }
 
 var (
-	dpyd = &v1.Publication{Doi: "10.1200/jco.2018.79.5780", Pmid: "30348537", Title: "DPYD genotyping", Authors: []string{"Henricks LM"}}
+	dpyd = &v1.Publication{Doi: "10.1200/jco.2018.79.5780", Pmid: "30348537", Title: "DPYD genotyping", Authors: []*v1.Author{{Family: "Henricks", Given: "LM"}}}
 	ugt  = &v1.Publication{Doi: "10.1000/ugt1a1", Pmid: "11111111", Title: "UGT1A1"}
 )
 

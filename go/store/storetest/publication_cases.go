@@ -142,7 +142,7 @@ func aPublication() *v1.Publication {
 		Doi:       newDOI(),
 		Pmid:      newPMID(),
 		Title:     "A publication the conformance suite drafted",
-		Authors:   []string{"Lovelace A", "Babbage C"},
+		Authors:   []*v1.Author{{Family: "Lovelace", Given: "Ada"}, {Literal: "Analytical Society"}},
 		Journal:   "Conformance",
 		Published: "2023 Nov 14",
 		Abstract:  "Nothing at all.",

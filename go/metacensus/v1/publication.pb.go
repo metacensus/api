@@ -39,15 +39,15 @@ type Publication struct {
 	// knows none.
 	Doi string `protobuf:"bytes,3,opt,name=doi,proto3" json:"doi,omitempty"`
 	// Digits only; empty if the provider knows none.
-	Pmid  string `protobuf:"bytes,4,opt,name=pmid,proto3" json:"pmid,omitempty"`
-	Title string `protobuf:"bytes,5,opt,name=title,proto3" json:"title,omitempty"`
-	// As the provider lists them, in order.
-	Authors []string `protobuf:"bytes,6,rep,name=authors,proto3" json:"authors,omitempty"`
-	Journal string   `protobuf:"bytes,7,opt,name=journal,proto3" json:"journal,omitempty"`
+	Pmid    string `protobuf:"bytes,4,opt,name=pmid,proto3" json:"pmid,omitempty"`
+	Title   string `protobuf:"bytes,5,opt,name=title,proto3" json:"title,omitempty"`
+	Journal string `protobuf:"bytes,7,opt,name=journal,proto3" json:"journal,omitempty"`
 	// As the provider gives it ("2021 Mar 4", "2021"); not a timestamp, because
 	// most publication dates are not one.
-	Published     string `protobuf:"bytes,8,opt,name=published,proto3" json:"published,omitempty"`
-	Abstract      string `protobuf:"bytes,9,opt,name=abstract,proto3" json:"abstract,omitempty"`
+	Published string `protobuf:"bytes,8,opt,name=published,proto3" json:"published,omitempty"`
+	Abstract  string `protobuf:"bytes,9,opt,name=abstract,proto3" json:"abstract,omitempty"`
+	// As the provider lists them, in order.
+	Authors       []*Author `protobuf:"bytes,10,rep,name=authors,proto3" json:"authors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -117,13 +117,6 @@ func (x *Publication) GetTitle() string {
 	return ""
 }
 
-func (x *Publication) GetAuthors() []string {
-	if x != nil {
-		return x.Authors
-	}
-	return nil
-}
-
 func (x *Publication) GetJournal() string {
 	if x != nil {
 		return x.Journal
@@ -145,6 +138,88 @@ func (x *Publication) GetAbstract() string {
 	return ""
 }
 
+func (x *Publication) GetAuthors() []*Author {
+	if x != nil {
+		return x.Authors
+	}
+	return nil
+}
+
+// A name as its parts, after CSL-JSON's name model, the one citation tools use
+// across disciplines; display formats it. A person has `family` and usually
+// `given`; a group or organisation has `literal` instead.
+type Author struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Family string                 `protobuf:"bytes,1,opt,name=family,proto3" json:"family,omitempty"`
+	// As the provider gives it: a forename ("Jane A") or only initials ("JA").
+	Given string `protobuf:"bytes,2,opt,name=given,proto3" json:"given,omitempty"`
+	// A group's or organisation's name ("Sleep Study Group", "WHO").
+	Literal string `protobuf:"bytes,3,opt,name=literal,proto3" json:"literal,omitempty"`
+	// Bare and hyphenated ("0000-0002-1825-0097"); empty if the provider knows
+	// none.
+	Orcid         string `protobuf:"bytes,4,opt,name=orcid,proto3" json:"orcid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Author) Reset() {
+	*x = Author{}
+	mi := &file_metacensus_v1_publication_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Author) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Author) ProtoMessage() {}
+
+func (x *Author) ProtoReflect() protoreflect.Message {
+	mi := &file_metacensus_v1_publication_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Author.ProtoReflect.Descriptor instead.
+func (*Author) Descriptor() ([]byte, []int) {
+	return file_metacensus_v1_publication_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Author) GetFamily() string {
+	if x != nil {
+		return x.Family
+	}
+	return ""
+}
+
+func (x *Author) GetGiven() string {
+	if x != nil {
+		return x.Given
+	}
+	return ""
+}
+
+func (x *Author) GetLiteral() string {
+	if x != nil {
+		return x.Literal
+	}
+	return ""
+}
+
+func (x *Author) GetOrcid() string {
+	if x != nil {
+		return x.Orcid
+	}
+	return ""
+}
+
 type PublicationGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PublicationId string                 `protobuf:"bytes,1,opt,name=publication_id,json=publicationId,proto3" json:"publication_id,omitempty"`
@@ -154,7 +229,7 @@ type PublicationGetRequest struct {
 
 func (x *PublicationGetRequest) Reset() {
 	*x = PublicationGetRequest{}
-	mi := &file_metacensus_v1_publication_proto_msgTypes[1]
+	mi := &file_metacensus_v1_publication_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -166,7 +241,7 @@ func (x *PublicationGetRequest) String() string {
 func (*PublicationGetRequest) ProtoMessage() {}
 
 func (x *PublicationGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_publication_proto_msgTypes[1]
+	mi := &file_metacensus_v1_publication_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +254,7 @@ func (x *PublicationGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicationGetRequest.ProtoReflect.Descriptor instead.
 func (*PublicationGetRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_publication_proto_rawDescGZIP(), []int{1}
+	return file_metacensus_v1_publication_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PublicationGetRequest) GetPublicationId() string {
@@ -201,7 +276,7 @@ type PublicationCreateRequest struct {
 
 func (x *PublicationCreateRequest) Reset() {
 	*x = PublicationCreateRequest{}
-	mi := &file_metacensus_v1_publication_proto_msgTypes[2]
+	mi := &file_metacensus_v1_publication_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -213,7 +288,7 @@ func (x *PublicationCreateRequest) String() string {
 func (*PublicationCreateRequest) ProtoMessage() {}
 
 func (x *PublicationCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metacensus_v1_publication_proto_msgTypes[2]
+	mi := &file_metacensus_v1_publication_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -226,7 +301,7 @@ func (x *PublicationCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicationCreateRequest.ProtoReflect.Descriptor instead.
 func (*PublicationCreateRequest) Descriptor() ([]byte, []int) {
-	return file_metacensus_v1_publication_proto_rawDescGZIP(), []int{2}
+	return file_metacensus_v1_publication_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PublicationCreateRequest) GetDoi() string {
@@ -247,17 +322,23 @@ var File_metacensus_v1_publication_proto protoreflect.FileDescriptor
 
 const file_metacensus_v1_publication_proto_rawDesc = "" +
 	"\n" +
-	"\x1fmetacensus/v1/publication.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x01\n" +
+	"\x1fmetacensus/v1/publication.proto\x12\rmetacensus.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x02\n" +
 	"\vPublication\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x126\n" +
 	"\brecorded\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\brecorded\x12\x10\n" +
 	"\x03doi\x18\x03 \x01(\tR\x03doi\x12\x12\n" +
 	"\x04pmid\x18\x04 \x01(\tR\x04pmid\x12\x14\n" +
 	"\x05title\x18\x05 \x01(\tR\x05title\x12\x18\n" +
-	"\aauthors\x18\x06 \x03(\tR\aauthors\x12\x18\n" +
 	"\ajournal\x18\a \x01(\tR\ajournal\x12\x1c\n" +
 	"\tpublished\x18\b \x01(\tR\tpublished\x12\x1a\n" +
-	"\babstract\x18\t \x01(\tR\babstract\">\n" +
+	"\babstract\x18\t \x01(\tR\babstract\x12/\n" +
+	"\aauthors\x18\n" +
+	" \x03(\v2\x15.metacensus.v1.AuthorR\aauthorsJ\x04\b\x06\x10\a\"f\n" +
+	"\x06Author\x12\x16\n" +
+	"\x06family\x18\x01 \x01(\tR\x06family\x12\x14\n" +
+	"\x05given\x18\x02 \x01(\tR\x05given\x12\x18\n" +
+	"\aliteral\x18\x03 \x01(\tR\aliteral\x12\x14\n" +
+	"\x05orcid\x18\x04 \x01(\tR\x05orcid\">\n" +
 	"\x15PublicationGetRequest\x12%\n" +
 	"\x0epublication_id\x18\x01 \x01(\tR\rpublicationId\"@\n" +
 	"\x18PublicationCreateRequest\x12\x10\n" +
@@ -279,24 +360,26 @@ func file_metacensus_v1_publication_proto_rawDescGZIP() []byte {
 	return file_metacensus_v1_publication_proto_rawDescData
 }
 
-var file_metacensus_v1_publication_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_metacensus_v1_publication_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_metacensus_v1_publication_proto_goTypes = []any{
 	(*Publication)(nil),              // 0: metacensus.v1.Publication
-	(*PublicationGetRequest)(nil),    // 1: metacensus.v1.PublicationGetRequest
-	(*PublicationCreateRequest)(nil), // 2: metacensus.v1.PublicationCreateRequest
-	(*timestamppb.Timestamp)(nil),    // 3: google.protobuf.Timestamp
+	(*Author)(nil),                   // 1: metacensus.v1.Author
+	(*PublicationGetRequest)(nil),    // 2: metacensus.v1.PublicationGetRequest
+	(*PublicationCreateRequest)(nil), // 3: metacensus.v1.PublicationCreateRequest
+	(*timestamppb.Timestamp)(nil),    // 4: google.protobuf.Timestamp
 }
 var file_metacensus_v1_publication_proto_depIdxs = []int32{
-	3, // 0: metacensus.v1.Publication.recorded:type_name -> google.protobuf.Timestamp
-	1, // 1: metacensus.v1.PublicationRoutes.GetPublication:input_type -> metacensus.v1.PublicationGetRequest
-	2, // 2: metacensus.v1.PublicationRoutes.CreatePublication:input_type -> metacensus.v1.PublicationCreateRequest
-	0, // 3: metacensus.v1.PublicationRoutes.GetPublication:output_type -> metacensus.v1.Publication
-	0, // 4: metacensus.v1.PublicationRoutes.CreatePublication:output_type -> metacensus.v1.Publication
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4, // 0: metacensus.v1.Publication.recorded:type_name -> google.protobuf.Timestamp
+	1, // 1: metacensus.v1.Publication.authors:type_name -> metacensus.v1.Author
+	2, // 2: metacensus.v1.PublicationRoutes.GetPublication:input_type -> metacensus.v1.PublicationGetRequest
+	3, // 3: metacensus.v1.PublicationRoutes.CreatePublication:input_type -> metacensus.v1.PublicationCreateRequest
+	0, // 4: metacensus.v1.PublicationRoutes.GetPublication:output_type -> metacensus.v1.Publication
+	0, // 5: metacensus.v1.PublicationRoutes.CreatePublication:output_type -> metacensus.v1.Publication
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_publication_proto_init() }
@@ -310,7 +393,7 @@ func file_metacensus_v1_publication_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_metacensus_v1_publication_proto_rawDesc), len(file_metacensus_v1_publication_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

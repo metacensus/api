@@ -36,7 +36,8 @@ const record = `<?xml version="1.0" ?>
         <AbstractText Label="RESULTS">It helped.</AbstractText>
       </Abstract>
       <AuthorList CompleteYN="Y">
-        <Author ValidYN="Y"><LastName>Smith</LastName><ForeName>Jane A</ForeName><Initials>JA</Initials></Author>
+        <Author ValidYN="Y"><LastName>Smith</LastName><ForeName>Jane A</ForeName><Initials>JA</Initials><Identifier Source="ORCID">https://orcid.org/0000-0002-1825-0097</Identifier></Author>
+        <Author ValidYN="Y"><LastName>Lee</LastName><Initials>K</Initials><Identifier Source="ORCID">000000021825009x</Identifier></Author>
         <Author ValidYN="Y"><CollectiveName>Sleep Study Group</CollectiveName></Author>
       </AuthorList>
     </Article>
@@ -67,10 +68,14 @@ var both = strings.Replace(record, "<PubmedArticleSet>", "<PubmedArticleSet>"+er
 const empty = `<?xml version="1.0" ?><PubmedArticleSet></PubmedArticleSet>`
 
 var resolved = &v1.Publication{
-	Doi:       "10.1038/s41586-021-0001-x",
-	Pmid:      "31452104",
-	Title:     "Effects of Cannabis sativa on sleep.",
-	Authors:   []string{"Smith JA", "Sleep Study Group"},
+	Doi:   "10.1038/s41586-021-0001-x",
+	Pmid:  "31452104",
+	Title: "Effects of Cannabis sativa on sleep.",
+	Authors: []*v1.Author{
+		{Family: "Smith", Given: "Jane A", Orcid: "0000-0002-1825-0097"},
+		{Family: "Lee", Given: "K", Orcid: "0000-0002-1825-009X"},
+		{Literal: "Sleep Study Group"},
+	},
 	Journal:   "Nature",
 	Published: "2021 Mar 4",
 	Abstract:  "BACKGROUND: Sleep is 1hard.\n\nRESULTS: It helped.",
