@@ -7,7 +7,11 @@ import (
 	"testing"
 
 	"github.com/metacensus/api/go/server/routes"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // The schema half of the signing chain (see README.md); the runtime half is
@@ -179,6 +183,62 @@ func TestSignedRecordsReserveTheNextField(t *testing.T) {
 // server then has to overwrite or trust.
 var serverOwnedFields = []string{"id", "recorded"}
 
+func serverOwnedIn(content protoreflect.MessageDescriptor) []string {
+	var owned []string
+	for _, name := range serverOwnedFields {
+		if content.Fields().ByJSONName(name) != nil {
+			owned = append(owned, name)
+		}
+	}
+	return owned
+}
+
+func TestServerOwnedIn(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		fields []string
+		want   []string
+	}{
+		{"error - id", []string{"id"}, []string{"id"}},
+		{"error - recorded", []string{"name", "recorded"}, []string{"recorded"}},
+		{"error - both in rule order", []string{"recorded", "id"}, []string{"id", "recorded"}},
+		{"success - empty", nil, nil},
+		{"success - ordinary content", []string{"name", "description"}, nil},
+		{"success - similar names", []string{"topic_id", "recorded_at"}, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := serverOwnedIn(messageOf(t, tt.fields...)); !slices.Equal(got, tt.want) {
+				t.Errorf("serverOwnedIn(%q) = %q, want %q", tt.fields, got, tt.want)
+			}
+		})
+	}
+}
+
+// messageOf compiles a throwaway message of string fields, so a check can be
+// shown a shape the contract does not hold.
+func messageOf(t *testing.T, fields ...string) protoreflect.MessageDescriptor {
+	t.Helper()
+	var fds []*descriptorpb.FieldDescriptorProto
+	for i, name := range fields {
+		fds = append(fds, &descriptorpb.FieldDescriptorProto{
+			Name:   proto.String(name),
+			Number: proto.Int32(int32(i + 1)),
+			Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+		})
+	}
+	fd, err := protodesc.NewFile(&descriptorpb.FileDescriptorProto{
+		Name:        proto.String("contract_test/message_of.proto"),
+		Package:     proto.String("contract_test"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{{Name: proto.String("Content"), Field: fds}},
+	}, new(protoregistry.Files))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fd.Messages().Get(0)
+}
+
 // The object a client posts never declares a field the server owns.
 func TestContentHasNoServerOwnedFields(t *testing.T) {
 	checked := 0
@@ -191,13 +251,11 @@ func TestContentHasNoServerOwnedFields(t *testing.T) {
 			continue
 		}
 		checked++
-		for _, name := range serverOwnedFields {
-			if content.Message().Fields().ByJSONName(name) != nil {
-				t.Errorf("%s %s posts %s, which declares %q. The server owns that "+
-					"field: it belongs on %sSigned, beside the signature, not in the "+
-					"content the client signs.", r.Method, fullPath(r),
-					content.Message().FullName(), name, content.Message().Name())
-			}
+		for _, name := range serverOwnedIn(content.Message()) {
+			t.Errorf("%s %s posts %s, which declares %q. The server owns that "+
+				"field: it belongs on %sSigned, beside the signature, not in the "+
+				"content the client signs.", r.Method, fullPath(r),
+				content.Message().FullName(), name, content.Message().Name())
 		}
 	}
 	if checked == 0 {
