@@ -32,7 +32,7 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 
 | Rule | Enforced by |
 |---|---|
-| Every read must be named `List*`/`Get*`/`Lookup*`, except exactly `HealthRoutes.Healthcheck`; these use `GET`. Every other RPC uses `POST`; no other methods. | `TestNonConformingRoutes` |
+| `List*`/`Get*`/`Lookup*` and `HealthRoutes.Healthcheck` use `GET`; every other RPC uses `POST`, so a read must carry one of those names. | `TestNonConformingRoutes` |
 | Paths are resource nouns nested by ownership (`/topic/{topicId}/prop/{propId}/vote`), params `{lowerCamelCase}`, no verbs (`POST /topic`, not `POST /topic/create`); a resource scoped to the caller takes no id (`GET /self`). The session verbs on `AuthRoutes` (`/login`, `/signup`, `/refresh`, `/logout`) are the one exception. | `TestNonConformingRoutes` (verbs); review |
 | Lists are `{ items: [...] }`. No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
 | Server-minted ids are `<kind>:<UUIDv7>` (`go/store`). | `TestJourney` |

@@ -92,6 +92,8 @@ func TestRoutesAreUnique(t *testing.T) {
 	}
 }
 
+// Reads are named List*, Get* or Lookup*; HealthRoutes.Healthcheck is the one
+// exception. Every other RPC is held to POST.
 func isRead(r routes.Route) bool {
 	if r.Service == "HealthRoutes" && r.RPC == "Healthcheck" {
 		return true
@@ -140,25 +142,29 @@ func nonConformingRoutes(routeSet []routes.Route) map[string]string {
 }
 
 func TestNonConformingRoutes_Methods(t *testing.T) {
+	const (
+		wantGET  = "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"
+		wantPOST = "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"
+	)
 	tests := []struct {
 		name, service, rpc, method, path, want string
 	}{
-		{"error - write over GET", "TopicRoutes", "CreateTopic", "GET", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - unrecognized read name over GET", "TopicRoutes", "SearchTopics", "GET", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - set over GET", "PropRoutes", "SetVote", "GET", "/vote", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - auth over GET", "AuthRoutes", "Login", "GET", "/login", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - read over POST", "TopicRoutes", "GetTopic", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
-		{"error - list over POST", "TopicRoutes", "ListTopics", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
-		{"error - lookup over POST", "TopicRoutes", "LookupTopic", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
-		{"error - PUT", "TopicRoutes", "CreateTopic", "PUT", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - PATCH", "TopicRoutes", "CreateTopic", "PATCH", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - DELETE", "TopicRoutes", "CreateTopic", "DELETE", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - method read and path", "TopicRoutes", "GetTopic", "PUT", "/topic/update", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: update"},
-		{"error - write and path", "TopicRoutes", "CreateTopic", "GET", "/topic/create", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck); verb in path: create"},
+		{"error - write over GET", "TopicRoutes", "CreateTopic", "GET", "/topic", wantPOST},
+		{"error - unrecognized read name over GET", "TopicRoutes", "SearchTopics", "GET", "/topic", wantPOST},
+		{"error - set over GET", "PropRoutes", "SetVote", "GET", "/vote", wantPOST},
+		{"error - auth over GET", "AuthRoutes", "Login", "GET", "/login", wantPOST},
+		{"error - read over POST", "TopicRoutes", "GetTopic", "POST", "/topic", wantGET},
+		{"error - list over POST", "TopicRoutes", "ListTopics", "POST", "/topic", wantGET},
+		{"error - lookup over POST", "TopicRoutes", "LookupTopic", "POST", "/topic", wantGET},
+		{"error - PUT", "TopicRoutes", "CreateTopic", "PUT", "/topic", wantPOST},
+		{"error - PATCH", "TopicRoutes", "CreateTopic", "PATCH", "/topic", wantPOST},
+		{"error - DELETE", "TopicRoutes", "CreateTopic", "DELETE", "/topic", wantPOST},
+		{"error - method read and path", "TopicRoutes", "GetTopic", "PUT", "/topic/update", wantGET + "; verb in path: update"},
+		{"error - write and path", "TopicRoutes", "CreateTopic", "GET", "/topic/create", wantPOST + "; verb in path: create"},
 		{"error - path alone", "TopicRoutes", "CreateTopic", "POST", "/topic/create", "verb in path: create"},
-		{"error - health over POST", "HealthRoutes", "Healthcheck", "POST", "/healthcheck", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
-		{"error - health name on another service", "TopicRoutes", "Healthcheck", "GET", "/healthcheck", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
-		{"error - health name prefix", "HealthRoutes", "HealthcheckReset", "GET", "/healthcheck", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - health over POST", "HealthRoutes", "Healthcheck", "POST", "/healthcheck", wantGET},
+		{"error - health name on another service", "TopicRoutes", "Healthcheck", "GET", "/healthcheck", wantPOST},
+		{"error - health name prefix", "HealthRoutes", "HealthcheckReset", "GET", "/healthcheck", wantPOST},
 		{"success - get", "TopicRoutes", "GetTopic", "GET", "/topic/{topicId}", ""},
 		{"success - list", "TopicRoutes", "ListTopics", "GET", "/topic", ""},
 		{"success - lookup", "TopicRoutes", "LookupTopic", "GET", "/topic", ""},
