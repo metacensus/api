@@ -1,0 +1,68 @@
+// Publications: the works a topic can take up as papers (paper.proto).
+syntax = "proto3";
+
+package metacensus.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/metacensus/api/go/metacensus/v1;metacensusv1";
+
+service PublicationRoutes {
+  rpc GetPublication(PublicationGetRequest) returns (Publication) {
+    option (google.api.http) = {get: "/publication/{publication_id}"};
+  }
+
+  // Answers with the publication the posted id resolves to, creating it only
+  // if no publication holds any of its ids. 400 without a DOI or PMID; 503
+  // when the provider cannot be reached, and nothing is created.
+  rpc CreatePublication(PublicationCreateRequest) returns (Publication) {
+    option (google.api.http) = {
+      post: "/publication"
+      body: "*"
+    };
+  }
+}
+
+// One work, shared by every topic. Nobody signs it: the server fills it in
+// from the provider (PubMed), so its metadata stays correctable; what a member
+// signs is the Paper that takes it up. Each of `doi` and `pmid` is held by at
+// most one publication.
+message Publication {
+  // Minted by the server.
+  string id = 1;
+
+  // Server's observation.
+  google.protobuf.Timestamp recorded = 2;
+
+  // Lowercased, without a `doi:` or resolver prefix; empty if the provider
+  // knows none.
+  string doi = 3;
+
+  // Digits only; empty if the provider knows none.
+  string pmid = 4;
+
+  string title = 5;
+
+  // As the provider lists them, in order.
+  repeated string authors = 6;
+
+  string journal = 7;
+
+  // As the provider gives it ("2021 Mar 4", "2021"); not a timestamp, because
+  // most publication dates are not one.
+  string published = 8;
+
+  string abstract = 9;
+}
+
+message PublicationGetRequest {
+  string publication_id = 1;
+}
+
+// One external id is enough; the server resolves the other. With both, they
+// must name the same work.
+message PublicationCreateRequest {
+  string doi = 1;
+  string pmid = 2;
+}

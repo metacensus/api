@@ -216,7 +216,7 @@ func TestJourney(t *testing.T) {
 		t.Fatalf("create topic minted id: %v", err)
 	}
 	if topicRec.GetRecorded() == nil {
-		t.Fatalf("topic not minted: %+v", &topicRec)
+		t.Fatal("create topic returned no recorded timestamp")
 	}
 
 	// Create a prop under the topic.
@@ -278,8 +278,11 @@ func TestMintingPreservesSignature(t *testing.T) {
 	var rec v1.TopicSigned
 	decode(t, c.do("POST", "/topic", &v1.TopicCreateRequest{Content: topic, Interpretation: interp, UserSignature: sig}), &rec)
 
-	if rec.GetId() == "" || rec.GetRecorded() == nil {
-		t.Fatal("server did not mint id/recorded")
+	if _, err := store.ParseID(store.TopicID, rec.GetId()); err != nil {
+		t.Fatalf("create topic minted id: %v", err)
+	}
+	if rec.GetRecorded() == nil {
+		t.Fatal("create topic returned no recorded timestamp")
 	}
 	stored, err := mem.GetTopic(t.Context(), rec.GetId())
 	if err != nil {

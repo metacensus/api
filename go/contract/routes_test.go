@@ -92,11 +92,12 @@ func TestRoutesAreUnique(t *testing.T) {
 	}
 }
 
-// Reads are named for what they do, so the name is what to check the route
-// against.
-func isRead(rpc string) bool {
+func isRead(r routes.Route) bool {
+	if r.Service == "HealthRoutes" && r.RPC == "Healthcheck" {
+		return true
+	}
 	for _, prefix := range []string{"List", "Get", "Lookup"} {
-		if strings.HasPrefix(rpc, prefix) {
+		if strings.HasPrefix(r.RPC, prefix) {
 			return true
 		}
 	}
@@ -113,20 +114,18 @@ func verbSegment(path string) string {
 	return ""
 }
 
-// Pins the set of routes that break the route conventions — empty today, but
-// kept as a map (rather than the check collapsing to "no exceptions") since
-// this contract has had deliberate exceptions before (the Paper routes,
-// removed in 9edc6fe) and may again.
-func TestNonConformingRoutes(t *testing.T) {
-	want := map[string]string{}
-
+func nonConformingRoutes(routeSet []routes.Route) map[string]string {
 	// Reasons accumulate: a route can break more than one convention, and
 	// overwriting would hide the second.
 	reasons := map[string][]string{}
-	for _, r := range routes.Routes {
+	for _, r := range routeSet {
 		key := r.Method + " " + fullPath(r)
-		if isRead(r.RPC) && r.Method != "GET" {
-			reasons[key] = append(reasons[key], "read over "+r.Method)
+		want, naming := "POST", "reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck"
+		if isRead(r) {
+			want, naming = "GET", "List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads"
+		}
+		if r.Method != want {
+			reasons[key] = append(reasons[key], "expected "+want+" ("+naming+")")
 		}
 		if verb := verbSegment(r.Path); verb != "" {
 			reasons[key] = append(reasons[key], "verb in path: "+verb)
@@ -137,6 +136,96 @@ func TestNonConformingRoutes(t *testing.T) {
 	for key, rs := range reasons {
 		got[key] = strings.Join(rs, "; ")
 	}
+	return got
+}
+
+func TestNonConformingRoutes_Methods(t *testing.T) {
+	tests := []struct {
+		name, service, rpc, method, path, want string
+	}{
+		{"error - write over GET", "TopicRoutes", "CreateTopic", "GET", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - unrecognized read name over GET", "TopicRoutes", "SearchTopics", "GET", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - set over GET", "PropRoutes", "SetVote", "GET", "/vote", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - auth over GET", "AuthRoutes", "Login", "GET", "/login", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - read over POST", "TopicRoutes", "GetTopic", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
+		{"error - list over POST", "TopicRoutes", "ListTopics", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
+		{"error - lookup over POST", "TopicRoutes", "LookupTopic", "POST", "/topic", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
+		{"error - PUT", "TopicRoutes", "CreateTopic", "PUT", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - PATCH", "TopicRoutes", "CreateTopic", "PATCH", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - DELETE", "TopicRoutes", "CreateTopic", "DELETE", "/topic", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - method read and path", "TopicRoutes", "GetTopic", "PUT", "/topic/update", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: update"},
+		{"error - write and path", "TopicRoutes", "CreateTopic", "GET", "/topic/create", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck); verb in path: create"},
+		{"error - path alone", "TopicRoutes", "CreateTopic", "POST", "/topic/create", "verb in path: create"},
+		{"error - health over POST", "HealthRoutes", "Healthcheck", "POST", "/healthcheck", "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads)"},
+		{"error - health name on another service", "TopicRoutes", "Healthcheck", "GET", "/healthcheck", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"error - health name prefix", "HealthRoutes", "HealthcheckReset", "GET", "/healthcheck", "expected POST (reads must be named List*/Get*/Lookup* or HealthRoutes.Healthcheck)"},
+		{"success - get", "TopicRoutes", "GetTopic", "GET", "/topic/{topicId}", ""},
+		{"success - list", "TopicRoutes", "ListTopics", "GET", "/topic", ""},
+		{"success - lookup", "TopicRoutes", "LookupTopic", "GET", "/topic", ""},
+		{"success - create", "TopicRoutes", "CreateTopic", "POST", "/topic", ""},
+		{"success - set", "PropRoutes", "SetVote", "POST", "/vote", ""},
+		{"success - auth", "AuthRoutes", "Login", "POST", "/login", ""},
+		{"success - health", "HealthRoutes", "Healthcheck", "GET", "/healthcheck", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := routes.Route{Prefix: routes.Prefix, Service: tt.service, RPC: tt.rpc, Method: tt.method, Path: tt.path}
+			want := map[string]string{}
+			if tt.want != "" {
+				want[r.Method+" "+fullPath(r)] = tt.want
+			}
+			if got := nonConformingRoutes([]routes.Route{r}); !maps.Equal(got, want) {
+				t.Errorf("non-conforming routes = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestNonConformingRoutes_AccumulatesByFullPath(t *testing.T) {
+	tests := []struct {
+		name   string
+		routes []routes.Route
+		want   map[string]string
+	}{
+		{
+			name: "error - shared route keeps both reasons",
+			routes: []routes.Route{
+				{Prefix: routes.Prefix, RPC: "GetTopic", Method: "POST", Path: "/topic/create"},
+				{Prefix: routes.Prefix, RPC: "CreateTopic", Method: "POST", Path: "/topic/create"},
+			},
+			want: map[string]string{
+				"POST " + routes.Prefix + "/topic/create": "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: create; verb in path: create",
+			},
+		},
+		{
+			name: "error - surfaces keep separate reasons",
+			routes: []routes.Route{
+				{Prefix: routes.Prefix, RPC: "GetTopic", Method: "POST", Path: "/topic/create"},
+				{Prefix: routes.PublicPrefix, RPC: "CreateTopic", Method: "POST", Path: "/topic/create"},
+			},
+			want: map[string]string{
+				"POST " + routes.Prefix + "/topic/create":       "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: create",
+				"POST " + routes.PublicPrefix + "/topic/create": "verb in path: create",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := nonConformingRoutes(tt.routes); !maps.Equal(got, tt.want) {
+				t.Errorf("non-conforming routes = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Pins the set of routes that break the route conventions — empty today, but
+// kept as a map (rather than the check collapsing to "no exceptions") since
+// this contract has had deliberate exceptions before (the Paper routes,
+// removed in 9edc6fe) and may again.
+func TestNonConformingRoutes(t *testing.T) {
+	want := map[string]string{}
+
+	got := nonConformingRoutes(routes.Routes)
 
 	for _, key := range slices.Sorted(maps.Keys(got)) {
 		if reason, ok := want[key]; !ok {
@@ -225,6 +314,128 @@ func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 		if !known[r.Prefix] {
 			t.Errorf("%s.%s hangs off %q, which is neither routes.Prefix nor "+
 				"routes.PublicPrefix", r.Service, r.RPC, r.Prefix)
+		}
+	}
+}
+
+// requestMessage is the route's request message, which routegen names in the
+// manifest relative to the route's proto package.
+func requestMessage(t *testing.T, r routes.Route) protoreflect.MessageDescriptor {
+	t.Helper()
+	pkg := "metacensus.v1"
+	if r.Prefix == routes.PublicPrefix {
+		pkg = "metacensus.public.v1"
+	}
+	d, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(pkg + "." + r.Request))
+	if err != nil {
+		t.Fatalf("%s.%s: request %s: %v", r.Service, r.RPC, r.Request, err)
+	}
+	md, ok := d.(protoreflect.MessageDescriptor)
+	if !ok {
+		t.Fatalf("%s.%s: request %s is not a message", r.Service, r.RPC, r.Request)
+	}
+	return md
+}
+
+// recordAliases names the record a caller-scoped resource stands for: GET
+// /self is the caller's own User, so it answers with UserSigned.
+var recordAliases = map[string]string{
+	"Self": "User",
+}
+
+var rpcName = regexp.MustCompile(`^([A-Z][a-z]+)([A-Z][a-zA-Z0-9]*)$`)
+
+// messageNameProblem says how a route's messages break the naming rule, or ""
+// if they keep it. An rpc is {Action}{Resource} (plural for List); its request
+// is {Resource}{Action}Request and its response {Record}List for a List,
+// otherwise {Record} or {Record}Signed.
+func messageNameProblem(rpc, request, response string) string {
+	m := rpcName.FindStringSubmatch(rpc)
+	if m == nil {
+		return "rpc " + rpc + " is not {Action}{Resource}"
+	}
+	action, resource := m[1], m[2]
+	if action == "List" {
+		resource = strings.TrimSuffix(resource, "s")
+	}
+	var problems []string
+	if want := resource + action + "Request"; request != want {
+		problems = append(problems, "request "+request+", want "+want)
+	}
+	record := resource
+	if alias, ok := recordAliases[resource]; ok {
+		record = alias
+	}
+	want := []string{record, record + "Signed"}
+	if action == "List" {
+		want = []string{record + "List"}
+	}
+	if !slices.Contains(want, response) {
+		problems = append(problems, "response "+response+", want "+strings.Join(want, " or "))
+	}
+	return strings.Join(problems, "; ")
+}
+
+func TestMessageNameProblem(t *testing.T) {
+	for _, tt := range []struct {
+		rpc, request, response string
+		ok                     bool
+	}{
+		{"ListProps", "PropListRequest", "PropList", true},
+		{"GetProp", "PropGetRequest", "PropSigned", true},
+		{"GetMember", "MemberGetRequest", "Member", true},
+		{"GetSelf", "SelfGetRequest", "UserSigned", true},
+		{"CreateProp", "CreatePropRequest", "PropSigned", false},
+		{"CreateProp", "PropCreateRequest", "Prop", true},
+		{"CreateProp", "PropCreateRequest", "PropCreateResponse", false},
+		{"ListProps", "PropListRequest", "PropSigned", false},
+		{"GetProp", "PropGetRequest", "PropList", false},
+		{"GetProp", "PropGetRequest", "TopicSigned", false},
+		{"Healthcheck", "HealthcheckRequest", "HealthcheckResponse", false},
+	} {
+		t.Run(tt.rpc+"/"+tt.request+"/"+tt.response, func(t *testing.T) {
+			if got := messageNameProblem(tt.rpc, tt.request, tt.response); (got == "") != tt.ok {
+				t.Errorf("messageNameProblem = %q, want ok=%v", got, tt.ok)
+			}
+		})
+	}
+}
+
+// unrecordedRoutes lists the routes whose messages are not named for a record,
+// each with its reason; TestRecordMessageNames fails if either side drifts.
+var unrecordedRoutes = map[string]string{
+	"POST /metacensus/api/v1/login":      "a session verb: it answers with a Session, not a record",
+	"POST /metacensus/api/v1/signup":     "a session verb: it creates a User and answers with a Session",
+	"POST /metacensus/api/v1/refresh":    "a session verb: it answers with a Session, not a record",
+	"POST /metacensus/api/v1/logout":     "a session verb: it answers with an empty LogoutResponse",
+	"GET /metacensus/api/v1/healthcheck": "a status, not a resource: HealthcheckResponse",
+}
+
+// Holds the record message names of every metacensus.v1 route unless listed in
+// unrecordedRoutes. The public surface is outside the request standard.
+func TestRecordMessageNames(t *testing.T) {
+	got := map[string]string{}
+	for _, r := range routes.Routes {
+		if r.Prefix != routes.Prefix {
+			continue
+		}
+		if problem := messageNameProblem(r.RPC, r.Request, r.Response); problem != "" {
+			got[r.Method+" "+fullPath(r)] = problem
+		}
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(got)) {
+		if _, ok := unrecordedRoutes[key]; !ok {
+			t.Errorf("%s misnames its messages: %s. Records are {Resource}, "+
+				"{Resource}Signed, {Resource}{Action}Request and {Resource}List "+
+				"(AGENTS.md, \"The request standard\") — or add it to "+
+				"unrecordedRoutes with the reason it moves no record.", key, got[key])
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(unrecordedRoutes)) {
+		if _, ok := got[key]; !ok {
+			t.Errorf("%s is listed in unrecordedRoutes and names its messages for "+
+				"a record now; strike it off.", key)
 		}
 	}
 }

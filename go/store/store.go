@@ -125,4 +125,44 @@ type Store interface {
 	// there is no GetVote, because a vote is addressed only as one member's
 	// position within a prop's full tally.
 	ListVotes(ctx context.Context, topicID, propID string) ([]*v1.VoteSigned, error)
+
+	// CreatePublication persists a new publication; the record is fully
+	// minted, its ids already normalized and resolved through the provider
+	// above this seam. It is unsigned, so it takes no callerID: nobody authors
+	// a publication, and a member signs the Paper that takes one up. Ids are
+	// compared byte-exact.
+	//
+	// InvalidContent if the id is not a publication id, or if the record has
+	// neither a DOI nor a PMID. AlreadyExists on id collision, or if another
+	// publication already holds its DOI or its PMID.
+	CreatePublication(ctx context.Context, record *v1.Publication) error
+
+	// GetPublication returns one publication by id. NotFound if absent.
+	GetPublication(ctx context.Context, id string) (*v1.Publication, error)
+
+	// FindPublication returns the publication holding doi or, failing that,
+	// the one holding pmid; an empty argument matches nothing. NotFound if
+	// neither is held.
+	FindPublication(ctx context.Context, doi, pmid string) (*v1.Publication, error)
+
+	// CreatePaper persists a new paper under its content.topic_id; the record
+	// is fully minted.
+	//
+	// InvalidContent if topic_id or publication_id is absent or names a record
+	// that does not exist, or if the id is not a paper id. Unauthenticated if
+	// callerID is not the author. AlreadyExists on id collision, or if the
+	// topic already includes the publication. SignatureInvalid if the
+	// signature does not stand.
+	CreatePaper(ctx context.Context, callerID string, record *v1.PaperSigned) error
+
+	// GetPaper returns one paper, addressed by the (topic, paper) tuple as
+	// GetProp is. NotFound if absent.
+	GetPaper(ctx context.Context, topicID, paperID string) (*v1.PaperSigned, error)
+
+	// ListPapers returns every paper in one topic.
+	ListPapers(ctx context.Context, topicID string) ([]*v1.PaperSigned, error)
+
+	// FindPaper returns the paper by which a topic includes a publication.
+	// NotFound if the topic does not include it.
+	FindPaper(ctx context.Context, topicID, publicationID string) (*v1.PaperSigned, error)
 }

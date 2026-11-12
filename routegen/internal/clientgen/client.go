@@ -280,8 +280,9 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{flat, signed}
 	}
 
-	// An already-flat record (Member): returned as-is.
-	if elem.Fields().ByName("id") != nil && elem.Fields().ByName(model.ContentField) == nil {
+	// An already-flat record (Member) read back: returned as-is. Written, it
+	// falls through to a plain POST (Publication).
+	if elem.Fields().ByName("id") != nil && elem.Fields().ByName(model.ContentField) == nil && r.Body != "*" {
 		m := base
 		m.List = out.Name
 		if isList {

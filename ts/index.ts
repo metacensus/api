@@ -7,7 +7,9 @@
 
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
+export * from "./src/metacensus/v1/paper.js";
 export * from "./src/metacensus/v1/prop.js";
+export * from "./src/metacensus/v1/publication.js";
 export * from "./src/metacensus/v1/topic.js";
 export * from "./src/metacensus/v1/user.js";
 export * from "./src/route-manifest.js";
@@ -25,6 +27,7 @@ export {
   type ClientOptions,
   type Signer,
   type TopicRecord,
+  type PaperRecord,
   type PropRecord,
   type VoteRecord,
   type UserRecord,

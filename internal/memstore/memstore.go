@@ -25,6 +25,12 @@ type Store struct {
 	topics    map[string]*v1.TopicSigned
 	props     map[string]map[string]*v1.PropSigned            // topicID -> propID -> prop
 	votes     map[string]map[string]map[string]*v1.VoteSigned // topicID -> propID -> userID -> vote
+
+	publications map[string]*v1.Publication
+	pubByDOI     map[string]string                     // doi -> publicationID
+	pubByPMID    map[string]string                     // pmid -> publicationID
+	papers       map[string]map[string]*v1.PaperSigned // topicID -> paperID -> paper
+	paperByPub   map[string]map[string]string          // topicID -> publicationID -> paperID
 }
 
 type enrolledKey struct {
@@ -44,6 +50,12 @@ func New(verify *signing.Policy) *Store {
 		topics:    map[string]*v1.TopicSigned{},
 		props:     map[string]map[string]*v1.PropSigned{},
 		votes:     map[string]map[string]map[string]*v1.VoteSigned{},
+
+		publications: map[string]*v1.Publication{},
+		pubByDOI:     map[string]string{},
+		pubByPMID:    map[string]string{},
+		papers:       map[string]map[string]*v1.PaperSigned{},
+		paperByPub:   map[string]map[string]string{},
 	}
 }
 
@@ -219,4 +231,102 @@ func (s *Store) ListVotes(_ context.Context, topicID, propID string) ([]*v1.Vote
 		out = append(out, clone(v))
 	}
 	return out, nil
+}
+
+func (s *Store) CreatePublication(_ context.Context, record *v1.Publication) error {
+	if _, err := store.ParseID(store.PublicationID, record.GetId()); err != nil {
+		return err
+	}
+	doi, pmid := record.GetDoi(), record.GetPmid()
+	if doi == "" && pmid == "" {
+		return store.InvalidContent
+	}
+	if _, taken := s.publications[record.GetId()]; taken {
+		return store.AlreadyExists
+	}
+	if _, taken := s.pubByDOI[doi]; doi != "" && taken {
+		return store.AlreadyExists
+	}
+	if _, taken := s.pubByPMID[pmid]; pmid != "" && taken {
+		return store.AlreadyExists
+	}
+	s.publications[record.GetId()] = clone(record)
+	if doi != "" {
+		s.pubByDOI[doi] = record.GetId()
+	}
+	if pmid != "" {
+		s.pubByPMID[pmid] = record.GetId()
+	}
+	return nil
+}
+
+func (s *Store) GetPublication(_ context.Context, id string) (*v1.Publication, error) {
+	p, ok := s.publications[id]
+	if !ok {
+		return nil, store.NotFound
+	}
+	return clone(p), nil
+}
+
+func (s *Store) FindPublication(ctx context.Context, doi, pmid string) (*v1.Publication, error) {
+	if id, ok := s.pubByDOI[doi]; doi != "" && ok {
+		return s.GetPublication(ctx, id)
+	}
+	if id, ok := s.pubByPMID[pmid]; pmid != "" && ok {
+		return s.GetPublication(ctx, id)
+	}
+	return nil, store.NotFound
+}
+
+func (s *Store) CreatePaper(_ context.Context, callerID string, record *v1.PaperSigned) error {
+	if err := s.authorize(callerID, record.GetContent(), record.GetInterpretation(), record.GetUserSignature()); err != nil {
+		return err
+	}
+	if _, err := store.ParseID(store.PaperID, record.GetId()); err != nil {
+		return err
+	}
+	topicID, pubID := record.GetContent().GetTopicId(), record.GetContent().GetPublicationId()
+	if _, ok := s.topics[topicID]; !ok {
+		return store.InvalidContent
+	}
+	if _, ok := s.publications[pubID]; !ok {
+		return store.InvalidContent
+	}
+	if s.papers[topicID] == nil {
+		s.papers[topicID] = map[string]*v1.PaperSigned{}
+		s.paperByPub[topicID] = map[string]string{}
+	}
+	if _, taken := s.papers[topicID][record.GetId()]; taken {
+		return store.AlreadyExists
+	}
+	if _, taken := s.paperByPub[topicID][pubID]; taken {
+		return store.AlreadyExists
+	}
+	s.papers[topicID][record.GetId()] = clone(record)
+	s.paperByPub[topicID][pubID] = record.GetId()
+	return nil
+}
+
+func (s *Store) GetPaper(_ context.Context, topicID, paperID string) (*v1.PaperSigned, error) {
+	p, ok := s.papers[topicID][paperID]
+	if !ok {
+		return nil, store.NotFound
+	}
+	return clone(p), nil
+}
+
+func (s *Store) ListPapers(_ context.Context, topicID string) ([]*v1.PaperSigned, error) {
+	out := make([]*v1.PaperSigned, 0, len(s.papers[topicID]))
+	for _, p := range s.papers[topicID] {
+		out = append(out, clone(p))
+	}
+	return out, nil
+}
+
+func (s *Store) FindPaper(ctx context.Context, topicID, publicationID string) (*v1.PaperSigned, error) {
+	id, ok := s.paperByPub[topicID][publicationID]
+	if !ok {
+		return nil, store.NotFound
+	}
+	return s.GetPaper(ctx, topicID, id)
 }

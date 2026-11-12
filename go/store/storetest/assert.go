@@ -51,6 +51,9 @@ type scene struct {
 	prop, storedProp, secondProp   *v1.PropSigned
 	vote, standingVote, otherVote  *v1.VoteSigned
 
+	publication, storedPublication, otherPublication *v1.Publication
+	paper, storedPaper, secondPaper                  *v1.PaperSigned
+
 	got            proto.Message
 	gotList        []proto.Message
 	gotID, gotHash string

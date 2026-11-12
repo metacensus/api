@@ -26,9 +26,10 @@ const (
 // unsignedWrites lists routes that write but carry no signature, each with
 // its reason; TestEveryWriteCarriesASignature fails if either side drifts.
 var unsignedWrites = map[string]string{
-	"POST /metacensus/api/v1/login":   "moves no content; the password is the credential and is never signed",
-	"POST /metacensus/api/v1/refresh": "moves no content; it exchanges a refresh token for a fresh access token",
-	"POST /metacensus/api/v1/logout":  "moves no content; it surrenders a token",
+	"POST /metacensus/api/v1/login":       "moves no content; the password is the credential and is never signed",
+	"POST /metacensus/api/v1/refresh":     "moves no content; it exchanges a refresh token for a fresh access token",
+	"POST /metacensus/api/v1/logout":      "moves no content; it surrenders a token",
+	"POST /metacensus/api/v1/publication": "moves no content a member authors: the server fills the publication in from the provider, and the member signs the Paper that takes it up",
 }
 
 // TestEveryWriteCarriesASignature: a login token says who is connected, not
@@ -171,4 +172,35 @@ func TestSignedRecordsReserveTheNextField(t *testing.T) {
 			"comment saying so is found by the next reader rather than by protoc.",
 			md.FullName(), want)
 	})
+}
+
+// serverOwnedFields are the fields the server writes onto a stored record;
+// posted content that declared one would be a value the client signs and the
+// server then has to overwrite or trust.
+var serverOwnedFields = []string{"id", "recorded"}
+
+// The object a client posts never declares a field the server owns.
+func TestContentHasNoServerOwnedFields(t *testing.T) {
+	checked := 0
+	for _, r := range routes.Routes {
+		if r.Method == "GET" {
+			continue
+		}
+		content := requestMessage(t, r).Fields().ByJSONName(contentField)
+		if content == nil || content.Message() == nil {
+			continue
+		}
+		checked++
+		for _, name := range serverOwnedFields {
+			if content.Message().Fields().ByJSONName(name) != nil {
+				t.Errorf("%s %s posts %s, which declares %q. The server owns that "+
+					"field: it belongs on %sSigned, beside the signature, not in the "+
+					"content the client signs.", r.Method, fullPath(r),
+					content.Message().FullName(), name, content.Message().Name())
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no write route posts a content message")
+	}
 }

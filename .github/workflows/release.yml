@@ -1,27 +1,121 @@
 name: Release
 
-# Publishes a tagged version: the Go module (nothing beyond the pushed tag)
-# and the npm package. No container image.
+# Tags and publishes a commit on main: the Go module (nothing beyond the tag)
+# and the npm package. No container image. Dispatched by `make release`; the
+# tag ruleset lets only the release-bot App create a v* tag, so a pushed tag
+# is refused rather than published. Once published, it opens a bump pull
+# request in each service that merges itself when that service's CI passes.
+
+run-name: Release ${{ inputs.version || inputs.type }} at ${{ inputs.sha }}${{ inputs.dry_run && ' (dry run)' || '' }}
 
 on:
-  push:
-    tags:
-      # `+` makes this real semver (v1.2.3), not v/v1/v1.2/vnext. No
-      # prerelease glob — scripts/version.sh doesn't support prereleases.
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      type:
+        description: Bump from the latest tag; ignored when version is set
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: Exact version (1.2.3); overrides type
+        type: string
+        default: ''
+      sha:
+        description: Commit on main to release
+        type: string
+        required: true
+      dry_run:
+        description: Check everything, create no tag
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# One release at a time: two runs could otherwise mint the same next version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  # Same suite as every PR, re-run at the tagged commit; gates the publish below.
+  prepare:
+    name: Resolve the version and commit
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Tags for version.sh's "latest", history for the ancestry check.
+          fetch-depth: 0
+
+      - name: Resolve
+        id: resolve
+        env:
+          TYPE: ${{ inputs.type }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          sha="$(git rev-parse --verify "${SHA}^{commit}")"
+          # A tag on a commit outside main publishes a version that sits on no
+          # branch, which the proxy keeps serving.
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$sha is not on main."
+            exit 1
+          fi
+          tag="v$(./scripts/version.sh "$VERSION" "$TYPE")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::$tag already exists."
+            exit 1
+          fi
+          echo "Releasing $tag at $sha"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # Same suite as every PR, re-run at the commit being released.
   verify:
     name: Verify
+    needs: prepare
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  tag:
+    name: Create the tag
+    needs: [prepare, verify]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint a release-bot token
+        id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          token: ${{ steps.app.outputs.token }}
+
+      - name: Tag and push
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          id="$(gh api "/users/${SLUG}[bot]" --jq .id)"
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release ${TAG#v}"
+          git push origin "refs/tags/$TAG"
 
   publish-npm:
     name: Publish the npm package
-    needs: verify
+    needs: [prepare, tag]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,6 +125,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -40,11 +136,6 @@ jobs:
           # Public npm; GITHUB_TOKEN only authenticates GitHub Packages.
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Re-validate the tag as semver
-        # The trigger's glob is coarser than version.sh's regex; catches an
-        # odd tag before it moves the `latest` dist-tag.
-        run: ./scripts/version.sh "${GITHUB_REF_NAME}"
-
       - name: Install the TypeScript toolchain
         working-directory: ts
         # --ignore-scripts, not `make deps`: this job holds id-token: write,
@@ -53,8 +144,10 @@ jobs:
 
       - name: Set the package version from the tag
         working-directory: ts
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           echo "Publishing version $version"
           npm version "$version" --no-git-tag-version --allow-same-version
 
@@ -69,19 +162,21 @@ jobs:
           if [ -z "${NODE_AUTH_TOKEN}" ]; then
             echo "No NPM_TOKEN secret set — relying on OIDC trusted publishing."
           fi
-          # No --tag: publish defaults to `latest`, safe because the trigger
-          # and the semver re-check above both reject any non-release tag.
+          # No --tag: publish defaults to `latest`, safe because prepare
+          # validated the version as plain semver.
           npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   verify-go-module:
     name: Verify the Go module is published
-    needs: verify
+    needs: [prepare, tag]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
 
       - uses: actions/setup-go@v5
         with:
@@ -91,8 +186,10 @@ jobs:
       - name: Ask the module proxy for the tagged version
         # Indexing is asynchronous, so a miss here is informational, not a failure.
         continue-on-error: true
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          module="github.com/metacensus/api@${GITHUB_REF_NAME}"
+          module="github.com/metacensus/api@${TAG}"
           echo "Requesting $module from proxy.golang.org"
           for i in 1 2 3 4 5; do
             if GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
@@ -108,21 +205,131 @@ jobs:
 
   github-release:
     name: Create the GitHub release
-    needs: [publish-npm, verify-go-module]
+    needs: [prepare, publish-npm, verify-go-module]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
             --generate-notes \
             --verify-tag
+
+  # One self-merging pull request per service, as the release-bot App with a
+  # token scoped to that service. A bump that fails CI waits for a person:
+  # adapting a service to a breaking release is out of scope (#78).
+  bump:
+    name: Bump ${{ matrix.service }}
+    needs: [prepare, github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [service-api-standard, service-api-chain]
+    steps:
+      # GITHUB_TOKEN can't reach another repository, and a pull request it
+      # opened would run no workflows, so the required check never reports.
+      - name: Mint a release-bot token for the service
+        id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ matrix.service }}
+
+      - name: Checkout the service
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/${{ matrix.service }}
+          token: ${{ steps.app.outputs.token }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # A service already at or past this version, or with an open bump to a
+      # newer one, gets nothing; an open bump for this same version is rebuilt.
+      - name: Skip unless newer than main and every open bump
+        id: newer
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          at_most() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]; }
+          current=$(go list -m -f '{{.Version}}' github.com/metacensus/api)
+          newest=$current
+          bump=true
+          if at_most "$TAG" "$current"; then
+            bump=false
+          else
+            for open in $(gh pr list --state open --json headRefName \
+                -q '.[].headRefName | select(startswith("deps/api-")) | ltrimstr("deps/api-")'); do
+              if [ "$open" != "$TAG" ] && at_most "$TAG" "$open"; then
+                bump=false
+                newest=$open
+              fi
+            done
+          fi
+          if [ "$bump" = false ]; then
+            echo "metacensus/api $TAG is not newer than $newest; nothing to do."
+          fi
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
+      # The module proxy indexes a new tag asynchronously.
+      - name: Bump the module
+        if: steps.newer.outputs.bump == 'true'
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if go get "github.com/metacensus/api@$TAG"; then
+              go mod tidy
+              exit 0
+            fi
+            echo "not resolvable yet; retrying in 30s ($i/10)"
+            sleep 30
+          done
+          echo "::error::github.com/metacensus/api@$TAG never resolved"
+          exit 1
+
+      - name: Open the pull request and enable auto-merge
+        if: steps.newer.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          branch="deps/api-$TAG"
+          id="$(gh api "/users/${SLUG}[bot]" --jq .id)"
+          git config user.name "${SLUG}[bot]"
+          git config user.email "${id}+${SLUG}[bot]@users.noreply.github.com"
+
+          git switch -c "$branch"
+          git commit -am "Bump metacensus/api to $TAG."
+          # Forced: a re-run rebuilds the bump on today's main.
+          git push --force origin "$branch"
+
+          pr=$(gh pr list --head "$branch" --state open --json number -q '.[0].number')
+          if [ -z "$pr" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "Bump metacensus/api to $TAG" \
+              --body "Opened by metacensus/api's release ([notes](https://github.com/metacensus/api/releases/tag/$TAG)). It merges itself once CI passes; if CI fails, it waits for a person."
+            pr=$(gh pr list --head "$branch" --state open --json number -q '.[0].number')
+          fi
+
+          for old in $(gh pr list --state open --json headRefName \
+              -q '.[].headRefName | select(startswith("deps/api-"))'); do
+            if [ "$old" != "$branch" ]; then
+              gh pr close "$old" --delete-branch --comment "Superseded by #$pr."
+            fi
+          done
+
+          # Behind a merge queue the queue's own method applies.
+          gh pr merge "$pr" --auto --squash

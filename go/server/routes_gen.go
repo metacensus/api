@@ -168,6 +168,111 @@ func RegisterHealthRoutes(mux Mux, rt *Runtime, impl HealthRoutes) {
 	}))
 }
 
+// PaperRoutes is what an implementation of the PaperRoutes service provides.
+// One method per route; the request carries path, query and body fields
+// already bound. Its routes hang off routes.Prefix.
+type PaperRoutes interface {
+	// GET /topic/{topicId}/paper
+	ListPapers(context.Context, *v1.PaperListRequest) (*v1.PaperList, error)
+	// GET /topic/{topicId}/paper/{paperId}
+	GetPaper(context.Context, *v1.PaperGetRequest) (*v1.PaperSigned, error)
+	// POST /topic/{topicId}/paper
+	CreatePaper(context.Context, *v1.PaperCreateRequest) (*v1.PaperSigned, error)
+}
+
+// UnimplementedPaperRoutes answers every PaperRoutes route with 501. Embed it to
+// implement a service one route at a time.
+type UnimplementedPaperRoutes struct{}
+
+func (UnimplementedPaperRoutes) ListPapers(context.Context, *v1.PaperListRequest) (*v1.PaperList, error) {
+	return nil, errNotImplemented("PaperRoutes.ListPapers")
+}
+
+func (UnimplementedPaperRoutes) GetPaper(context.Context, *v1.PaperGetRequest) (*v1.PaperSigned, error) {
+	return nil, errNotImplemented("PaperRoutes.GetPaper")
+}
+
+func (UnimplementedPaperRoutes) CreatePaper(context.Context, *v1.PaperCreateRequest) (*v1.PaperSigned, error) {
+	return nil, errNotImplemented("PaperRoutes.CreatePaper")
+}
+
+// RegisterPaperRoutes registers every PaperRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
+func RegisterPaperRoutes(mux Mux, rt *Runtime, impl PaperRoutes) {
+	rt.checkPathValue(mux)
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/paper", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PaperListRequest)
+		var err error
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.ListPapers(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+	mux.Method("GET", rt.Prefix+"/topic/{topicId}/paper/{paperId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PaperGetRequest)
+		var err error
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.PaperId, err = rt.pathParam(r, "paperId", req.PaperId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.GetPaper(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+	mux.Method("POST", rt.Prefix+"/topic/{topicId}/paper", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PaperCreateRequest)
+		raw, err := rt.readBody(w, r)
+		if err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.decodeBody(raw, req); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.TopicId, err = rt.pathParam(r, "topicId", req.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		// Signed route: both halves present, each path id matching its
+		// signed copy. Neither validates the signature — that is persistence's.
+		// See requireField and contentParam.
+		if err := requireField(req.Content, "content"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := requireField(req.UserSignature, "userSignature"); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := contentParam("topicId", req.TopicId, req.Content.TopicId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.CreatePaper(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+}
+
 // PropRoutes is what an implementation of the PropRoutes service provides.
 // One method per route; the request carries path, query and body fields
 // already bound. Its routes hang off routes.Prefix.
@@ -344,6 +449,68 @@ func RegisterPropRoutes(mux Mux, rt *Runtime, impl PropRoutes) {
 			return
 		}
 		resp, err := impl.SetVote(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+}
+
+// PublicationRoutes is what an implementation of the PublicationRoutes service provides.
+// One method per route; the request carries path, query and body fields
+// already bound. Its routes hang off routes.Prefix.
+type PublicationRoutes interface {
+	// GET /publication/{publicationId}
+	GetPublication(context.Context, *v1.PublicationGetRequest) (*v1.Publication, error)
+	// POST /publication
+	CreatePublication(context.Context, *v1.PublicationCreateRequest) (*v1.Publication, error)
+}
+
+// UnimplementedPublicationRoutes answers every PublicationRoutes route with 501. Embed it to
+// implement a service one route at a time.
+type UnimplementedPublicationRoutes struct{}
+
+func (UnimplementedPublicationRoutes) GetPublication(context.Context, *v1.PublicationGetRequest) (*v1.Publication, error) {
+	return nil, errNotImplemented("PublicationRoutes.GetPublication")
+}
+
+func (UnimplementedPublicationRoutes) CreatePublication(context.Context, *v1.PublicationCreateRequest) (*v1.Publication, error) {
+	return nil, errNotImplemented("PublicationRoutes.CreatePublication")
+}
+
+// RegisterPublicationRoutes registers every PublicationRoutes route on mux, under rt.Prefix,
+// which for this service is routes.Prefix.
+//
+// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
+func RegisterPublicationRoutes(mux Mux, rt *Runtime, impl PublicationRoutes) {
+	rt.checkPathValue(mux)
+	mux.Method("GET", rt.Prefix+"/publication/{publicationId}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PublicationGetRequest)
+		var err error
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if req.PublicationId, err = rt.pathParam(r, "publicationId", req.PublicationId); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.GetPublication(r.Context(), req)
+		rt.respond(w, resp, err)
+	}))
+	mux.Method("POST", rt.Prefix+"/publication", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := new(v1.PublicationCreateRequest)
+		raw, err := rt.readBody(w, r)
+		if err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.decodeBody(raw, req); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		if err := rt.bindQuery(r, req, nil); err != nil {
+			rt.writeError(w, err)
+			return
+		}
+		resp, err := impl.CreatePublication(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
 }

@@ -101,6 +101,7 @@ go/signing/       the signing chain: JCS, the digest, sign and verify
 go/store/         the persistence port a backend implements
 go/auth/          the session port + a development placeholder
 go/service/       the handlers: store + auth + minting, behind the server interfaces
+go/pubmed/        a service.Resolver over NCBI E-utilities
 ts/               the contract in TypeScript — the npm package
                   (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
 internal/         protoscan (the .proto tree scan both modules check against), memstore (an in-memory store.Store)
