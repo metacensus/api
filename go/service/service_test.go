@@ -191,12 +191,12 @@ func TestJourney(t *testing.T) {
 	}
 	c.token = session.GetToken()
 
-	// Learn our own id.
+	// SignUp returns a session; /self exposes the user id it minted.
 	var self v1.UserSigned
 	decode(t, c.do("GET", "/self", nil), &self)
 	id := self.GetId()
-	if id == "" {
-		t.Fatal("self has no id")
+	if _, err := store.ParseID(store.UserID, id); err != nil {
+		t.Fatalf("sign-up minted user id: %v", err)
 	}
 	if self.GetContent().GetEmail() != "ada@example.com" {
 		t.Fatalf("self email = %q", self.GetContent().GetEmail())
@@ -212,8 +212,11 @@ func TestJourney(t *testing.T) {
 		UserSignature:  tSig,
 	}), &topicRec)
 	topicID := topicRec.GetId()
-	if topicID == "" || topicRec.GetRecorded() == nil {
-		t.Fatalf("topic not minted: %+v", &topicRec)
+	if _, err := store.ParseID(store.TopicID, topicID); err != nil {
+		t.Fatalf("create topic minted id: %v", err)
+	}
+	if topicRec.GetRecorded() == nil {
+		t.Fatal("create topic returned no recorded timestamp")
 	}
 
 	// Create a prop under the topic.
@@ -227,8 +230,8 @@ func TestJourney(t *testing.T) {
 		UserSignature:  pSig,
 	}), &propRec)
 	propID := propRec.GetId()
-	if propID == "" {
-		t.Fatal("prop has no id")
+	if _, err := store.ParseID(store.PropID, propID); err != nil {
+		t.Fatalf("create prop minted id: %v", err)
 	}
 
 	// Vote on the prop.
@@ -275,8 +278,11 @@ func TestMintingPreservesSignature(t *testing.T) {
 	var rec v1.TopicSigned
 	decode(t, c.do("POST", "/topic", &v1.TopicCreateRequest{Content: topic, Interpretation: interp, UserSignature: sig}), &rec)
 
-	if rec.GetId() == "" || rec.GetRecorded() == nil {
-		t.Fatal("server did not mint id/recorded")
+	if _, err := store.ParseID(store.TopicID, rec.GetId()); err != nil {
+		t.Fatalf("create topic minted id: %v", err)
+	}
+	if rec.GetRecorded() == nil {
+		t.Fatal("create topic returned no recorded timestamp")
 	}
 	stored, err := mem.GetTopic(t.Context(), rec.GetId())
 	if err != nil {
