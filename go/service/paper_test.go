@@ -42,12 +42,17 @@ var (
 // signedUp mounts a service over res and returns a client signed up on it.
 func signedUp(t *testing.T, res Resolver) *client {
 	t.Helper()
-	h := New(Config{
-		Store:      memstore.New(nil),
-		Resolver:   res,
-		Now:        func() time.Time { return time.Unix(1_700_000_000, 0).UTC() },
-		BcryptCost: 4,
-	})
+	return signedUpWith(t, Config{Resolver: res})
+}
+
+// signedUpWith mounts a service over cfg, with a fresh store and the test
+// clock, and returns a client signed up on it.
+func signedUpWith(t *testing.T, cfg Config) *client {
+	t.Helper()
+	cfg.Store = memstore.New(nil)
+	cfg.Now = func() time.Time { return time.Unix(1_700_000_000, 0).UTC() }
+	cfg.BcryptCost = 4
+	h := New(cfg)
 	c := newClient(t, mount(h))
 	user := &v1.User{Name: "Ada", Email: "ada@example.com"}
 	interp, sig := c.sign(user)

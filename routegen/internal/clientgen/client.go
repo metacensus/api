@@ -108,6 +108,19 @@ func pathExpr(path string, params []string, src string) string {
 	return b.String()
 }
 
+// queryExpr renders the query string a route's request carries, appended to
+// its path expression, or "" for a route with none. src is as for pathExpr.
+func queryExpr(query []string, src string) string {
+	if len(query) == 0 {
+		return ""
+	}
+	var fields []string
+	for _, q := range query {
+		fields = append(fields, fmt.Sprintf("%s: %s%s", q, src, q))
+	}
+	return " + query({ " + strings.Join(fields, ", ") + " })"
+}
+
 // listElem returns the element type of an {items: T[]} list envelope and true,
 // or md unchanged and false.
 func listElem(md protoreflect.MessageDescriptor) (protoreflect.MessageDescriptor, bool) {
@@ -189,8 +202,10 @@ func describeSurface(pkg model.Package, routes []model.Route, records *[]recordT
 		if r.Pkg.Proto != pkg.Proto {
 			continue
 		}
-		if len(r.Query) > 0 {
-			return surface{}, false, fmt.Errorf("%s.%s: query parameters are not supported by the batteries-included client; add support when a route needs one", r.Service, r.RPC)
+		for _, q := range r.Query {
+			if r.Descriptor.Input().Fields().ByJSONName(q).IsList() {
+				return surface{}, false, fmt.Errorf("%s.%s: query parameter %q is repeated; the batteries-included client sends scalars only", r.Service, r.RPC, q)
+			}
 		}
 		for _, tree := range []protoreflect.MessageDescriptor{r.Descriptor.Input(), r.Descriptor.Output()} {
 			if err := rejectBytes(tree, map[protoreflect.FullName]bool{}); err != nil {
@@ -248,7 +263,7 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{m}
 	}
 
-	base.PathExpr = pathExpr(r.Path, r.Params, "req.")
+	base.PathExpr = pathExpr(r.Path, r.Params, "req.") + queryExpr(r.Query, "req.")
 
 	if respHasToken { // login
 		m := base
@@ -293,11 +308,14 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{m}
 	}
 
-	// A plain response: a body-carrying POST (the public submission) or a bare
-	// GET (the healthcheck).
+	// A plain response: a body-carrying POST (the public submission), a list
+	// of unsigned, id-less items (search hits), or a bare GET (the
+	// healthcheck).
 	m := base
 	m.Return = out.Name
-	if r.Body == "*" {
+	if isList && r.Body != "*" {
+		m.Kind, m.List, m.Return = "list", out.Name, elemRef.Name+"[]"
+	} else if r.Body == "*" {
 		m.Kind = "post"
 	} else {
 		m.Kind, m.BodyArg = "raw", "undefined"

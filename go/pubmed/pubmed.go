@@ -1,6 +1,6 @@
-// Package pubmed is a service.Resolver over NCBI E-utilities: a DOI is
-// searched with ESearch, a PMID is fetched with EFetch, and the PubMed record
-// becomes a v1.Publication. Standard library only, since every consumer of the
+// Package pubmed is a service.Resolver and service.Searcher over NCBI
+// E-utilities: a DOI or a search term is searched with ESearch, PMIDs are
+// fetched with EFetch, and each PubMed record becomes a v1.Publication. Standard library only, since every consumer of the
 // module would carry a dependency here.
 //
 // The API key, rate limit and cache are the caller's, passed in Config: NCBI
@@ -26,7 +26,8 @@ import (
 // DefaultBaseURL is NCBI's E-utilities endpoint.
 const DefaultBaseURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
-// maxBody caps a response read; an EFetch of a few records is well under it.
+// maxBody caps a response read; an EFetch of a search's 100 records, abstracts
+// included, is well under it.
 const maxBody = 4 << 20
 
 // maxMatches caps the PMIDs a DOI search fetches. A DOI names one work, but
@@ -70,7 +71,10 @@ type Client struct {
 	base string
 }
 
-var _ service.Resolver = (*Client)(nil)
+var (
+	_ service.Resolver = (*Client)(nil)
+	_ service.Searcher = (*Client)(nil)
+)
 
 // New returns a Client over cfg.
 func New(cfg Config) *Client {
@@ -117,21 +121,68 @@ func (c *Client) Resolve(ctx context.Context, doi, pmid string) (*v1.Publication
 		return nil, err
 	}
 
-	if c.cfg.Cache != nil {
-		if pub.GetDoi() != "" {
-			c.cfg.Cache.Put(ctx, "doi:"+pub.GetDoi(), pub)
-		}
-		c.cfg.Cache.Put(ctx, "pmid:"+pub.GetPmid(), pub)
-	}
+	c.put(ctx, pub)
 	return pub, nil
+}
+
+// Search implements service.Searcher: ESearch by relevance, then one EFetch
+// of the hits, in ESearch's order. Each hit is cached as Resolve caches, so
+// adding one to a topic next needs no request. Book records are skipped, as
+// Resolve skips them.
+func (c *Client) Search(ctx context.Context, term string, max int) ([]*v1.Publication, error) {
+	ids, err := c.esearch(ctx, term, max)
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	set, err := c.efetch(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byPMID := make(map[string]*v1.Publication, len(set.Articles))
+	for _, a := range set.Articles {
+		pub := a.publication()
+		byPMID[pub.GetPmid()] = pub
+	}
+	pubs := make([]*v1.Publication, 0, len(ids))
+	for _, id := range ids {
+		if pub, ok := byPMID[id]; ok {
+			pubs = append(pubs, pub)
+			c.put(ctx, pub)
+		}
+	}
+	return pubs, nil
+}
+
+// put caches pub under each id it carries.
+func (c *Client) put(ctx context.Context, pub *v1.Publication) {
+	if c.cfg.Cache == nil {
+		return
+	}
+	if pub.GetDoi() != "" {
+		c.cfg.Cache.Put(ctx, "doi:"+pub.GetDoi(), pub)
+	}
+	c.cfg.Cache.Put(ctx, "pmid:"+pub.GetPmid(), pub)
 }
 
 // search returns the PMIDs whose record carries doi, or ErrUnresolved.
 func (c *Client) search(ctx context.Context, doi string) ([]string, error) {
+	ids, err := c.esearch(ctx, `"`+doi+`"[doi]`, maxMatches)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return nil, service.ErrUnresolved
+	}
+	return ids, nil
+}
+
+// esearch returns up to max PMIDs matching term, best match first.
+func (c *Client) esearch(ctx context.Context, term string, max int) ([]string, error) {
 	q := url.Values{
-		"term":    {`"` + doi + `"[doi]`},
+		"term":    {term},
 		"retmode": {"json"},
-		"retmax":  {fmt.Sprint(maxMatches)},
+		"retmax":  {fmt.Sprint(max)},
+		"sort":    {"relevance"},
 	}
 	body, err := c.get(ctx, "esearch.fcgi", q)
 	if err != nil {
@@ -149,14 +200,25 @@ func (c *Client) search(ctx context.Context, doi string) ([]string, error) {
 	if res.Result.Error != "" {
 		return nil, fmt.Errorf("pubmed: esearch: %s", res.Result.Error)
 	}
-	if len(res.Result.IDList) == 0 {
-		return nil, service.ErrUnresolved
-	}
 	return res.Result.IDList, nil
 }
 
 // fetch returns the first of ids' records that keep accepts, or ErrUnresolved.
 func (c *Client) fetch(ctx context.Context, ids []string, keep func(*v1.Publication) bool) (*v1.Publication, error) {
+	set, err := c.efetch(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range set.Articles {
+		if pub := a.publication(); keep(pub) {
+			return pub, nil
+		}
+	}
+	return nil, service.ErrUnresolved
+}
+
+// efetch returns ids' records.
+func (c *Client) efetch(ctx context.Context, ids []string) (*articleSet, error) {
 	q := url.Values{"id": {strings.Join(ids, ",")}, "retmode": {"xml"}}
 	body, err := c.get(ctx, "efetch.fcgi", q)
 	if err != nil {
@@ -166,12 +228,7 @@ func (c *Client) fetch(ctx context.Context, ids []string, keep func(*v1.Publicat
 	if err := xml.Unmarshal(body, &set); err != nil {
 		return nil, fmt.Errorf("pubmed: efetch: %w", err)
 	}
-	for _, a := range set.Articles {
-		if pub := a.publication(); keep(pub) {
-			return pub, nil
-		}
-	}
-	return nil, service.ErrUnresolved
+	return &set, nil
 }
 
 func (c *Client) get(ctx context.Context, endpoint string, q url.Values) ([]byte, error) {

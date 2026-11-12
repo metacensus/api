@@ -251,6 +251,16 @@ test("path params are percent-encoded per segment", async () => {
   assert.equal(calls[0].url, `${BASE}/metacensus/api/v1/topic/a%2Fb%20c/member/%C3%BC%3F%23%26`);
 });
 
+test("a query field travels in the query string, and is left out at its zero value", async () => {
+  const hit = { publication: { pmid: "1", title: "T" }, paperId: "" };
+  const { calls, fetch } = fetcher(json({ items: [hit] }));
+  const client = new Client({ baseUrl: BASE, fetch });
+  assert.deepEqual(await client.listHits({ topicId: "t1", term: "cannabis[tiab] AND sleep & rest" }), [hit]);
+  assert.equal(calls[0].url, `${BASE}/metacensus/api/v1/topic/t1/hit?term=cannabis%5Btiab%5D+AND+sleep+%26+rest`);
+  await client.listHits({ topicId: "t1", term: "" });
+  assert.equal(calls[1].url, `${BASE}/metacensus/api/v1/topic/t1/hit`);
+});
+
 test("an empty 2xx body becomes {}", async () => {
   const { fetch } = fetcher({ status: 200, body: "" });
   assert.deepEqual(await new Client({ baseUrl: BASE, fetch }).logout({}), {});

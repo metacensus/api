@@ -77,6 +77,10 @@ type Config struct {
 	// Optional: without one, creating a publication no store holds answers 503.
 	Resolver Resolver
 
+	// Searcher searches the bibliographic provider. Optional: without one, a
+	// search answers 503. pubmed.Client is both.
+	Searcher Searcher
+
 	// InsecureCookies drops the Secure attribute from the refresh cookie so it
 	// round-trips over plain http. For tests only; never set in production.
 	InsecureCookies bool
@@ -97,6 +101,7 @@ type Handlers struct {
 
 	store        store.Store
 	resolver     Resolver
+	searcher     Searcher
 	sessions     auth.Sessions
 	now          func() time.Time
 	bcryptCost   int
@@ -147,6 +152,7 @@ func New(cfg Config) *Handlers {
 	return &Handlers{
 		store:        cfg.Store,
 		resolver:     cfg.Resolver,
+		searcher:     cfg.Searcher,
 		sessions:     sessions,
 		now:          now,
 		bcryptCost:   cost,

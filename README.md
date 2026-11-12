@@ -101,7 +101,7 @@ go/signing/       the signing chain: JCS, the digest, sign and verify
 go/store/         the persistence port a backend implements
 go/auth/          the session port + a development placeholder
 go/service/       the handlers: store + auth + minting, behind the server interfaces
-go/pubmed/        a service.Resolver over NCBI E-utilities
+go/pubmed/        a service.Resolver and service.Searcher over NCBI E-utilities
 ts/               the contract in TypeScript — the npm package
                   (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
 internal/         protoscan (the .proto tree scan both modules check against), memstore (an in-memory store.Store)
@@ -193,7 +193,7 @@ The same walk writes `ts/src/client.ts`: one **batteries-included** client per s
 - **Non-interactive participant signing has no story.** A passkey assertion needs a user gesture and a browser authenticator, so curl, CI and any headless *participant* cannot produce one — deliberately (see "The signing chain"). The institutional layer is headless by design; a headless participant would need a different enrolled key type, which nothing defines.
 - **The browser passkey ceremony lives in the consumer.** `go/signing` and `ts/src/signing.ts` expose the format primitives — build the digest, verify an assertion, sign headless — but `navigator.credentials.create()/get()` is the consumer's. The generated TypeScript client's `Signer` is the seam it plugs into.
 - **Session storage, not session design.** The token model is now settled — short-lived opaque access tokens, long-lived rotating refresh tokens, an `HttpOnly` refresh cookie (see `go/auth`). What is still a placeholder is where that state lives: `MemorySessions` holds it in one process's memory, so a restart forgets every session and nothing is shared across replicas. Two deployment choices ride with it and belong to whoever operates the API, not to this contract: the credentialed-CORS configuration the browser posture needs, and whether the refresh cookie is set here or by a reverse proxy the adapter relocates to.
-- **Should the client, or a zero-valued query parameter, be split out / emitted?** No route declares a query field, and `sideEffects: false` already lets a bundler drop the client, so neither is urgent. Refs [#4](https://github.com/metacensus/api/issues/4).
+- **Should the client be split out?** `sideEffects: false` already lets a bundler drop it, so it is not urgent. A query field at its zero value is left out of the query string, which the server reads as that zero value. Refs [#4](https://github.com/metacensus/api/issues/4).
 - **Cross-language wire agreement is checked for the shapes the contract has, not the ones it could grow** — a 64-bit integer, a map, a `oneof` are untested, so the pairing in `proto/buf.gen.yaml` is only checked where a route exercises it.
 
 ## License

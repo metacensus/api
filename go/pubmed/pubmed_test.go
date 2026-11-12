@@ -284,3 +284,59 @@ func TestCacheIsFilledUnderBothIds(t *testing.T) {
 		t.Error("a miss was cached")
 	}
 }
+
+func TestSearch(t *testing.T) {
+	n := &ncbi{
+		// ESearch's order, which EFetch's (here the reverse) must not override;
+		// 40000000 is a book record EFetch skips.
+		search: `{"esearchresult":{"count":"3","idlist":["31452104","40000000","39999999"]}}`,
+		fetch:  map[string]string{"31452104,40000000,39999999": both},
+	}
+	srv := httptest.NewServer(n)
+	defer srv.Close()
+	cache := mapCache{}
+	got, err := New(Config{BaseURL: srv.URL, Cache: cache}).Search(context.Background(), "cannabis[tiab] AND sleep", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || !proto.Equal(got[0], resolved) || got[1].GetPmid() != "39999999" {
+		t.Fatalf("Search = %v, want the record then the erratum", got)
+	}
+	for _, want := range []string{"term=cannabis%5Btiab%5D+AND+sleep", "retmax=20", "sort=relevance"} {
+		if !strings.Contains(n.got[0], want) {
+			t.Errorf("esearch %q lacks %q", n.got[0], want)
+		}
+	}
+	if !proto.Equal(cache["doi:"+resolved.GetDoi()], resolved) || cache["pmid:39999999"] == nil {
+		t.Errorf("hits not cached under their ids: %v", cache)
+	}
+}
+
+func TestSearchFindingNothing(t *testing.T) {
+	n := &ncbi{search: `{"esearchresult":{"count":"0","idlist":[]}}`}
+	srv := httptest.NewServer(n)
+	defer srv.Close()
+	got, err := New(Config{BaseURL: srv.URL}).Search(context.Background(), "nothing", 20)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("Search = %v, %v; want no hits and no error", got, err)
+	}
+	if len(n.got) != 1 {
+		t.Errorf("an empty search still fetched: %v", n.got)
+	}
+}
+
+func TestSearchFailing(t *testing.T) {
+	for name, n := range map[string]*ncbi{
+		"a query error":  {search: `{"esearchresult":{"ERROR":"Invalid query"}}`},
+		"a rate limit":   {status: http.StatusTooManyRequests},
+		"a broken fetch": {search: `{"esearchresult":{"idlist":["1"]}}`, fetch: map[string]string{"1": "<PubmedArticleSet><PubmedArticle>"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(n)
+			defer srv.Close()
+			if _, err := New(Config{BaseURL: srv.URL}).Search(context.Background(), "x", 20); err == nil {
+				t.Error("Search succeeded")
+			}
+		})
+	}
+}
