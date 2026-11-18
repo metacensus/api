@@ -5,24 +5,44 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 )
 
-// fakeSearcher answers every term with its works, and records what it was
-// asked.
+// fakeSearcher answers every term with its works' PMIDs, fetches them by
+// PMID, and records what it was asked.
 type fakeSearcher struct {
-	works []*v1.Publication
-	err   error
-	terms []string
-	max   int
+	works   []*v1.Publication
+	err     error
+	terms   []string
+	max     int
+	fetched [][]string
 }
 
-func (f *fakeSearcher) Search(_ context.Context, term string, max int) ([]*v1.Publication, error) {
+func (f *fakeSearcher) Name() string { return "fake" }
+
+func (f *fakeSearcher) Search(_ context.Context, term string, max int) ([]string, error) {
 	f.terms, f.max = append(f.terms, term), max
-	return f.works, f.err
+	ids := make([]string, len(f.works))
+	for i, w := range f.works {
+		ids[i] = "pmid:" + w.GetPmid()
+	}
+	return ids, f.err
+}
+
+func (f *fakeSearcher) Fetch(_ context.Context, ids []string) ([]*v1.Publication, error) {
+	f.fetched = append(f.fetched, ids)
+	var pubs []*v1.Publication
+	for _, w := range f.works {
+		if slices.Contains(ids, "pmid:"+w.GetPmid()) {
+			pubs = append(pubs, w)
+		}
+	}
+	return pubs, f.err
 }
 
 // searching mounts a service over res and s and returns a client signed up
@@ -71,6 +91,120 @@ func TestHitsMarkWhatTheTopicHolds(t *testing.T) {
 	}
 	if p := items[2].GetPublication(); p.GetId() != "" || p.GetRecorded() != nil || p.GetPmid() != other.GetPmid() || items[2].GetPaperId() != "" {
 		t.Errorf("new hit = %v, want the provider's record, unstored", items[2])
+	}
+	if want := [][]string{{"pmid:" + other.GetPmid()}}; !slices.EqualFunc(s.fetched, want, slices.Equal) {
+		t.Errorf("fetched %v, want only the unstored work: %v", s.fetched, want)
+	}
+}
+
+func answering(t *testing.T, s Searcher, a Answers) *client {
+	t.Helper()
+	return signedUpWith(t, Config{Resolver: &fakeResolver{works: []*v1.Publication{dpyd}}, Searcher: s, Answers: a})
+}
+
+func TestWithoutAnswersEverySearchAsksTheProvider(t *testing.T) {
+	s := &fakeSearcher{works: []*v1.Publication{ugt}}
+	c := searching(t, nil, s)
+	topicID := c.topic()
+	c.hits(topicID, "ugt")
+	got := c.hits(topicID, "ugt")
+	if len(s.terms) != 2 || len(s.fetched) != 2 {
+		t.Errorf("searched %d and fetched %d times, want 2 and 2", len(s.terms), len(s.fetched))
+	}
+	if !got.GetSearched().AsTime().Equal(testNow) {
+		t.Errorf("searched %v, want %v", got.GetSearched().AsTime(), testNow)
+	}
+}
+
+func TestRepeatedTermAsksTheProviderNothing(t *testing.T) {
+	s := &fakeSearcher{works: []*v1.Publication{ugt}}
+	c := answering(t, s, NewMemoryAnswers())
+	topicID := c.topic()
+	c.hits(topicID, "ugt AND  toxicity")
+	got := c.hits(topicID, " ugt AND toxicity ")
+	if len(s.terms) != 1 || len(s.fetched) != 1 {
+		t.Errorf("searched %d and fetched %d times, want 1 and 1", len(s.terms), len(s.fetched))
+	}
+	if items := got.GetItems(); len(items) != 1 || items[0].GetPublication().GetPmid() != ugt.GetPmid() {
+		t.Errorf("repeated hits = %v, want %s", items, ugt.GetPmid())
+	}
+}
+
+// TestNewTermOfStoredWorksOnlySearches searches for a stored publication and
+// a work whose record is held.
+func TestNewTermOfStoredWorksOnlySearches(t *testing.T) {
+	ctx := context.Background()
+	a := NewMemoryAnswers()
+	a.PutRecords(ctx, "fake", map[string]*ProviderRecord{"pmid:" + ugt.GetPmid(): {Publication: ugt, Fetched: testNow}})
+	s := &fakeSearcher{works: []*v1.Publication{dpyd, ugt}}
+	c := answering(t, s, a)
+	topicID := c.topic()
+	stored := c.publication(dpyd.GetDoi(), "")
+
+	items := c.hits(topicID, "dpyd OR ugt").GetItems()
+	if len(s.terms) != 1 || len(s.fetched) != 0 {
+		t.Errorf("searched %d and fetched %v, want 1 search and no fetch", len(s.terms), s.fetched)
+	}
+	if len(items) != 2 || items[0].GetPublication().GetId() != stored.GetId() || items[1].GetPublication().GetPmid() != ugt.GetPmid() {
+		t.Errorf("hits = %v, want %s then %s", items, stored.GetId(), ugt.GetPmid())
+	}
+}
+
+// TestExpiredAnswersAreAskedAgain holds a term's answer and a work's record,
+// each fresh or expired, and checks the provider is asked for the expired
+// ones and its answer replaces them.
+func TestExpiredAnswersAreAskedAgain(t *testing.T) {
+	const term = "ugt"
+	id := "pmid:" + ugt.GetPmid()
+	revised := &v1.Publication{Doi: ugt.GetDoi(), Pmid: ugt.GetPmid(), Title: "UGT1A1, revised"}
+	fresh, termExpired, recordExpired := testNow.Add(-time.Hour), testNow.Add(-DefaultTermTTL), testNow.Add(-DefaultRecordTTL)
+	for _, tt := range []struct {
+		name                    string
+		searched, fetched       time.Time
+		wantSearches, wantFetch int
+		wantSearched            time.Time
+		wantTitle               string
+	}{
+		{name: "both fresh", searched: fresh, fetched: fresh, wantSearched: fresh, wantTitle: ugt.GetTitle()},
+		{name: "term expired", searched: termExpired, fetched: fresh, wantSearches: 1, wantSearched: testNow, wantTitle: ugt.GetTitle()},
+		{name: "record expired", searched: fresh, fetched: recordExpired, wantFetch: 1, wantSearched: fresh, wantTitle: revised.GetTitle()},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			a := NewMemoryAnswers()
+			a.PutTerm(ctx, "fake", term, &TermAnswer{IDs: []string{id}, Searched: tt.searched})
+			a.PutRecords(ctx, "fake", map[string]*ProviderRecord{id: {Publication: ugt, Fetched: tt.fetched}})
+			s := &fakeSearcher{works: []*v1.Publication{revised}}
+			c := answering(t, s, a)
+
+			got := c.hits(c.topic(), term)
+			if len(s.terms) != tt.wantSearches || len(s.fetched) != tt.wantFetch {
+				t.Errorf("searched %d and fetched %d times, want %d and %d", len(s.terms), len(s.fetched), tt.wantSearches, tt.wantFetch)
+			}
+			if !got.GetSearched().AsTime().Equal(tt.wantSearched) {
+				t.Errorf("searched %v, want when the provider answered, %v", got.GetSearched().AsTime(), tt.wantSearched)
+			}
+			if items := got.GetItems(); len(items) != 1 || items[0].GetPublication().GetTitle() != tt.wantTitle {
+				t.Errorf("hits = %v, want %q", items, tt.wantTitle)
+			}
+			if held, _ := a.Term(ctx, "fake", term); !held.Searched.Equal(tt.wantSearched) {
+				t.Errorf("held term searched %v, want %v", held.Searched, tt.wantSearched)
+			}
+			if held, _ := a.Records(ctx, "fake", []string{id}); held[id].Publication.GetTitle() != tt.wantTitle {
+				t.Errorf("held record %v, want %q", held[id].Publication, tt.wantTitle)
+			}
+		})
+	}
+}
+
+// TestPublicationFromAHeldRecord adds a hit to MetaCensus without asking the
+// resolver: the search held its record.
+func TestPublicationFromAHeldRecord(t *testing.T) {
+	res := &fakeResolver{}
+	c := signedUpWith(t, Config{Resolver: res, Searcher: &fakeSearcher{works: []*v1.Publication{ugt}}, Answers: NewMemoryAnswers()})
+	c.hits(c.topic(), "ugt")
+	if pub := c.publication("", ugt.GetPmid()); pub.GetTitle() != ugt.GetTitle() || res.asked != 0 {
+		t.Errorf("publication %v after %d resolves, want %q and none", pub, res.asked, ugt.GetTitle())
 	}
 }
 
