@@ -34,7 +34,7 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 |---|---|
 | `List*`/`Get*`/`Lookup*` and `HealthRoutes.Healthcheck` use `GET`; every other RPC uses `POST`, so a read must carry one of those names. | `TestNonConformingRoutes` |
 | Paths are resource nouns nested by ownership (`/topic/{topicId}/prop/{propId}/vote`), params `{lowerCamelCase}`, no verbs (`POST /topic`, not `POST /topic/create`); a resource scoped to the caller takes no id (`GET /self`). The session verbs on `AuthRoutes` (`/login`, `/signup`, `/refresh`, `/logout`) are the one exception. | `TestNonConformingRoutes` (verbs); review |
-| Lists are `{ items: [...] }`. No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
+| Lists are `{ items: [...] }`, plus any singular field about the whole answer (`HitList.searched`). No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
 | Server-minted ids are `<kind>:<UUIDv7>` (`go/store`). | `TestJourney` |
 | A path-bound id repeated in `content` equals the one in the path. | `TestPathAndSignedContentMustAgree` |
 | A composite key, like `Vote`'s `(propId, userId)`, addresses one live value per parent and actor, written with `Set*`; any other writable record gets a minted id. | review |

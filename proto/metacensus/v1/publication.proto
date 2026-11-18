@@ -25,9 +25,9 @@ service PublicationRoutes {
   }
 
   // Searches the provider (PubMed) for `term` and answers its first hits, at
-  // most 100, best match first; nothing is recorded. Not paginated: a search
-  // past the cap is refined, not paged. 400 without a term; 404 for an unknown
-  // topic; 503 when the provider cannot be reached.
+  // most 100, best match first; nothing is recorded on the topic. Not
+  // paginated: a search past the cap is refined, not paged. 400 without a
+  // term; 404 for an unknown topic; 503 when the provider cannot be reached.
   rpc ListHits(HitListRequest) returns (HitList) {
     option (google.api.http) = {get: "/topic/{topic_id}/hit"};
   }
@@ -106,6 +106,9 @@ message HitListRequest {
 
 message HitList {
   repeated Hit items = 1;
+
+  // When the provider answered `term`, which may precede this request.
+  google.protobuf.Timestamp searched = 2;
 }
 
 // One work the provider found, and what the topic already holds of it,

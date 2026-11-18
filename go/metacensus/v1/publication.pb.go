@@ -374,8 +374,10 @@ func (x *HitListRequest) GetTerm() string {
 }
 
 type HitList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Items         []*Hit                 `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Items []*Hit                 `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	// When the provider answered `term`, which may precede this request.
+	Searched      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=searched,proto3" json:"searched,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -413,6 +415,13 @@ func (*HitList) Descriptor() ([]byte, []int) {
 func (x *HitList) GetItems() []*Hit {
 	if x != nil {
 		return x.Items
+	}
+	return nil
+}
+
+func (x *HitList) GetSearched() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Searched
 	}
 	return nil
 }
@@ -504,9 +513,10 @@ const file_metacensus_v1_publication_proto_rawDesc = "" +
 	"\x04pmid\x18\x02 \x01(\tR\x04pmid\"?\n" +
 	"\x0eHitListRequest\x12\x19\n" +
 	"\btopic_id\x18\x01 \x01(\tR\atopicId\x12\x12\n" +
-	"\x04term\x18\x02 \x01(\tR\x04term\"3\n" +
+	"\x04term\x18\x02 \x01(\tR\x04term\"k\n" +
 	"\aHitList\x12(\n" +
-	"\x05items\x18\x01 \x03(\v2\x12.metacensus.v1.HitR\x05items\"^\n" +
+	"\x05items\x18\x01 \x03(\v2\x12.metacensus.v1.HitR\x05items\x126\n" +
+	"\bsearched\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\bsearched\"^\n" +
 	"\x03Hit\x12<\n" +
 	"\vpublication\x18\x01 \x01(\v2\x1a.metacensus.v1.PublicationR\vpublication\x12\x19\n" +
 	"\bpaper_id\x18\x02 \x01(\tR\apaperId2\xe3\x02\n" +
@@ -542,18 +552,19 @@ var file_metacensus_v1_publication_proto_depIdxs = []int32{
 	7, // 0: metacensus.v1.Publication.recorded:type_name -> google.protobuf.Timestamp
 	1, // 1: metacensus.v1.Publication.authors:type_name -> metacensus.v1.Author
 	6, // 2: metacensus.v1.HitList.items:type_name -> metacensus.v1.Hit
-	0, // 3: metacensus.v1.Hit.publication:type_name -> metacensus.v1.Publication
-	2, // 4: metacensus.v1.PublicationRoutes.GetPublication:input_type -> metacensus.v1.PublicationGetRequest
-	3, // 5: metacensus.v1.PublicationRoutes.CreatePublication:input_type -> metacensus.v1.PublicationCreateRequest
-	4, // 6: metacensus.v1.PublicationRoutes.ListHits:input_type -> metacensus.v1.HitListRequest
-	0, // 7: metacensus.v1.PublicationRoutes.GetPublication:output_type -> metacensus.v1.Publication
-	0, // 8: metacensus.v1.PublicationRoutes.CreatePublication:output_type -> metacensus.v1.Publication
-	5, // 9: metacensus.v1.PublicationRoutes.ListHits:output_type -> metacensus.v1.HitList
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	7, // 3: metacensus.v1.HitList.searched:type_name -> google.protobuf.Timestamp
+	0, // 4: metacensus.v1.Hit.publication:type_name -> metacensus.v1.Publication
+	2, // 5: metacensus.v1.PublicationRoutes.GetPublication:input_type -> metacensus.v1.PublicationGetRequest
+	3, // 6: metacensus.v1.PublicationRoutes.CreatePublication:input_type -> metacensus.v1.PublicationCreateRequest
+	4, // 7: metacensus.v1.PublicationRoutes.ListHits:input_type -> metacensus.v1.HitListRequest
+	0, // 8: metacensus.v1.PublicationRoutes.GetPublication:output_type -> metacensus.v1.Publication
+	0, // 9: metacensus.v1.PublicationRoutes.CreatePublication:output_type -> metacensus.v1.Publication
+	5, // 10: metacensus.v1.PublicationRoutes.ListHits:output_type -> metacensus.v1.HitList
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_metacensus_v1_publication_proto_init() }

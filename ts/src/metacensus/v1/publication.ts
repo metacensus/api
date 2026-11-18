@@ -87,6 +87,8 @@ export interface HitListRequest {
 
 export interface HitList {
   items: Hit[];
+  /** When the provider answered `term`, which may precede this request. */
+  searched?: string | undefined;
 }
 
 /**
