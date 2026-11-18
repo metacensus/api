@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// Resolver looks a work up at the bibliographic provider (PubMed): the key,
-// rate limits and caching are the backend's. Resolve returns the publication
+// Resolver looks a work up at the bibliographic provider (PubMed): the key and
+// rate limits are the backend's. Resolve returns the publication
 // that doi or pmid (either may be empty, never both) names, with every id the
 // provider knows normalized as the service normalizes posted ones, and id and
 // recorded unset.
@@ -21,6 +21,9 @@ import (
 // ErrUnresolved if the provider knows no such work. Any other error means it
 // could not be reached, and the request creates nothing.
 type Resolver interface {
+	// Name is as Searcher.Name.
+	Name() string
+
 	Resolve(ctx context.Context, doi, pmid string) (*v1.Publication, error)
 }
 
@@ -37,9 +40,9 @@ func (h *Handlers) GetPublication(ctx context.Context, req *v1.PublicationGetReq
 
 // CreatePublication answers with the publication a posted DOI or PMID names.
 // A publication already holding a posted id is returned without asking the
-// provider; otherwise the provider resolves the work, and a publication
-// holding one of the ids it resolved to (a DOI posted for a work first added
-// by its PMID) is returned instead of a second one.
+// provider; otherwise resolve answers it, and a publication holding one of the
+// ids it resolved to (a DOI posted for a work first added by its PMID) is
+// returned instead of a second one.
 func (h *Handlers) CreatePublication(ctx context.Context, req *v1.PublicationCreateRequest) (*v1.Publication, error) {
 	if _, cerr := h.caller(ctx); cerr != nil {
 		return nil, cerr
@@ -54,12 +57,9 @@ func (h *Handlers) CreatePublication(ctx context.Context, req *v1.PublicationCre
 	if h.resolver == nil {
 		return nil, unavailable("no bibliographic provider is configured", nil)
 	}
-	resolved, err := h.resolver.Resolve(ctx, doi, pmid)
-	if errors.Is(err, ErrUnresolved) {
-		return nil, invalidContent("the provider knows no such work")
-	}
+	resolved, err := h.resolve(ctx, doi, pmid)
 	if err != nil {
-		return nil, unavailable("the bibliographic provider is unavailable", err)
+		return nil, err
 	}
 	if doi != "" && resolved.GetDoi() != doi || pmid != "" && resolved.GetPmid() != pmid {
 		return nil, invalidContent("the DOI and the PMID name different works")
@@ -80,6 +80,34 @@ func (h *Handlers) CreatePublication(ctx context.Context, req *v1.PublicationCre
 		return nil, mapErr(err)
 	}
 	return record, nil
+}
+
+// resolve is the record held under pmid, else doi, or else the provider's
+// answer, held for next time. A work the provider does not know is not held.
+func (h *Handlers) resolve(ctx context.Context, doi, pmid string) (*v1.Publication, error) {
+	provider := h.resolver.Name()
+	id := "doi:" + doi
+	if pmid != "" {
+		id = "pmid:" + pmid
+	}
+	held, err := h.heldRecords(ctx, provider, []string{id})
+	if err != nil {
+		return nil, err
+	}
+	if pub := held[id]; pub != nil {
+		return pub, nil
+	}
+	resolved, err := h.resolver.Resolve(ctx, doi, pmid)
+	if errors.Is(err, ErrUnresolved) {
+		return nil, invalidContent("the provider knows no such work")
+	}
+	if err != nil {
+		return nil, unavailable("the bibliographic provider is unavailable", err)
+	}
+	if err := h.holdRecords(ctx, provider, []*v1.Publication{resolved}); err != nil {
+		return nil, err
+	}
+	return resolved, nil
 }
 
 // findPublication is FindPublication with NotFound as (nil, nil).

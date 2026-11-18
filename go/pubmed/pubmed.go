@@ -1,9 +1,10 @@
 // Package pubmed is a service.Resolver and service.Searcher over NCBI
 // E-utilities: a DOI or a search term is searched with ESearch, PMIDs are
-// fetched with EFetch, and each PubMed record becomes a v1.Publication. Standard library only, since every consumer of the
-// module would carry a dependency here.
+// fetched with EFetch, and each PubMed record becomes a v1.Publication.
+// Standard library only, since every consumer of the module would carry a
+// dependency here.
 //
-// The API key, rate limit and cache are the caller's, passed in Config: NCBI
+// The API key and rate limit are the caller's, passed in Config: NCBI
 // allows 3 requests a second without a key and 10 with one, per key, so the
 // limiter must be shared by everything that uses that key — something this
 // package cannot see.
@@ -53,16 +54,6 @@ type Config struct {
 	// Wait is called before every request to NCBI and fails it on error —
 	// rate.Limiter.Wait fits. Nil means no limit.
 	Wait func(context.Context) error
-
-	// Cache, if set, is consulted before NCBI and filled after it.
-	Cache Cache
-}
-
-// Cache holds resolved publications by "doi:<doi>" and "pmid:<pmid>". A
-// publication is stored under each id it carries. Misses are not cached.
-type Cache interface {
-	Get(ctx context.Context, key string) (*v1.Publication, bool)
-	Put(ctx context.Context, key string, pub *v1.Publication)
 }
 
 // Client resolves DOIs and PMIDs at PubMed.
@@ -88,22 +79,15 @@ func New(cfg Config) *Client {
 	return &Client{cfg: cfg, base: strings.TrimSuffix(base, "/") + "/"}
 }
 
+// Name implements service.Resolver and service.Searcher.
+func (c *Client) Name() string { return "pubmed" }
+
 // Resolve implements service.Resolver. With a PMID it fetches that record and
 // ignores doi (the service checks the two agree); with only a DOI it searches
 // for it and keeps the record carrying exactly that DOI.
 func (c *Client) Resolve(ctx context.Context, doi, pmid string) (*v1.Publication, error) {
 	doi = normalizeDOI(doi)
 	pmid = strings.TrimSpace(pmid)
-	key := "pmid:" + pmid
-	if pmid == "" {
-		key = "doi:" + doi
-	}
-	if c.cfg.Cache != nil {
-		if pub, ok := c.cfg.Cache.Get(ctx, key); ok {
-			return pub, nil
-		}
-	}
-
 	var pub *v1.Publication
 	var err error
 	switch {
@@ -120,48 +104,44 @@ func (c *Client) Resolve(ctx context.Context, doi, pmid string) (*v1.Publication
 	if err != nil {
 		return nil, err
 	}
-
-	c.put(ctx, pub)
 	return pub, nil
 }
 
-// Search implements service.Searcher: ESearch by relevance, then one EFetch
-// of the hits, in ESearch's order. Each hit is cached as Resolve caches, so
-// adding one to a topic next needs no request. Book records are skipped, as
-// Resolve skips them.
-func (c *Client) Search(ctx context.Context, term string, max int) ([]*v1.Publication, error) {
-	ids, err := c.esearch(ctx, term, max)
-	if err != nil || len(ids) == 0 {
-		return nil, err
-	}
-	set, err := c.efetch(ctx, ids)
+// Search implements service.Searcher: ESearch by relevance, each PMID as
+// "pmid:<pmid>".
+func (c *Client) Search(ctx context.Context, term string, max int) ([]string, error) {
+	pmids, err := c.esearch(ctx, term, max)
 	if err != nil {
 		return nil, err
 	}
-	byPMID := make(map[string]*v1.Publication, len(set.Articles))
-	for _, a := range set.Articles {
-		pub := a.publication()
-		byPMID[pub.GetPmid()] = pub
+	ids := make([]string, len(pmids))
+	for i, pmid := range pmids {
+		ids[i] = "pmid:" + pmid
 	}
-	pubs := make([]*v1.Publication, 0, len(ids))
-	for _, id := range ids {
-		if pub, ok := byPMID[id]; ok {
-			pubs = append(pubs, pub)
-			c.put(ctx, pub)
-		}
-	}
-	return pubs, nil
+	return ids, nil
 }
 
-// put caches pub under each id it carries.
-func (c *Client) put(ctx context.Context, pub *v1.Publication) {
-	if c.cfg.Cache == nil {
-		return
+// Fetch implements service.Searcher: one EFetch of the "pmid:" ids. Any other
+// id, and a book record (as Resolve skips them), is left out.
+func (c *Client) Fetch(ctx context.Context, ids []string) ([]*v1.Publication, error) {
+	var pmids []string
+	for _, id := range ids {
+		if pmid, ok := strings.CutPrefix(id, "pmid:"); ok {
+			pmids = append(pmids, pmid)
+		}
 	}
-	if pub.GetDoi() != "" {
-		c.cfg.Cache.Put(ctx, "doi:"+pub.GetDoi(), pub)
+	if len(pmids) == 0 {
+		return nil, nil
 	}
-	c.cfg.Cache.Put(ctx, "pmid:"+pub.GetPmid(), pub)
+	set, err := c.efetch(ctx, pmids)
+	if err != nil {
+		return nil, err
+	}
+	pubs := make([]*v1.Publication, len(set.Articles))
+	for i, a := range set.Articles {
+		pubs[i] = a.publication()
+	}
+	return pubs, nil
 }
 
 // search returns the PMIDs whose record carries doi, or ErrUnresolved.
