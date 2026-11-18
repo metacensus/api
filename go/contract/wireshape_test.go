@@ -111,8 +111,8 @@ func TestNoEnumsAtPackageScope(t *testing.T) {
 	})
 }
 
-// A list response is an object with a single repeated items, never a bare array
-// and never a second field.
+// A list response is an object with a repeated items, never a bare array, and
+// any other field is singular: it describes the whole answer.
 func TestListResponsesWrapItems(t *testing.T) {
 	forEachContractMessage(t, func(md protoreflect.MessageDescriptor) {
 		name := string(md.Name())
@@ -121,15 +121,16 @@ func TestListResponsesWrapItems(t *testing.T) {
 		}
 
 		fields := md.Fields()
-		if fields.Len() != 1 {
-			t.Errorf("%s: list response has %d fields, want only items", name, fields.Len())
-			return
-		}
 		items := fields.ByName("items")
 		if items == nil {
 			t.Errorf("%s: no `items` field", name)
 		} else if !items.IsList() {
 			t.Errorf("%s: `items` is not repeated", name)
+		}
+		for i := 0; i < fields.Len(); i++ {
+			if fd := fields.Get(i); fd != items && (fd.IsList() || fd.IsMap()) {
+				t.Errorf("%s: `%s` is a second collection; a list holds only items", name, fd.Name())
+			}
 		}
 	})
 }

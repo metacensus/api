@@ -307,14 +307,11 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{m}
 	}
 
-	// A plain response: a body-carrying POST (a publication), a list
-	// of unsigned, id-less items (search hits), or a bare GET (the
-	// healthcheck).
+	// A plain response: a body-carrying POST (a publication) or a bare GET
+	// (the healthcheck, search hits).
 	m := base
 	m.Return = out.Name
-	if isList && r.Body != "*" {
-		m.Kind, m.List, m.Return = "list", out.Name, elemRef.Name+"[]"
-	} else if r.Body == "*" {
+	if r.Body == "*" {
 		m.Kind = "post"
 	} else {
 		m.Kind, m.BodyArg = "raw", "undefined"
