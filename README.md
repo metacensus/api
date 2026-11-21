@@ -1,6 +1,6 @@
 # The MetaCensus API contract, in Protocol Buffers
 
-Every request and response under `/metacensus/api/v1`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client, and the signing chain. The public, unauthenticated surface is [metacensus/library-api-public](https://github.com/metacensus/library-api-public).
+Every request and response under `/metacensus/api/v1`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client, and the signing chain. The public, unauthenticated surface (`/metacensus/public`) is library-api-public: the Go module `github.com/metacensus/library-api-public` and the npm package [`@metacensus/library-api-public`](https://www.npmjs.com/package/@metacensus/library-api-public).
 
 **Consumers pin a release of the Go module or the npm package**, so a change here ends with a release and a bump in each. Not production-ready ([#87](https://github.com/metacensus/api/issues/87)).
 

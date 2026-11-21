@@ -3,7 +3,7 @@
 TypeScript interfaces for the MetaCensus API contract — every request and
 response under `/metacensus/api/v1`, generated from the `.proto` sources that
 also generate the Go side. The public, unauthenticated surface is
-[`@metacensus/library-api-public`](https://github.com/metacensus/library-api-public).
+[`@metacensus/library-api-public`](https://www.npmjs.com/package/@metacensus/library-api-public).
 
 What ships is the generated interfaces, the route manifest, `protobufPackage`, a
 batteries-included client, and the signing chain. How dependencies

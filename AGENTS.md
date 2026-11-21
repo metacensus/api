@@ -4,7 +4,7 @@ Cross-cutting decisions with no single declaration to sit beside. Per-declaratio
 
 ## Compatibility and versioning
 
-**`metacensus.v1` owes no compatibility yet** — its consumers ship together. The public surface, which owes compatibility to whatever is deployed, is [metacensus/library-api-public](https://github.com/metacensus/library-api-public).
+**`metacensus.v1` owes no compatibility yet** — its consumers ship together. The public surface, which owes compatibility to whatever is deployed, is library-api-public (README).
 
 **Wire version and release tag are independent.** The `v1` in `metacensus.v1` and its prefix versions the schema; the release tag versions the repository — one `v*` tag, one npm version, one Go module version.
 
