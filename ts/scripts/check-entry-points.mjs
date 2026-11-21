@@ -1,6 +1,6 @@
-// Assert the entry points export every generated module. The exports are hand-listed, so a new generated module can
-// ship in dist/ that no consumer can import — an absence, not a failure, that
-// nothing else catches.
+// Assert the entry points export every generated module. The exports are
+// hand-listed, so a new generated module can ship in dist/ that no consumer can
+// import — an absence, not a failure, that nothing else catches.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -45,11 +45,10 @@ function* walk(dir) {
 // named list of any length.
 const exportFrom = /^[ \t]*export\s+(?:\*|\{[\s\S]*?\})\s+from\s+"(\.[^"]+)";/gm;
 
-// entry point -> the src/ modules it exports
-const exported = new Map();
+// The src/ modules some entry point exports.
+const exported = new Set();
 for (const entry of entryPoints) {
   const source = readFileSync(join(pkgRoot, entry), "utf8");
-  const paths = new Set();
   for (const [, spec] of source.matchAll(exportFrom)) {
     const path = spec.replace(/^\.\//, "").replace(/\.js$/, ".ts");
     try {
@@ -58,9 +57,8 @@ for (const entry of entryPoints) {
       failures.push(`${entry}: exports ${spec}, which does not exist`);
       continue;
     }
-    paths.add(path);
+    exported.add(path);
   }
-  exported.set(entry, paths);
 }
 
 for (const tsconfig of ["tsconfig.json", "tsconfig.build.json"]) {
@@ -79,11 +77,9 @@ for (const tsconfig of ["tsconfig.json", "tsconfig.build.json"]) {
   }
 }
 
-const allExported = new Set([...exported.values()].flatMap((s) => [...s]));
-
 for (const file of walk(srcRoot)) {
   const rel = relative(pkgRoot, file);
-  if (!allExported.has(rel)) {
+  if (!exported.has(rel)) {
     failures.push(
       `${rel} is generated but no entry point exports it, so it ships in ` +
         `dist/ and no consumer can import it. Add a line to index.ts.`,

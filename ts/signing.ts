@@ -1,6 +1,5 @@
-// The MetaCensus signing chain, producing the same digest as go/signing. A
-// second entry point, split by concern. See ts/README.md,
-// "Signing". The runtime half is src/signing.ts.
+// The MetaCensus signing chain, producing the same digest as go/signing. See
+// ts/README.md, "Signing". The runtime half is src/signing.ts.
 
 export {
   SPEC,

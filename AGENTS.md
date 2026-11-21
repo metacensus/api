@@ -4,9 +4,9 @@ Cross-cutting decisions with no single declaration to sit beside. Per-declaratio
 
 ## Compatibility and versioning
 
-**`metacensus.v1` owes no compatibility yet** — its consumers ship together. The public surface, which owes compatibility to whatever is deployed, is library-api-public (README).
+**`metacensus.v1` owes no compatibility yet** — its consumers ship together.
 
-**Wire version and release tag are independent.** The `v1` in `metacensus.v1` and its prefix versions the schema; the release tag versions the repository — one `v*` tag, one npm version, one Go module version.
+**Wire version and release tag are independent.** The `v1` in `metacensus.v1` and in its prefix versions the schema; the release tag versions the repository — one `v*` tag, one npm version, one Go module version.
 
 **`make breaking`** asks whether the schema breaks **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base. The rule set is buf's `FILE` — the strictest there is; breaks invisible to any schema (a narrowed cap, a newly-required field, a value that changes meaning) are held by review. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)); intact for running by hand. An intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
 
@@ -45,7 +45,7 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 
 ## Errors
 
-The contract does not type its failures: the HTTP status is the machine-readable signal, the body around it is not in the contract. `metacensus.v1` dropped its `Error{string}` on the argument that free text buys a client nothing the status doesn't ([da9db64](https://github.com/metacensus/api/commit/da9db64)).
+The contract does not type its failures: the HTTP status is the machine-readable signal, and the body around it is not in the contract — free text buys a client nothing the status doesn't.
 
 **The trigger for typing failures is an implementation emitting a `code`** — a stable discriminator the status doesn't carry. When one does, the contract gains a message for it: call it **`Failure`, not `Error`** (`Error` shadows the TS global and breaks `throw new Error(...)` in an importing module), and `ok` is not part of it.
 

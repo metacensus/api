@@ -55,7 +55,7 @@ func RenderTS(routes []model.Route) ([]byte, error) {
 
 // render runs the blocks both manifests share, in order — the two templates
 // differ only in what each block says. The prefix block runs per package, so
-// a third surface is a table entry rather than an edit to two templates.
+// another surface is a table entry rather than an edit to two templates.
 func render(t *template.Template, routes []model.Route, format func([]byte) ([]byte, error)) ([]byte, error) {
 	var b bytes.Buffer
 	if err := execute(&b, t, "header", packagesData{model.Packages}); err != nil {

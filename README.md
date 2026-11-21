@@ -117,7 +117,7 @@ import type { Topic } from "@metacensus/api";   // the contract
 import { sign } from "@metacensus/api/signing"; // the signing chain
 ```
 
-**One entry point per concern**, the set derived by `check-entry-points.mjs` from `package.json`: `@metacensus/api/signing` splits by concern so a consumer who only wants `Topic` needn't resolve a pile of WebCrypto. Go needed no equivalent — its packages were already separate. A consumer's Go must satisfy the `go` directive in the root `go.mod`. Client usage is in [ts/README.md](ts/README.md).
+**`@metacensus/api/signing` is an entry point of its own**, so a consumer who only wants `Topic` needn't resolve a pile of WebCrypto; `check-entry-points.mjs` derives the set from `package.json`. Go's packages are separate already. A consumer's Go must satisfy the `go` directive in the root `go.mod`. Client usage is in [ts/README.md](ts/README.md).
 
 ## Working on it
 

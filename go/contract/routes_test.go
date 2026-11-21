@@ -204,7 +204,7 @@ func TestNonConformingRoutes_AccumulatesByFullPath(t *testing.T) {
 			},
 		},
 		{
-			name: "error - surfaces keep separate reasons",
+			name: "error - prefixes keep separate reasons",
 			routes: []routes.Route{
 				{Prefix: routes.Prefix, RPC: "GetTopic", Method: "POST", Path: "/topic/create"},
 				{Prefix: "/elsewhere", RPC: "CreateTopic", Method: "POST", Path: "/topic/create"},
@@ -248,8 +248,8 @@ func TestNonConformingRoutes(t *testing.T) {
 }
 
 // TestPrefix pins the shape of each declared prefix and its relationship to
-// the paths it prefixes. It reads prefixes off the routes, so a second is
-// covered the day it appears.
+// the paths it prefixes. It reads prefixes off the routes, so it covers
+// every prefix the generator emits.
 func TestPrefix(t *testing.T) {
 	declared := map[string]bool{}
 	for _, r := range routes.Routes {

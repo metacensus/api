@@ -153,9 +153,8 @@ trip.
 
 ## Signing
 
-Every write carries a `content` message, an
-`interpretation`, and a `userSignature` over both. A session token says who is
-connected; the signature says who authored the record, and the API server does
+Every write carries a `content` message, an `interpretation`, and a
+`userSignature` over both. A session token says who is connected; the signature says who authored the record, and the API server does
 not check it — it is verified by the persistence layer, behind the edge.
 `@metacensus/api/signing` is what your `Signer` uses, and what a verifier calls:
 
