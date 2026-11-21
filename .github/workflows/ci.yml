@@ -78,20 +78,9 @@ jobs:
       #     echo "comparing against ${against:-<nothing released yet>}"
       #     make breaking BREAKING_AGAINST="$against"
 
-      # Fetched here (not in the Makefile) so no target reaches the network silently.
-      - name: Fetch the deployed baseline for the public surface
-        run: git fetch -q --no-tags origin main
-
       # `make check` — not a re-spelled list of steps — so CI and a local
-      # `make check` can't drift. Includes `breaking-public`, which still
-      # enforces even though the released-contract check above is off (#14).
+      # `make check` can't drift.
       - name: Check
-        # Empty baseline for a release disables breaking-public: the comparison
-        # would otherwise run backwards (the released commit can sit behind
-        # origin/main). `cond && 'origin/main' || ''`, not `cond && '' || …`:
-        # an empty string is falsy, so the latter always yields the fallback.
-        env:
-          PUBLIC_BREAKING_AGAINST: ${{ !inputs.ref && 'origin/main' || '' }}
         run: make check
 
       # Left out of `make check`: a question about the commit, not the code.

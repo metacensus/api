@@ -19,7 +19,6 @@ import (
 // makes an omission here a failure rather than a silence.
 var contractPackages = []string{
 	"metacensus.v1",
-	"metacensus.public.v1",
 }
 
 // protoDir is relative to this package's directory, where `go test` runs.
@@ -30,8 +29,7 @@ func isContractPackage(pkg string) bool {
 }
 
 // sharedFileOf is the one file in a package whose messages any file in that
-// package may be typed from. Shared within a surface: nothing makes
-// metacensus.v1's common.proto shared with the public one.
+// package may be typed from.
 func sharedFileOf(pkg string) string {
 	return strings.ReplaceAll(pkg, ".", "/") + "/common.proto"
 }
@@ -187,10 +185,8 @@ func TestPresenceIsExpressedOnlyByMessageFields(t *testing.T) {
 	})
 }
 
-// A message may be typed only from its own file or its own package's
-// common.proto — never from another contract package, since the two surfaces
-// owe different compatibility and a shared field would put one policy in
-// charge of the other's wire shape.
+// A message may be typed only from its own file or its package's
+// common.proto.
 //
 // Fields, not imports: an rpc naming another resource as its return type
 // adds no field and shapes no message.
@@ -214,17 +210,8 @@ func TestNoMessageFieldCrossesResourceFiles(t *testing.T) {
 				continue
 			}
 
-			targetPkg := string(target.Package())
-
 			// Well-known types belong to everyone.
-			if !isContractPackage(targetPkg) {
-				continue
-			}
-			if targetPkg != homePkg {
-				t.Errorf("%s.%s is typed from %s, in package %s. The two surfaces owe "+
-					"different compatibility to different callers; a field spanning them "+
-					"would put one surface's policy in charge of the other's wire shape.",
-					md.FullName(), fd.Name(), target.Path(), targetPkg)
+			if !isContractPackage(string(target.Package())) {
 				continue
 			}
 			if target.Path() == home || target.Path() == shared {

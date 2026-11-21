@@ -1,7 +1,6 @@
-// Assert the entry points export every generated module and keep the two
-// surfaces apart. The exports are hand-listed, so a new generated module can
-// ship in dist/ that no consumer can import — an absence, not a failure, that
-// nothing else catches.
+// Assert the entry points export every generated module. The exports are
+// hand-listed, so a new generated module can ship in dist/ that no consumer can
+// import — an absence, not a failure, that nothing else catches.
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -25,11 +24,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
 
-// A module under this prefix is one surface's generated types, so exactly one
-// entry point may export it — that is what the split protects. Anything else
-// under src/ is shared and may be exported by any number; the walk finds them.
-const perSurface = "src/metacensus/";
-
 const failures = [];
 
 // What package.json publishes, not a list beside it: a subpath export added
@@ -51,11 +45,10 @@ function* walk(dir) {
 // named list of any length.
 const exportFrom = /^[ \t]*export\s+(?:\*|\{[\s\S]*?\})\s+from\s+"(\.[^"]+)";/gm;
 
-// entry point -> the src/ modules it exports
-const exported = new Map();
+// The src/ modules some entry point exports.
+const exported = new Set();
 for (const entry of entryPoints) {
   const source = readFileSync(join(pkgRoot, entry), "utf8");
-  const paths = new Set();
   for (const [, spec] of source.matchAll(exportFrom)) {
     const path = spec.replace(/^\.\//, "").replace(/\.js$/, ".ts");
     try {
@@ -64,9 +57,8 @@ for (const entry of entryPoints) {
       failures.push(`${entry}: exports ${spec}, which does not exist`);
       continue;
     }
-    paths.add(path);
+    exported.add(path);
   }
-  exported.set(entry, paths);
 }
 
 for (const tsconfig of ["tsconfig.json", "tsconfig.build.json"]) {
@@ -85,27 +77,12 @@ for (const tsconfig of ["tsconfig.json", "tsconfig.build.json"]) {
   }
 }
 
-const allExported = new Set([...exported.values()].flatMap((s) => [...s]));
-
 for (const file of walk(srcRoot)) {
   const rel = relative(pkgRoot, file);
-  if (!allExported.has(rel)) {
+  if (!exported.has(rel)) {
     failures.push(
       `${rel} is generated but no entry point exports it, so it ships in ` +
-        `dist/ and no consumer can import it. Add a line to ` +
-        `${rel.startsWith(perSurface + "public/") ? "public.ts" : "index.ts"}.`,
-    );
-  }
-}
-
-for (const rel of allExported) {
-  if (!rel.startsWith(perSurface)) continue;
-  const owners = entryPoints.filter((e) => exported.get(e).has(rel));
-  if (owners.length > 1) {
-    failures.push(
-      `${rel} is exported by ${owners.join(" and ")}. A module under ` +
-        `${perSurface} belongs to one surface; the entry points are split so ` +
-        `that a consumer of one surface does not acquire another's types.`,
+        `dist/ and no consumer can import it. Add a line to index.ts.`,
     );
   }
 }
@@ -118,6 +95,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "ts/: every generated module is exported, no surface's types by more than one entry point, " +
-    "and every published entry point is compiled.",
+  "ts/: every generated module is exported, and every published entry point is compiled.",
 );

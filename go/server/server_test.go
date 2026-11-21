@@ -70,12 +70,6 @@ func registerAll(t *testing.T, rt *server.Runtime, topics server.TopicRoutes, pr
 	server.RegisterPublicationRoutes(std, rt, server.UnimplementedPublicationRoutes{})
 	server.RegisterTopicRoutes(std, rt, topics)
 	server.RegisterUserRoutes(std, rt, server.UnimplementedUserRoutes{})
-
-	// The public surface gets its own Runtime, a copy of rt with only Prefix
-	// changed — so e.g. MaxBodyBytes set by a test applies to both surfaces.
-	pub := *rt
-	pub.Prefix = routes.PublicPrefix
-	server.RegisterPartnerRoutes(std, &pub, server.UnimplementedPartnerRoutes{})
 	return mux
 }
 
@@ -335,12 +329,7 @@ func TestUnknownQueryParamsAreRejectedOnEveryRoute(t *testing.T) {
 		for _, p := range r.Params {
 			path = strings.Replace(path, "{"+p+"}", "x", 1)
 		}
-		// r.Prefix, not routes.Prefix: do() prepends the authenticated one,
-		// and a public route requested under it is a 404 rather than the
-		// rejection this is about.
-		req := httptest.NewRequest(r.Method, r.Prefix+path+"?page=2", strings.NewReader(`{}`))
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
+		rec := do(t, mux, r.Method, path+"?page=2", `{}`)
 		if rec.Code != 400 {
 			t.Errorf("%s %s?page=2: status %d, want 400", r.Method, path, rec.Code)
 			continue

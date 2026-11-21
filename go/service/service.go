@@ -163,10 +163,8 @@ func New(cfg Config) *Handlers {
 	}
 }
 
-// Register mounts every authenticated-surface service on mux under rt. Health,
-// Login and SignUp mount open; every other route is wrapped in the session
-// middleware. The public surface (PartnerRoutes) has no store behind it and is
-// a backend's own to register, on its own runtime with routes.PublicPrefix.
+// Register mounts every service on mux under rt. Health, Login and SignUp
+// mount open; every other route is wrapped in the session middleware.
 func (h *Handlers) Register(mux server.Mux, rt *server.Runtime) {
 	// Wrapping the mux (for the middleware, and for the auth split) hides a
 	// StdMux from the runtime's own path-value inference, which would then

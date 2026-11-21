@@ -174,12 +174,6 @@ func TestEveryRouteResolvesOnChi(t *testing.T) {
 	server.RegisterTopicRoutes(r, rt, server.UnimplementedTopicRoutes{})
 	server.RegisterUserRoutes(r, rt, server.UnimplementedUserRoutes{})
 
-	// The public surface hangs off its own prefix, so it needs its own
-	// Runtime, though both mount on the one router.
-	pub := *rt
-	pub.Prefix = routes.PublicPrefix
-	server.RegisterPartnerRoutes(r, &pub, server.UnimplementedPartnerRoutes{})
-
 	for _, route := range routes.Routes {
 		path := route.Path
 		for _, p := range route.Params {

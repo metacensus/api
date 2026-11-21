@@ -4,17 +4,11 @@ Cross-cutting decisions with no single declaration to sit beside. Per-declaratio
 
 ## Compatibility and versioning
 
-The two surfaces (README, "The two surfaces") owe different compatibility:
+**`metacensus.v1` owes no compatibility yet** — its consumers ship together.
 
-- **`metacensus.v1`** owes none yet — its consumers ship together.
-- **`metacensus.public.v1`** owes it to whatever is deployed. Its callers are browsers running whatever build they loaded; there is no auth handshake, version negotiation or client registry to find who would break, and a rolling deploy alone can break submissions mid-window. So form intake evolves additively — values are added to `Interest`, never removed or renumbered — and the path carries no version segment. Read-only public data, if it ever arrives, gets its own versioned prefix rather than retrofitting one; `TestPrefix` fails the day a nested prefix appears, because a request's prefix alone must name the service that answers it, and that decision must be taken deliberately.
+**Wire version and release tag are independent.** The `v1` in `metacensus.v1` and in its prefix versions the schema; the release tag versions the repository — one `v*` tag, one npm version, one Go module version.
 
-**Wire version and release tag are independent.** `metacensus.public.v1` carries its own `v1`, so the public schema can reach v2 while the authenticated one stays at v1. The release tag is shared: one repo, one `v*` tag, one npm version, one Go module version. Splitting the Go side would mean a `go.mod` under a subdirectory versioned by `go/v1.2.3` tags — the trap "Releasing" avoids, paid twice.
-
-**`make breaking` and `make breaking-public` ask different questions.** The rule set is buf's `FILE` for both — the strictest there is; breaks invisible to any schema (a narrowed cap, a newly-required field, a value that changes meaning) are held by review.
-
-- `make breaking` — does the schema break **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base? The published contract is what a break breaks. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)). Intact for running by hand. An intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
-- `make breaking-public` — does it break **what is deployed**, against `origin/main` (what a browser talks to)? The only one in CI, and unaffected by a stale release, since its population never consumed a tag.
+**`make breaking`** asks whether the schema breaks **what was released**, against the latest tag (what a module consumer holds), not the PR's merge base. The rule set is buf's `FILE` — the strictest there is; breaks invisible to any schema (a narrowed cap, a newly-required field, a value that changes meaning) are held by review. **Not enforced in CI** ([#14](https://github.com/metacensus/api/issues/14)); intact for running by hand. An intentional break stays red until the version carrying it ships. On a tag push it compares against the immediately preceding tag, so a release carrying a deliberate break fails its own gate while the Go module publishes from the tag regardless.
 
 ## How a store.Store change reaches the services
 
@@ -43,23 +37,17 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 | Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`; the session and health routes are the exceptions. | `TestRecordMessageNames` |
 | A search at an external provider is a `List*` read of hits nested under the resource it is matched against (`GET /topic/{topicId}/hit?term=`), its input scalar query fields. It is typed, never a passthrough, records nothing, and answers a capped list, not a page; each hit names the stored records it matches. | review |
 
-**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a third surface rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
+**Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a surface of its own rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 
 ## Why /healthz is not in the contract
 
-`Serve` answers `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. A container runtime probes a service directly rather than through a proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a third empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
-
-## What the public contract does and does not mechanise
-
-- **The interest set is mechanised, and is why this exists.** `PartnerSubmission.Interest` is a proto enum; adding a checkbox is adding a value, every consumer regenerates, and `buf breaking` refuses a removal. Getting it wrong fails CI, not every submission carrying the new checkbox at runtime.
-- **Display wording is not.** The label ("Fund the work") is a consumer's copy. A stale label renders an odd string; a stale set rejects every submission — only the second is worth a build failure.
-- **Validation limits are documented, not enforced** — `name` ≤ 120, `email` ≤ 254, `message` ≤ 2000, body ≤ 16 KiB, as field comments. ts-proto runs `onlyTypes=true` and drops field options, so `protovalidate-es` would have no constraint to enforce on the TS side.
+`Serve` answers `GET /healthz`, and the manifest does not declare it: every route in the manifest is relative to a prefix, and `/healthz` is relative to nothing. A container runtime probes a service directly rather than through a proxy, which is why it must not move. Including it would mean an absolute path in an otherwise-relative manifest, or a second, empty prefix that makes "prefix" meaningless — and nothing would consume it (its caller is a runtime, not a type importer). `metacensus.v1` already declares `HealthRoutes` at `/healthcheck`, under a prefix; a second prefixless shape would leave two meaning different things. `TestEveryRouteHangsOffADeclaredPrefix` records this. Revisit only if something starts consuming it programmatically.
 
 ## Errors
 
-Neither surface types its failures: the HTTP status is the machine-readable signal, the body around it is not in the contract. `metacensus.v1` dropped its `Error{string}` on the argument that free text buys a client nothing the status doesn't ([da9db64](https://github.com/metacensus/api/commit/da9db64)); the public surface followed, dropping its `Failure{ok,error}`. What the public surface keeps is a documented status vocabulary in `public/v1/common.proto` — `google.api.http` can't express responses, and a browser has to code against them.
+The contract does not type its failures: the HTTP status is the machine-readable signal, and the body around it is not in the contract — free text buys a client nothing the status doesn't.
 
-**The trigger for typing failures is an implementation emitting a `code`** — a stable discriminator the status doesn't carry. When one does, both surfaces gain the same message: call it **`Failure`, not `Error`** (`Error` shadows the TS global and breaks `throw new Error(...)` in an importing module), and `ok` is not part of it. `PartnerReceipt`'s `ok: true` is the one exception, and a service fact (`UnmarshalOptions` rejects unknown fields), not a design position.
+**The trigger for typing failures is an implementation emitting a `code`** — a stable discriminator the status doesn't carry. When one does, the contract gains a message for it: call it **`Failure`, not `Error`** (`Error` shadows the TS global and breaks `throw new Error(...)` in an importing module), and `ok` is not part of it.
 
 ## Dependencies
 
@@ -83,7 +71,7 @@ Two costs weigh heaviest: a requirement in the root `go.mod` reaches every consu
 
 ## Two one-way doors in the layout
 
-Both are the module's public surface once a tag exists, so both are settled deliberately (README, "Layout").
+Both are part of the module's API once a tag exists, so both are settled deliberately (README, "Layout").
 
 - **The Go packages sit under `go/`**, so imports read `github.com/metacensus/api/go/metacensus/v1`. Hoisting `metacensus/` to the root would read better at the call site, but the root is shared with `ts/`, `proto/`, `internal/` and `scripts/`, and a generated `metacensus/` tree there would be the only directory whose name says nothing about which language reads it.
 - **`go.mod` is at the repository root, not in `go/`.** A module whose `go.mod` sits in `go/` is versioned by `go/v1.2.3` tags: a plain `v1.2.3` would publish nothing, and `go/v1.2.3` isn't a version `make release` can mint. Rooted here, one plain semver tag does the job, and `routegen` is deliberately unversioned.

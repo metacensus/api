@@ -36,8 +36,8 @@ func declaredRPCs(t *testing.T) map[string]bool {
 	return out
 }
 
-// fullPath is the route's identity wherever uniqueness matters: two surfaces
-// can each declare a "/partner" and mean different URLs.
+// fullPath is the route's identity wherever uniqueness matters: two prefixes
+// can each declare a "/topic" and mean different URLs.
 func fullPath(r routes.Route) string { return r.Prefix + r.Path }
 
 var pathParamPattern = regexp.MustCompile(`\{([^{}]*)\}`)
@@ -204,14 +204,14 @@ func TestNonConformingRoutes_AccumulatesByFullPath(t *testing.T) {
 			},
 		},
 		{
-			name: "error - surfaces keep separate reasons",
+			name: "error - prefixes keep separate reasons",
 			routes: []routes.Route{
 				{Prefix: routes.Prefix, RPC: "GetTopic", Method: "POST", Path: "/topic/create"},
-				{Prefix: routes.PublicPrefix, RPC: "CreateTopic", Method: "POST", Path: "/topic/create"},
+				{Prefix: "/elsewhere", RPC: "CreateTopic", Method: "POST", Path: "/topic/create"},
 			},
 			want: map[string]string{
-				"POST " + routes.Prefix + "/topic/create":       "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: create",
-				"POST " + routes.PublicPrefix + "/topic/create": "verb in path: create",
+				"POST " + routes.Prefix + "/topic/create": "expected GET (List*/Get*/Lookup* and HealthRoutes.Healthcheck are reads); verb in path: create",
+				"POST /elsewhere/topic/create":            "verb in path: create",
 			},
 		},
 	}
@@ -248,8 +248,8 @@ func TestNonConformingRoutes(t *testing.T) {
 }
 
 // TestPrefix pins the shape of each declared prefix and its relationship to
-// the paths it prefixes. It reads prefixes off the routes, so a third is
-// covered the day it appears.
+// the paths it prefixes. It reads prefixes off the routes, so it covers
+// every prefix the generator emits.
 func TestPrefix(t *testing.T) {
 	declared := map[string]bool{}
 	for _, r := range routes.Routes {
@@ -260,13 +260,8 @@ func TestPrefix(t *testing.T) {
 	}
 
 	// A constant no route uses is a prefix nothing serves.
-	for name, prefix := range map[string]string{
-		"routes.Prefix":       routes.Prefix,
-		"routes.PublicPrefix": routes.PublicPrefix,
-	} {
-		if !declared[prefix] {
-			t.Errorf("%s is %q, which no route hangs off", name, prefix)
-		}
+	if !declared[routes.Prefix] {
+		t.Errorf("routes.Prefix is %q, which no route hangs off", routes.Prefix)
 	}
 
 	for prefix := range declared {
@@ -309,17 +304,13 @@ func TestPrefix(t *testing.T) {
 	}
 }
 
-// A route whose prefix is neither declared constant is one nothing routes.
+// A route whose prefix is not the declared constant is one nothing routes.
 // This is also why /healthz is not in the contract — see AGENTS.md.
 func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
-	known := map[string]bool{
-		routes.Prefix:       true,
-		routes.PublicPrefix: true,
-	}
 	for _, r := range routes.Routes {
-		if !known[r.Prefix] {
-			t.Errorf("%s.%s hangs off %q, which is neither routes.Prefix nor "+
-				"routes.PublicPrefix", r.Service, r.RPC, r.Prefix)
+		if r.Prefix != routes.Prefix {
+			t.Errorf("%s.%s hangs off %q, which is not routes.Prefix",
+				r.Service, r.RPC, r.Prefix)
 		}
 	}
 }
@@ -328,11 +319,7 @@ func TestEveryRouteHangsOffADeclaredPrefix(t *testing.T) {
 // manifest relative to the route's proto package.
 func requestMessage(t *testing.T, r routes.Route) protoreflect.MessageDescriptor {
 	t.Helper()
-	pkg := "metacensus.v1"
-	if r.Prefix == routes.PublicPrefix {
-		pkg = "metacensus.public.v1"
-	}
-	d, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(pkg + "." + r.Request))
+	d, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName("metacensus.v1." + r.Request))
 	if err != nil {
 		t.Fatalf("%s.%s: request %s: %v", r.Service, r.RPC, r.Request, err)
 	}
@@ -417,14 +404,11 @@ var unrecordedRoutes = map[string]string{
 	"GET /metacensus/api/v1/healthcheck": "a status, not a resource: HealthcheckResponse",
 }
 
-// Holds the record message names of every metacensus.v1 route unless listed in
-// unrecordedRoutes. The public surface is outside the request standard.
+// Holds the record message names of every route unless listed in
+// unrecordedRoutes.
 func TestRecordMessageNames(t *testing.T) {
 	got := map[string]string{}
 	for _, r := range routes.Routes {
-		if r.Prefix != routes.Prefix {
-			continue
-		}
 		if problem := messageNameProblem(r.RPC, r.Request, r.Response); problem != "" {
 			got[r.Method+" "+fullPath(r)] = problem
 		}

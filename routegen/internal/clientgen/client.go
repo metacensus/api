@@ -1,7 +1,6 @@
 // Package clientgen renders ts/src/client.ts: one batteries-included client
-// per surface, one or two typed methods per rpc, over fetch. The shared
-// ApiError is one declaration so `instanceof` does not depend on the import
-// path. See README.md, "The generated client".
+// per surface, one or two typed methods per rpc, over fetch. See README.md,
+// "The generated client".
 package clientgen
 
 import (
@@ -308,7 +307,7 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{m}
 	}
 
-	// A plain response: a body-carrying POST (the public submission), a list
+	// A plain response: a body-carrying POST (a publication), a list
 	// of unsigned, id-less items (search hits), or a bare GET (the
 	// healthcheck).
 	m := base
@@ -331,8 +330,8 @@ type fileImport struct {
 }
 
 // Render writes ts/src/client.ts: one batteries-included client class per
-// surface, the view types and flatten helpers its reads share, and the one
-// ApiError both throw.
+// surface, the view types and flatten helpers its reads share, and the
+// ApiError they throw.
 func Render(routes []model.Route) ([]byte, error) {
 	var (
 		surfaces []surface

@@ -3,22 +3,16 @@
 // Package routes is every MetaCensus route on one screen, generated from the
 // google.api.http annotations on each service. It is a data-only sub-package of
 // server, so the table reads as routes.Prefix / routes.Routes and a consumer
-// can hold it without the server runtime. One manifest for both surfaces; see
+// can hold it without the server runtime. One manifest for every surface; see
 // README.md, "Routes". Each surface has its own prefix:
 //
 //	Prefix       /metacensus/api/v1   the authenticated API
-//	PublicPrefix /metacensus/public   the public, unauthenticated surface
 package routes
 
 // Prefix is the path metacensus.v1 routes hang off (the authenticated API). Join it
 // with a Route's Path for the path a client requests; a Route carries its own
 // Prefix, so joining needs no knowledge of which surface it came from.
 const Prefix = "/metacensus/api/v1"
-
-// PublicPrefix is the path metacensus.public.v1 routes hang off (the public, unauthenticated surface). Join it
-// with a Route's Path for the path a client requests; a Route carries its own
-// Prefix, so joining needs no knowledge of which surface it came from.
-const PublicPrefix = "/metacensus/public"
 
 // Route is one declared route. Path is relative to Prefix and spells its
 // parameters {lowerCamelCase}. Params, Query and Body between them account for
@@ -65,5 +59,4 @@ var Routes = []Route{
 	{Prefix: Prefix, Service: "UserRoutes", RPC: "ListUsers", Method: "GET", Path: "/user", Params: nil, Query: nil, Body: "", Signed: false, Request: "UserListRequest", Response: "UserList"},
 	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetUser", Method: "GET", Path: "/user/{userId}", Params: []string{"userId"}, Query: nil, Body: "", Signed: false, Request: "UserGetRequest", Response: "UserSigned"},
 	{Prefix: Prefix, Service: "UserRoutes", RPC: "GetSelf", Method: "GET", Path: "/self", Params: nil, Query: nil, Body: "", Signed: false, Request: "SelfGetRequest", Response: "UserSigned"},
-	{Prefix: PublicPrefix, Service: "PartnerRoutes", RPC: "SubmitPartnerInterest", Method: "POST", Path: "/partner", Params: nil, Query: nil, Body: "*", Signed: false, Request: "PartnerSubmission", Response: "PartnerReceipt"},
 }

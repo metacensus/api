@@ -1,9 +1,6 @@
 // The authenticated MetaCensus API contract (/metacensus/api/v1): generated
 // types, route manifest, and typed Client. Everything under ./src is
 // generated; a new .proto file needs a line here.
-//
-// See ts/README.md for why the public surface (./public.ts) is a separate
-// entry point rather than merged in here.
 
 export * from "./src/metacensus/v1/auth.js";
 export * from "./src/metacensus/v1/common.js";
@@ -17,10 +14,8 @@ export * from "./src/route-manifest.js";
 // `export *` can't pick one file's `protobufPackage` over another's.
 export { protobufPackage } from "./src/metacensus/v1/common.js";
 
-// Named, not `export *`: src/client.ts has one class per surface, and this
-// entry point wants only the authenticated one. `Client` is batteries-included;
-// the `…Record` types are its flat reads and `Signer` its write seam. See
-// ts/README.md.
+// `Client` is batteries-included; the `…Record` types are its flat reads and
+// `Signer` its write seam. See ts/README.md.
 export {
   Client,
   ApiError,

@@ -38,14 +38,13 @@ var unsignedWrites = map[string]string{
 
 // TestEveryWriteCarriesASignature: a login token says who is connected, not
 // who authored a record, so every write carries content and a signature over
-// it unless listed in unsignedWrites. The public surface is exempt — no
-// identities, nobody to sign.
+// it unless listed in unsignedWrites.
 func TestEveryWriteCarriesASignature(t *testing.T) {
 	got := map[string]bool{}
 	for _, r := range routes.Routes {
 		// Every method but GET, not every route with a body: Logout writes
 		// entirely via the path and carries nothing to sign.
-		if r.Method == "GET" || r.Prefix != routes.Prefix {
+		if r.Method == "GET" {
 			continue
 		}
 		if !r.Signed {

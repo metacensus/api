@@ -21,7 +21,6 @@ import (
 
 	// Registers each contract package's descriptors into protoregistry, which
 	// every walk below reads; CheckPackages fails when one registers nothing.
-	_ "github.com/metacensus/api/go/metacensus/public/v1"
 	_ "github.com/metacensus/api/go/metacensus/v1"
 )
 
@@ -67,17 +66,6 @@ var Packages = []Package{
 		TSConst:  "apiPrefix",
 		TSClient: "Client",
 		Summary:  "the authenticated API",
-	},
-	{
-		Proto: "metacensus.public.v1",
-		// No version segment: AGENTS.md, "Compatibility and versioning".
-		Prefix:   "/metacensus/public",
-		GoImport: "github.com/metacensus/api/go/metacensus/public/v1",
-		GoAlias:  "publicv1",
-		GoConst:  "PublicPrefix",
-		TSConst:  "publicPrefix",
-		TSClient: "PublicClient",
-		Summary:  "the public, unauthenticated surface",
 	},
 }
 
@@ -372,8 +360,7 @@ func goTypeOf(pkg Package, md protoreflect.MessageDescriptor) (goType, error) {
 	if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct {
 		return goType{}, fmt.Errorf("%s: Go type %s is not a pointer to struct", md.FullName(), t)
 	}
-	// Must resolve into the route's own package; a cross-surface field is
-	// refused outright by TestNoMessageFieldCrossesResourceFiles.
+	// Must resolve into the route's own package.
 	if t.Elem().PkgPath() != pkg.GoImport {
 		return goType{}, fmt.Errorf("%s: Go type %s is not in %s", md.FullName(), t, pkg.GoImport)
 	}
