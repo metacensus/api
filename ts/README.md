@@ -1,11 +1,12 @@
 # @metacensus/api
 
 TypeScript interfaces for the MetaCensus API contract — every request and
-response under `/metacensus/api/v1` and `/metacensus/public`, generated from the
-`.proto` sources that also generate the Go side.
+response under `/metacensus/api/v1`, generated from the `.proto` sources that
+also generate the Go side. The public, unauthenticated surface is
+[`@metacensus/library-api-public`](https://github.com/metacensus/library-api-public).
 
 What ships is the generated interfaces, the route manifest, `protobufPackage`, a
-batteries-included client per surface, and the signing chain. How dependencies
+batteries-included client, and the signing chain. How dependencies
 are weighed is in the repository's AGENTS.md, under "Dependencies".
 
 ```bash
@@ -150,43 +151,9 @@ is an ordinary `ApiError`, and the consumer decides when to call `refresh()` and
 retry (react-query, say). Refresh at or before `expiresIn` to avoid the round
 trip.
 
-## The public surface
-
-The public, unauthenticated surface is an entry point of its own in the same
-package, with a client to match — no signer, no token:
-
-```ts
-import type { PartnerSubmission } from "@metacensus/api/public";
-import { PartnerSubmission_Interest, PublicClient } from "@metacensus/api/public";
-
-const pub = new PublicClient({ baseUrl });
-await pub.submitPartnerInterest({ name, email, interests, message, website: "" });
-```
-
-One package because a client may call both surfaces from one build; an entry point
-per surface because a consumer of only the public surface should not acquire the
-authenticated types. `@metacensus/api/signing` is a third, splitting by concern
-rather than by surface — nothing on the public surface is ever signed.
-
-`ApiError` is the same class from either entry point, so `instanceof ApiError`
-holds for a failure from either surface. Importing it twice is harmless.
-
-`PartnerSubmission_Interest` is a string enum, so the checkbox list is generated
-from the contract rather than mirrored by hand — which is the coupling this
-package exists to make mechanical. `Unspecified` is the proto3 zero value, not
-an offered choice, so filter it out:
-
-```ts
-const choices = Object.values(PartnerSubmission_Interest).filter(
-  (i) => i !== PartnerSubmission_Interest.Unspecified,
-);
-```
-
-The display labels are not in the contract.
-
 ## Signing
 
-Every write on the authenticated surface carries a `content` message, an
+Every write carries a `content` message, an
 `interpretation`, and a `userSignature` over both. A session token says who is
 connected; the signature says who authored the record, and the API server does
 not check it — it is verified by the persistence layer, behind the edge.
@@ -212,7 +179,7 @@ The scheme, the digest, and the verify procedure are the repository README's
 "The signing chain"; `go/signing` is the other half that computes the same digest
 and whose DER assertions this module verifies.
 
-## Both surfaces
+## The wire
 
 The wire format is JSON, not protobuf binary. Field names are `lowerCamelCase`
 on the wire, enum values are PascalCase, and all ids are strings.

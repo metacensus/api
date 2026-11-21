@@ -3,7 +3,6 @@
 // A batteries-included client per MetaCensus surface, over fetch. See README.md,
 // "The generated client", and ts/README.md.
 
-import type { PartnerReceipt, PartnerSubmission } from "./metacensus/public/v1/partner.js";
 import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Session, SignUpRequest } from "./metacensus/v1/auth.js";
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
 import type { Paper, PaperCreateRequest, PaperGetRequest, PaperList, PaperListRequest, PaperSigned } from "./metacensus/v1/paper.js";
@@ -11,7 +10,7 @@ import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest
 import type { Hit, HitList, HitListRequest, Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
-import { apiPrefix, publicPrefix } from "./route-manifest.js";
+import { apiPrefix } from "./route-manifest.js";
 
 // ApiError is any non-2xx response. body is the response text, unparsed: a 404
 // or 405 comes from the router, not a handler, so parse it defensively.
@@ -331,34 +330,6 @@ export class Client {
   // UserRoutes.GetSelf: GET /self
   getSelfSigned(req: SelfGetRequest): Promise<UserSigned> {
     return this.#request<UserSigned>("GET", "/self", undefined);
-  }
-}
-
-export interface PublicClientOptions {
-  readonly baseUrl: string;
-  readonly fetch?: typeof globalThis.fetch;
-  readonly prefix?: string;
-}
-
-// PublicClient calls the public, unauthenticated surface.
-export class PublicClient {
-  readonly #baseUrl: string;
-  readonly #fetch: typeof globalThis.fetch;
-  readonly #prefix: string;
-
-  constructor(options: PublicClientOptions) {
-    this.#baseUrl = options.baseUrl;
-    this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
-    this.#prefix = options.prefix ?? publicPrefix;
-  }
-
-  #request<T>(method: string, path: string, body?: string): Promise<T> {
-    return request<T>(this.#fetch, this.#baseUrl + this.#prefix + path, method, body, undefined);
-  }
-
-  // PartnerRoutes.SubmitPartnerInterest: POST /partner
-  submitPartnerInterest(req: PartnerSubmission): Promise<PartnerReceipt> {
-    return this.#request<PartnerReceipt>("POST", "/partner", JSON.stringify(req));
   }
 }
 

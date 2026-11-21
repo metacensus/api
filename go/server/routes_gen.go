@@ -6,7 +6,6 @@ import (
 	"context"
 	"net/http"
 
-	publicv1 "github.com/metacensus/api/go/metacensus/public/v1"
 	v1 "github.com/metacensus/api/go/metacensus/v1"
 )
 
@@ -731,48 +730,6 @@ func RegisterUserRoutes(mux Mux, rt *Runtime, impl UserRoutes) {
 			return
 		}
 		resp, err := impl.GetSelf(r.Context(), req)
-		rt.respond(w, resp, err)
-	}))
-}
-
-// PartnerRoutes is what an implementation of the PartnerRoutes service provides.
-// One method per route; the request carries path, query and body fields
-// already bound. Its routes hang off routes.PublicPrefix.
-type PartnerRoutes interface {
-	// POST /partner
-	SubmitPartnerInterest(context.Context, *publicv1.PartnerSubmission) (*publicv1.PartnerReceipt, error)
-}
-
-// UnimplementedPartnerRoutes answers every PartnerRoutes route with 501. Embed it to
-// implement a service one route at a time.
-type UnimplementedPartnerRoutes struct{}
-
-func (UnimplementedPartnerRoutes) SubmitPartnerInterest(context.Context, *publicv1.PartnerSubmission) (*publicv1.PartnerReceipt, error) {
-	return nil, errNotImplemented("PartnerRoutes.SubmitPartnerInterest")
-}
-
-// RegisterPartnerRoutes registers every PartnerRoutes route on mux, under rt.Prefix,
-// which for this service is routes.PublicPrefix.
-//
-// How to mount: see [Mux], [Runtime.Prefix] and [Runtime.PathValue].
-func RegisterPartnerRoutes(mux Mux, rt *Runtime, impl PartnerRoutes) {
-	rt.checkPathValue(mux)
-	mux.Method("POST", rt.Prefix+"/partner", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := new(publicv1.PartnerSubmission)
-		raw, err := rt.readBody(w, r)
-		if err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.decodeBody(raw, req); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		if err := rt.bindQuery(r, req, nil); err != nil {
-			rt.writeError(w, err)
-			return
-		}
-		resp, err := impl.SubmitPartnerInterest(r.Context(), req)
 		rt.respond(w, resp, err)
 	}))
 }

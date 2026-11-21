@@ -25,5 +25,5 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true
   },
-  "include": ["index.ts", "public.ts", "signing.ts", "src"]
+  "include": ["index.ts", "signing.ts", "src"]
 }

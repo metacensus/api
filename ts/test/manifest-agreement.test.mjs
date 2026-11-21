@@ -10,8 +10,8 @@
 // and that pairing is checked to be coherent rather than re-derived here.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Client, PublicClient } from "../dist/src/client.js";
-import { routes, apiPrefix, publicPrefix } from "../dist/src/route-manifest.js";
+import { Client } from "../dist/src/client.js";
+import { routes, apiPrefix } from "../dist/src/route-manifest.js";
 
 const BASE = "https://api.test";
 const methodName = (rpc) => rpc[0].toLowerCase() + rpc.slice(1);
@@ -38,10 +38,6 @@ const surfaces = {
   [apiPrefix]: () => {
     const { calls, fetch } = fetcher();
     return { calls, client: new Client({ baseUrl: BASE, fetch, signer }) };
-  },
-  [publicPrefix]: () => {
-    const { calls, fetch } = fetcher();
-    return { calls, client: new PublicClient({ baseUrl: BASE, fetch }) };
   },
 };
 

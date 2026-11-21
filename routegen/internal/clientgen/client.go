@@ -308,7 +308,7 @@ func classify(r model.Route, addRecord func(recordType), refs *[]tsRef) []client
 		return []clientMethod{m}
 	}
 
-	// A plain response: a body-carrying POST (the public submission), a list
+	// A plain response: a body-carrying POST (a publication), a list
 	// of unsigned, id-less items (search hits), or a bare GET (the
 	// healthcheck).
 	m := base

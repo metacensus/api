@@ -1,7 +1,7 @@
 # The MetaCensus API contract. Run from the repository root; see README.md
 # for the two-module layout and the GOWORK/GOTOOLCHAIN pinning.
 
-.PHONY: help all gen generated-paths lint format format-check breaking breaking-public test check clean deps hooks tools \
+.PHONY: help all gen generated-paths lint format format-check breaking test check clean deps hooks tools \
         release latest list delete-tag
 
 # Lists targets (from the `## name — what it does` comments below) instead of
@@ -31,12 +31,6 @@ TOOLENV := GOWORK=off GOTOOLCHAIN=$(GOTOOLCHAIN_PIN)
 
 # Latest release tag; empty (no releases yet) makes `breaking` a no-op.
 BREAKING_AGAINST ?= $(shell git tag -l 'v*' --sort=v:refname | tail -1)
-
-# The public surface; see AGENTS.md, "Compatibility and versioning".
-PUBLIC_PROTO_DIR        := $(PROTO)/metacensus/public
-# The same directory as buf sees it, i.e. relative to the module root.
-PUBLIC_PACKAGE_PATH     := metacensus/public
-PUBLIC_BREAKING_AGAINST ?= origin/main
 
 help:
 	@echo "MetaCensus API contract. Run from the repository root."
@@ -96,30 +90,6 @@ breaking: $(BIN)/buf
 		echo "no $(PROTO) at $(BREAKING_AGAINST); nothing to compare against"; \
 	fi
 
-## breaking-public — the public surface against what is deployed, not what is tagged
-#
-# Must run from $(PROTO): `--path` resolves against the input's context dir,
-# and a root-relative path against the git-archive `--against` input matches
-# nothing there. $(BUF) is absolute, so `cd`ing first is safe.
-#
-# Empty PUBLIC_BREAKING_AGAINST means "skip" — how a release build turns this
-# off, since on a tag the comparison would otherwise run backwards.
-breaking-public: $(BIN)/buf
-	@if [ -z '$(PUBLIC_BREAKING_AGAINST)' ]; then \
-		echo "no baseline for the public surface; nothing deployed to break"; \
-	elif ! git rev-parse --verify -q '$(PUBLIC_BREAKING_AGAINST)^{commit}' >/dev/null; then \
-		echo "no $(PUBLIC_BREAKING_AGAINST) to compare against; skipping"; \
-	else \
-		echo "public surface against $(PUBLIC_BREAKING_AGAINST) @ $$(git log -1 --format='%h %cs' '$(PUBLIC_BREAKING_AGAINST)')"; \
-		if [ -z "$$(git ls-tree -r --name-only '$(PUBLIC_BREAKING_AGAINST)' -- '$(PUBLIC_PROTO_DIR)')" ]; then \
-			echo "  no public package there yet; nothing deployed to break"; \
-		else \
-			cd $(PROTO) && $(BUF) breaking . \
-				--against '$(CURDIR)/.git#ref=$(PUBLIC_BREAKING_AGAINST),subdir=$(PROTO)' \
-				--path '$(PUBLIC_PACKAGE_PATH)'; \
-		fi; \
-	fi
-
 ## test — the contract's own invariants, then the generator's
 #
 # routegen is its own module, so ./... above misses it; run separately.
@@ -128,7 +98,7 @@ test:
 	cd $(ROUTEGEN) && $(TOOLENV) go test ./...
 
 ## check — everything CI runs, minus the freshness diff
-check: lint format-check breaking-public test $(TS_PLUGIN)
+check: lint format-check test $(TS_PLUGIN)
 	go build ./... && go vet ./...
 	cd $(TS_DIR) && npm run check
 	cd $(TS_DIR) && npm test

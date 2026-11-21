@@ -1,5 +1,4 @@
-// Assert the entry points export every generated module and keep the two
-// surfaces apart. The exports are hand-listed, so a new generated module can
+// Assert the entry points export every generated module. The exports are hand-listed, so a new generated module can
 // ship in dist/ that no consumer can import — an absence, not a failure, that
 // nothing else catches.
 
@@ -24,11 +23,6 @@ function includeList(pkgRoot, file) {
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(here, "..");
 const srcRoot = join(pkgRoot, "src");
-
-// A module under this prefix is one surface's generated types, so exactly one
-// entry point may export it — that is what the split protects. Anything else
-// under src/ is shared and may be exported by any number; the walk finds them.
-const perSurface = "src/metacensus/";
 
 const failures = [];
 
@@ -92,20 +86,7 @@ for (const file of walk(srcRoot)) {
   if (!allExported.has(rel)) {
     failures.push(
       `${rel} is generated but no entry point exports it, so it ships in ` +
-        `dist/ and no consumer can import it. Add a line to ` +
-        `${rel.startsWith(perSurface + "public/") ? "public.ts" : "index.ts"}.`,
-    );
-  }
-}
-
-for (const rel of allExported) {
-  if (!rel.startsWith(perSurface)) continue;
-  const owners = entryPoints.filter((e) => exported.get(e).has(rel));
-  if (owners.length > 1) {
-    failures.push(
-      `${rel} is exported by ${owners.join(" and ")}. A module under ` +
-        `${perSurface} belongs to one surface; the entry points are split so ` +
-        `that a consumer of one surface does not acquire another's types.`,
+        `dist/ and no consumer can import it. Add a line to index.ts.`,
     );
   }
 }
@@ -118,6 +99,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "ts/: every generated module is exported, no surface's types by more than one entry point, " +
-    "and every published entry point is compiled.",
+  "ts/: every generated module is exported, and every published entry point is compiled.",
 );

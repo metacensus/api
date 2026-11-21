@@ -4,7 +4,7 @@
 // read comes back in — flat view or signed envelope.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Client, PublicClient, ApiError } from "../dist/src/client.js";
+import { Client, ApiError } from "../dist/src/client.js";
 
 const BASE = "https://api.test";
 
@@ -281,15 +281,4 @@ test("prefix can be overridden", async () => {
   const { calls, fetch } = fetcher(json({ id: "t", content: {}, userSignature: {} }));
   await new Client({ baseUrl: BASE, fetch, prefix: "/other" }).getTopic({ topicId: "t" });
   assert.equal(calls[0].url, `${BASE}/other/topic/t`);
-});
-
-// --- the public surface -------------------------------------------------
-
-test("PublicClient posts to the public surface without credentials", async () => {
-  const { calls, fetch } = fetcher(json({ ok: true }));
-  await new PublicClient({ baseUrl: BASE, fetch }).submitPartnerInterest({ name: "n", email: "e", interests: [], message: "", website: "" });
-  assert.equal(calls[0].method, "POST");
-  assert.equal(calls[0].url, `${BASE}/metacensus/public/partner`);
-  assert.equal(calls[0].headers["Authorization"], undefined);
-  assert.ok(calls[0].body);
 });

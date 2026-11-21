@@ -1,28 +1,10 @@
 # The MetaCensus API contract, in Protocol Buffers
 
-Every request and response under `/metacensus/api/v1` and `/metacensus/public`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client per surface, and the signing chain.
+Every request and response under `/metacensus/api/v1`, defined once in `.proto` and generated into Go and TypeScript — types, a route manifest, a Go server and a TypeScript client, and the signing chain. The public, unauthenticated surface is [metacensus/library-api-public](https://github.com/metacensus/library-api-public).
 
 **Consumers pin a release of the Go module or the npm package**, so a change here ends with a release and a bump in each. Not production-ready ([#87](https://github.com/metacensus/api/issues/87)).
 
 Policy and rationale for changing the contract — compatibility, versioning, dependencies, the toolchain, releasing — are in [AGENTS.md](AGENTS.md).
-
-## The two surfaces
-
-Two proto packages, because two surfaces, differing in almost every property a contract encodes:
-
-|  | `metacensus.v1` | `metacensus.public.v1` |
-| --- | --- | --- |
-| prefix | `/metacensus/api/v1` | `/metacensus/public` |
-| caller | an authenticated session | anyone on the internet |
-| compatibility owed | none yet | to whatever is deployed |
-| breaking baseline | the latest release tag | `origin/main` |
-| success body | the bare resource | the bare message, plus `ok` |
-
-They are separate packages, not a corner of one: `TestNoMessageFieldCrossesResourceFiles` refuses a field typed across the boundary, so the laxer compatibility policy can never take charge of the stricter one's wire shape. Still **one repository and one of each artifact** — a client may call both from one build. One Go module, one npm package, but two namespaces: Go separates them by import path, npm by a subpath export. Compatibility differs per surface; see [AGENTS.md](AGENTS.md).
-
-### Errors on the two surfaces
-
-**Neither surface types its failures** — the HTTP status is the machine-readable signal, the body around it is not in the contract. When to type failures, why the public surface documents a status vocabulary in `public/v1/common.proto`, and why `PartnerReceipt` still carries `ok`, are in [AGENTS.md](AGENTS.md).
 
 ## The signing chain
 
@@ -32,7 +14,7 @@ The signing mechanism is **WebAuthn/passkeys** — the enterprise-grade, widely-
 
 **No silent assertion is needed, because MetaCensus doesn't sign every request.** The mutable working surface (data extraction, drafts) lives in a staging store off the ledger; ledger writes are deliberate, bulk, scoped attestations — submitting votes and props for a paper. A passkey gesture at the moment a participant vouches is the correct semantic for "who vouches for this content," and the assertion even carries proof a human was verified. Non-interactive participant signing (curl, CI) has no story and isn't meant to — see [Open questions](#open-questions).
 
-Every write on `metacensus.v1` carries `content`, an `interpretation`, and a `userSignature` over them (`TestEveryWriteCarriesASignature`; exceptions are `unsignedWrites` in `go/contract/signing_test.go`). The public surface is exempt — it has no identities. A stored record is the signed content wrapped, never modified:
+Every write on `metacensus.v1` carries `content`, an `interpretation`, and a `userSignature` over them (`TestEveryWriteCarriesASignature`; exceptions are `unsignedWrites` in `go/contract/signing_test.go`). A stored record is the signed content wrapped, never modified:
 
 ```json
 {
@@ -85,15 +67,15 @@ Protobuf binary is not used, supported, or a fallback — protobuf is here for t
 
 Each resource file declares its routes (`topic.proto` → `TopicRoutes`); **to read the whole table, read the generated manifest** — [`go/server/routes`](go/server/routes/manifest.go) or `ts/src/route-manifest.ts`. `params`, `query` and `body` account for every field of a request message, so a request message models the whole request, not only its body.
 
-The prefixes (`routes.Prefix`, `routes.PublicPrefix`) are part of the contract and generated from `model.Packages`; every `path` is relative to one, and each route carries its own `prefix` so a consumer holding a `Route` needn't guess which to join. `TestPrefix` pins the invariants (each absolute, no trailing slash, none nested); `TestNonConformingRoutes` holds the route conventions of [the request standard](AGENTS.md#the-request-standard) at zero exceptions. They are route declarations, not a gRPC commitment — nothing generates or serves gRPC.
+The prefix (`routes.Prefix`) is part of the contract and generated from `model.Packages`; every `path` is relative to it, and each route carries its own `prefix`. `TestPrefix` pins its invariants (absolute, no trailing slash, none nested); `TestNonConformingRoutes` holds the route conventions of [the request standard](AGENTS.md#the-request-standard) at zero exceptions. They are route declarations, not a gRPC commitment — nothing generates or serves gRPC.
 
 ## Layout
 
 **Two Go modules.** The contract, which consumers import, and the generator, which nobody does.
 
 ```
-proto/            .proto sources and buf config — both surfaces
-go/               the contract in Go (go/metacensus/{v1,public/v1})
+proto/            .proto sources and buf config
+go/               the contract in Go (go/metacensus/v1)
 go/contract/      the wire encoder and the whole-contract schema tests
 go/server/        generated handler interfaces + registration, hand-written runtime
 go/server/routes/ the generated route manifest (routes.Prefix, routes.Routes)
@@ -103,7 +85,7 @@ go/auth/          the session port + a development placeholder
 go/service/       the handlers: store + auth + minting, behind the server interfaces
 go/pubmed/        a service.Resolver and service.Searcher over NCBI E-utilities
 ts/               the contract in TypeScript — the npm package
-                  (ts/index.ts authenticated, ts/public.ts public, ts/signing.ts signing)
+                  (ts/index.ts the contract, ts/signing.ts the signing chain)
 internal/         protoscan (the .proto tree scan both modules check against), memstore (an in-memory store.Store)
 routegen/         module 2: the generator, renderers, templates, pinned tools,
                   and the suites that exercise what it emits (chitest, wireserver)
@@ -121,23 +103,21 @@ The split has one reason: a `tool` directive is a real module requirement, so bu
 
 ```bash
 go get github.com/metacensus/api          # import github.com/metacensus/api/go/...
-npm install @metacensus/api               # types, route manifest, a client per surface
+npm install @metacensus/api               # types, route manifest, a client
 ```
 
 ```go
-import v1 "github.com/metacensus/api/go/metacensus/v1"               // authenticated
-import publicv1 "github.com/metacensus/api/go/metacensus/public/v1"  // public
-import "github.com/metacensus/api/go/server/routes"                  // both surfaces, one table
-import "github.com/metacensus/api/go/signing"                        // the signing chain
+import v1 "github.com/metacensus/api/go/metacensus/v1" // the contract
+import "github.com/metacensus/api/go/server/routes"    // the route table
+import "github.com/metacensus/api/go/signing"          // the signing chain
 ```
 
 ```ts
-import type { Topic } from "@metacensus/api";                    // authenticated
-import type { PartnerSubmission } from "@metacensus/api/public"; // public
-import { sign } from "@metacensus/api/signing";                  // the signing chain
+import type { Topic } from "@metacensus/api";   // the contract
+import { sign } from "@metacensus/api/signing"; // the signing chain
 ```
 
-**One entry point per concern**, the set derived by `check-entry-points.mjs` from `package.json`. A consumer of only the public surface imports `@metacensus/api/public` and does not acquire the authenticated types; `@metacensus/api/signing` splits by concern so a consumer who only wants `Topic` needn't resolve a pile of WebCrypto. Go needed no equivalent — its packages were already separate. A consumer's Go must satisfy the `go` directive in the root `go.mod`. Client usage is in [ts/README.md](ts/README.md).
+**One entry point per concern**, the set derived by `check-entry-points.mjs` from `package.json`: `@metacensus/api/signing` splits by concern so a consumer who only wants `Topic` needn't resolve a pile of WebCrypto. Go needed no equivalent — its packages were already separate. A consumer's Go must satisfy the `go` directive in the root `go.mod`. Client usage is in [ts/README.md](ts/README.md).
 
 ## Working on it
 
@@ -154,7 +134,7 @@ From a fresh clone nothing has to be installed first — `gen` and `check` build
 
 `routegen` writes `go/server/routes_gen.go` per service: a handler interface with one method per rpc (path, query and body already bound), an `Unimplemented<Service>` answering 501, and a `Register<Service>` that binds and dispatches. **`go/server`'s own comments are the account of itself** — `runtime.go` for the package, `Mux`'s doc comment for what it leaves to the router. `Unimplemented<Service>` is the whole default; persistence is entirely the implementer's. Two facts decide how you mount:
 
-- **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix wants the zero value; one at the origin root wants `routes.Prefix`. A process serving both surfaces needs one `Runtime` per surface — sharing one mounts a surface under the wrong prefix, silently.
+- **`Runtime.Prefix` is literal, and `""` means no prefix.** A router already mounted at the contract's prefix wants the zero value; one at the origin root wants `routes.Prefix`.
 - **Any `Mux` that is not a `StdMux` must set `PathValue`**, and a `chi.Router` wants `server.EscapedPathValue` — `ServeMux` percent-decodes a segment, chi does not, and the client percent-encodes every one. `Register<Service>` panics until it's set.
 
 ```go
@@ -185,7 +165,7 @@ Per request it resolves the caller, mints the `id` and `recorded` (record-level,
 
 ## The generated client
 
-The same walk writes `ts/src/client.ts`: one **batteries-included** client per surface — `Client` for the authenticated API, `PublicClient` for the public one. Constructed with `{ baseUrl, fetch?, signer?, token? }`, `Client` owns its HTTP — it builds the path, holds the session token across `login`/`logout` (adding `Authorization` itself), and signs writes through the injected `signer`. Reads return flat records (`getTopic` → `TopicRecord`, `{id, recorded, ...content}`); a signed-envelope read also gets a `getTopicSigned` twin returning the raw envelope, for verifying authorship. Writes take flat content, never an envelope. A 2xx is parsed and cast; a non-2xx throws `ApiError` (status, url, raw text). `ApiError` is one class across both entry points, which is why both classes share one file. Usage and the public-surface variant are in [ts/README.md](ts/README.md).
+The same walk writes `ts/src/client.ts`: a **batteries-included** `Client`. Constructed with `{ baseUrl, fetch?, signer?, token? }`, `Client` owns its HTTP — it builds the path, holds the session token across `login`/`logout` (adding `Authorization` itself), and signs writes through the injected `signer`. Reads return flat records (`getTopic` → `TopicRecord`, `{id, recorded, ...content}`); a signed-envelope read also gets a `getTopicSigned` twin returning the raw envelope, for verifying authorship. Writes take flat content, never an envelope. A 2xx is parsed and cast; a non-2xx throws `ApiError` (status, url, raw text). Usage is in [ts/README.md](ts/README.md).
 
 ## Open questions
 
