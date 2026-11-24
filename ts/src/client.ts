@@ -7,7 +7,7 @@ import type { LoginRequest, LogoutRequest, LogoutResponse, RefreshRequest, Sessi
 import type { HealthcheckRequest, HealthcheckResponse, Interpretation, Signature, User } from "./metacensus/v1/common.js";
 import type { Paper, PaperCreateRequest, PaperGetRequest, PaperList, PaperListRequest, PaperSigned } from "./metacensus/v1/paper.js";
 import type { Prop, PropCreateRequest, PropGetRequest, PropList, PropListRequest, PropSigned, Vote, VoteList, VoteListRequest, VoteSetRequest, VoteSigned } from "./metacensus/v1/prop.js";
-import type { Hit, HitList, HitListRequest, Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
+import type { HitList, HitListRequest, Publication, PublicationCreateRequest, PublicationGetRequest } from "./metacensus/v1/publication.js";
 import type { Member, MemberGetRequest, MemberList, MemberListRequest, Topic, TopicCreateRequest, TopicGetRequest, TopicList, TopicListRequest, TopicSigned } from "./metacensus/v1/topic.js";
 import type { SelfGetRequest, UserGetRequest, UserList, UserListRequest, UserSigned } from "./metacensus/v1/user.js";
 import { apiPrefix } from "./route-manifest.js";
@@ -262,8 +262,8 @@ export class Client {
   }
 
   // PublicationRoutes.ListHits: GET /topic/{topicId}/hit
-  listHits(req: HitListRequest): Promise<Hit[]> {
-    return this.#request<HitList>("GET", `/topic/${param(req.topicId)}/hit` + query({ term: req.term }), undefined).then((r) => r.items);
+  listHits(req: HitListRequest): Promise<HitList> {
+    return this.#request<HitList>("GET", `/topic/${param(req.topicId)}/hit` + query({ term: req.term }), undefined);
   }
 
   // TopicRoutes.ListTopics: GET /topic

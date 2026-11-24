@@ -21,6 +21,8 @@ type fakeResolver struct {
 	asked int
 }
 
+func (f *fakeResolver) Name() string { return "fake" }
+
 func (f *fakeResolver) Resolve(_ context.Context, doi, pmid string) (*v1.Publication, error) {
 	f.asked++
 	if f.err != nil {
@@ -33,6 +35,8 @@ func (f *fakeResolver) Resolve(_ context.Context, doi, pmid string) (*v1.Publica
 	}
 	return nil, ErrUnresolved
 }
+
+var testNow = time.Unix(1_700_000_000, 0).UTC()
 
 var (
 	dpyd = &v1.Publication{Doi: "10.1200/jco.2018.79.5780", Pmid: "30348537", Title: "DPYD genotyping", Authors: []*v1.Author{{Family: "Henricks", Given: "LM"}}}
@@ -50,7 +54,7 @@ func signedUp(t *testing.T, res Resolver) *client {
 func signedUpWith(t *testing.T, cfg Config) *client {
 	t.Helper()
 	cfg.Store = memstore.New(nil)
-	cfg.Now = func() time.Time { return time.Unix(1_700_000_000, 0).UTC() }
+	cfg.Now = func() time.Time { return testNow }
 	cfg.BcryptCost = 4
 	h := New(cfg)
 	c := newClient(t, mount(h))

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -245,70 +246,46 @@ func TestConfigReachesNCBI(t *testing.T) {
 	}
 }
 
-type mapCache map[string]*v1.Publication
-
-func (m mapCache) Get(_ context.Context, key string) (*v1.Publication, bool) {
-	p, ok := m[key]
-	return p, ok
-}
-
-func (m mapCache) Put(_ context.Context, key string, pub *v1.Publication) { m[key] = pub }
-
-func TestCacheIsFilledUnderBothIds(t *testing.T) {
-	n := &ncbi{fetch: map[string]string{"31452104": record}}
-	srv := httptest.NewServer(n)
-	defer srv.Close()
-	cache := mapCache{}
-	c := New(Config{BaseURL: srv.URL, Cache: cache})
-	ctx := context.Background()
-	if _, err := c.Resolve(ctx, "", "31452104"); err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct{ doi, pmid string }{
-		{pmid: "31452104"},
-		{doi: "doi:10.1038/S41586-021-0001-X"},
-	} {
-		got, err := c.Resolve(ctx, tc.doi, tc.pmid)
-		if err != nil || !proto.Equal(got, resolved) {
-			t.Errorf("Resolve(%q, %q) = %v, %v; want the cached publication", tc.doi, tc.pmid, got, err)
-		}
-	}
-	if len(n.got) != 1 {
-		t.Errorf("cached lookups reached NCBI: %v", n.got)
-	}
-
-	if _, err := c.Resolve(ctx, "", "1"); !errors.Is(err, service.ErrUnresolved) {
-		t.Fatalf("Resolve error = %v, want ErrUnresolved", err)
-	}
-	if _, ok := cache["pmid:1"]; ok {
-		t.Error("a miss was cached")
-	}
-}
-
 func TestSearch(t *testing.T) {
-	n := &ncbi{
-		// ESearch's order, which EFetch's (here the reverse) must not override;
-		// 40000000 is a book record EFetch skips.
-		search: `{"esearchresult":{"count":"3","idlist":["31452104","40000000","39999999"]}}`,
-		fetch:  map[string]string{"31452104,40000000,39999999": both},
-	}
+	n := &ncbi{search: `{"esearchresult":{"count":"3","idlist":["31452104","40000000","39999999"]}}`}
 	srv := httptest.NewServer(n)
 	defer srv.Close()
-	cache := mapCache{}
-	got, err := New(Config{BaseURL: srv.URL, Cache: cache}).Search(context.Background(), "cannabis[tiab] AND sleep", 20)
+	got, err := New(Config{BaseURL: srv.URL}).Search(context.Background(), "cannabis[tiab] AND sleep", 20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || !proto.Equal(got[0], resolved) || got[1].GetPmid() != "39999999" {
-		t.Fatalf("Search = %v, want the record then the erratum", got)
+	if want := []string{"pmid:31452104", "pmid:40000000", "pmid:39999999"}; !slices.Equal(got, want) {
+		t.Errorf("Search = %v, want %v", got, want)
 	}
 	for _, want := range []string{"term=cannabis%5Btiab%5D+AND+sleep", "retmax=20", "sort=relevance"} {
 		if !strings.Contains(n.got[0], want) {
 			t.Errorf("esearch %q lacks %q", n.got[0], want)
 		}
 	}
-	if !proto.Equal(cache["doi:"+resolved.GetDoi()], resolved) || cache["pmid:39999999"] == nil {
-		t.Errorf("hits not cached under their ids: %v", cache)
+	if len(n.got) != 1 {
+		t.Errorf("Search fetched: %v", n.got)
+	}
+}
+
+// TestFetch fetches a record, a book record EFetch skips (40000000) and an
+// erratum, in one request; a DOI id is not PubMed's to fetch.
+func TestFetch(t *testing.T) {
+	n := &ncbi{fetch: map[string]string{"31452104,40000000,39999999": both}}
+	srv := httptest.NewServer(n)
+	defer srv.Close()
+	got, err := New(Config{BaseURL: srv.URL}).Fetch(context.Background(), []string{"pmid:31452104", "doi:10.1/x", "pmid:40000000", "pmid:39999999"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPMID := map[string]*v1.Publication{}
+	for _, pub := range got {
+		byPMID[pub.GetPmid()] = pub
+	}
+	if len(got) != 2 || !proto.Equal(byPMID["31452104"], resolved) || byPMID["39999999"] == nil {
+		t.Errorf("Fetch = %v, want the record and the erratum", got)
+	}
+	if len(n.got) != 1 {
+		t.Errorf("Fetch made %d requests, want 1: %v", len(n.got), n.got)
 	}
 }
 
@@ -327,9 +304,8 @@ func TestSearchFindingNothing(t *testing.T) {
 
 func TestSearchFailing(t *testing.T) {
 	for name, n := range map[string]*ncbi{
-		"a query error":  {search: `{"esearchresult":{"ERROR":"Invalid query"}}`},
-		"a rate limit":   {status: http.StatusTooManyRequests},
-		"a broken fetch": {search: `{"esearchresult":{"idlist":["1"]}}`, fetch: map[string]string{"1": "<PubmedArticleSet><PubmedArticle>"}},
+		"a query error": {search: `{"esearchresult":{"ERROR":"Invalid query"}}`},
+		"a rate limit":  {status: http.StatusTooManyRequests},
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv := httptest.NewServer(n)
@@ -338,5 +314,14 @@ func TestSearchFailing(t *testing.T) {
 				t.Error("Search succeeded")
 			}
 		})
+	}
+}
+
+func TestFetchFailing(t *testing.T) {
+	n := &ncbi{fetch: map[string]string{"1": "<PubmedArticleSet><PubmedArticle>"}}
+	srv := httptest.NewServer(n)
+	defer srv.Close()
+	if _, err := New(Config{BaseURL: srv.URL}).Fetch(context.Background(), []string{"pmid:1"}); err == nil {
+		t.Error("Fetch of a broken record succeeded")
 	}
 }

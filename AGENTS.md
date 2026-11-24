@@ -28,14 +28,14 @@ Every route in `metacensus.v1` is measured against this table. It stands with th
 |---|---|
 | `List*`/`Get*`/`Lookup*` and `HealthRoutes.Healthcheck` use `GET`; every other RPC uses `POST`, so a read must carry one of those names. | `TestNonConformingRoutes` |
 | Paths are resource nouns nested by ownership (`/topic/{topicId}/prop/{propId}/vote`), params `{lowerCamelCase}`, no verbs (`POST /topic`, not `POST /topic/create`); a resource scoped to the caller takes no id (`GET /self`). The session verbs on `AuthRoutes` (`/login`, `/signup`, `/refresh`, `/logout`) are the one exception. | `TestNonConformingRoutes` (verbs); review |
-| Lists are `{ items: [...] }`. No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
+| Lists are `{ items: [...] }`, plus any singular field about the whole answer (`HitList.searched`). No route paginates; `ListMetadata` stays unused until one does, and then that route uses it. | `TestListResponsesWrapItems`, `TestNoPaginationFields`, `TestListMetadataIsUnreferenced` |
 | Server-minted ids are `<kind>:<UUIDv7>` (`go/store`). | `TestJourney` |
 | A path-bound id repeated in `content` equals the one in the path. | `TestPathAndSignedContentMustAgree` |
 | A composite key, like `Vote`'s `(propId, userId)`, addresses one live value per parent and actor, written with `Set*`; any other writable record gets a minted id. | review |
 | Fields the server owns (`id`, `recorded`) never go in the object the client posts. | `TestContentHasNoServerOwnedFields` |
 | Handlers resolve the caller through `go/auth.Sessions`, never inline. | review |
 | Record messages are `{Resource}`, `{Resource}Signed`, `{Resource}{Action}Request` and `{Resource}List`; the session and health routes are the exceptions. | `TestRecordMessageNames` |
-| A search at an external provider is a `List*` read of hits nested under the resource it is matched against (`GET /topic/{topicId}/hit?term=`), its input scalar query fields. It is typed, never a passthrough, records nothing, and answers a capped list, not a page; each hit names the stored records it matches. | review |
+| A search at an external provider is a `List*` read of hits nested under the resource it is matched against (`GET /topic/{topicId}/hit?term=`), its input scalar query fields. It is typed, never a passthrough, records nothing on the resource, and answers a capped list, not a page; the server may store the provider's answers (`service.Answers`); each hit names the stored records it matches. | review |
 
 **Extending it.** A shape with no precedent here — bulk writes, filtering, async work — starts from the closest existing pattern and adds no structure until a second consumer needs it. The same PR adds the rule to this table, with a test where one is possible. Uploads are outside it: file transfer may be a surface of its own rather than a place in `metacensus.v1` ([#98](https://github.com/metacensus/api/issues/98)).
 

@@ -81,6 +81,15 @@ type Config struct {
 	// search answers 503. pubmed.Client is both.
 	Searcher Searcher
 
+	// Answers holds what the provider answered, so a search or lookup repeated
+	// while fresh asks it nothing. Optional: without it, every search and
+	// every lookup no stored publication answers goes to the provider.
+	Answers Answers
+
+	// TermTTL and RecordTTL are how long a held term's answer and a held
+	// record stay fresh. Default DefaultTermTTL and DefaultRecordTTL.
+	TermTTL, RecordTTL time.Duration
+
 	// InsecureCookies drops the Secure attribute from the refresh cookie so it
 	// round-trips over plain http. For tests only; never set in production.
 	InsecureCookies bool
@@ -102,6 +111,9 @@ type Handlers struct {
 	store        store.Store
 	resolver     Resolver
 	searcher     Searcher
+	answers      Answers
+	termTTL      time.Duration
+	recordTTL    time.Duration
 	sessions     auth.Sessions
 	now          func() time.Time
 	bcryptCost   int
@@ -145,6 +157,13 @@ func New(cfg Config) *Handlers {
 	if err != nil {
 		panic("service: bcrypt rejected the configured cost: " + err.Error())
 	}
+	termTTL, recordTTL := cfg.TermTTL, cfg.RecordTTL
+	if termTTL == 0 {
+		termTTL = DefaultTermTTL
+	}
+	if recordTTL == 0 {
+		recordTTL = DefaultRecordTTL
+	}
 	cookieName := cfg.RefreshCookieName
 	if cookieName == "" {
 		cookieName = "mc_refresh"
@@ -153,6 +172,9 @@ func New(cfg Config) *Handlers {
 		store:        cfg.Store,
 		resolver:     cfg.Resolver,
 		searcher:     cfg.Searcher,
+		answers:      cfg.Answers,
+		termTTL:      termTTL,
+		recordTTL:    recordTTL,
 		sessions:     sessions,
 		now:          now,
 		bcryptCost:   cost,
